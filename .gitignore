@@ -1,0 +1,38 @@
+node_modules
+build
+dist
+.next
+.env
+.env.local
+.env.*.local
+
+# Nx
+.nx/cache
+.nx/workspace-data
+
+# Cursor
+.cursor/rules/nx-rules.mdc
+
+# GitHub
+.github/instructions/nx.instructions.md
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Testing
+coverage/
+
+# Misc
+*.tsbuildinfo

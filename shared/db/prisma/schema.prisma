@@ -1,0 +1,239 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator prisma {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+generator client {
+  provider = "prisma-kysely"
+  output   = "../src/generated"
+  fileName = "types.ts"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                       String   @id @default(uuid())
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @default(now()) @updatedAt
+  email                    String
+  emailVerified            Boolean  @default(false)
+  name                     String?
+  image                    String?
+  permission               String   @default("USER")
+  stripeCustomerId         String?
+  lastActiveOrganizationId String?
+  isAdmin                  Boolean  @default(false)
+
+  sessions        Session[]
+  accounts        Account[]
+  members         Member[]
+  invitations     Invitation[]
+  dispatchedTasks TaskInstance[]
+  Task            Task[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id                   String   @id
+  expiresAt            DateTime
+  token                String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  ipAddress            String?
+  userAgent            String?
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeOrganizationId String?
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@map("verification")
+}
+
+model Organization {
+  id            String         @id
+  name          String
+  slug          String
+  logo          String?
+  createdAt     DateTime
+  metadata      String?
+  members       Member[]
+  invitations   Invitation[]
+  agents        Agent[]
+  tasks         Task[]
+  taskInstances TaskInstance[]
+  Recording     Recording[]
+
+  @@unique([slug])
+  @@map("organization")
+}
+
+model Member {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String
+  createdAt      DateTime
+
+  @@map("member")
+}
+
+model Invitation {
+  id             String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String
+  expiresAt      DateTime
+  createdAt      DateTime
+  inviterId      String
+  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@map("invitation")
+}
+
+model Subscription {
+  id                   String    @id
+  plan                 String
+  referenceId          String
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  status               String?   @default("incomplete")
+  periodStart          DateTime?
+  periodEnd            DateTime?
+  trialStart           DateTime?
+  trialEnd             DateTime?
+  cancelAtPeriodEnd    Boolean?  @default(false)
+  seats                Int?
+
+  @@map("subscription")
+}
+
+model Example {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("example")
+}
+
+model Agent {
+  id             String   @id @default(uuid())
+  name           String
+  slug           String
+  organizationId String
+  phoneNumber    String
+  redirectNumber String
+  externalId     String
+  externalType   String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tasks        Task[]
+
+  @@map("agent")
+}
+
+model Task {
+  id               String   @id @default(uuid())
+  name             String
+  description      String?
+  agentId          String
+  organizationId   String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  requiredInfo     Json
+  dispatcherUserId String?
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  agent         Agent          @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  taskInstances TaskInstance[]
+  dispatcher    User?          @relation(fields: [dispatcherUserId], references: [id], onDelete: SetNull)
+
+  @@map("task")
+}
+
+model TaskInstance {
+  id             String   @id @default(uuid())
+  taskId         String
+  status         String   @default("pending")
+  requiredInfo   Json
+  info           Json
+  conversationId String
+  callSid        String?
+  dispatcherId   String?
+  organizationId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  task         Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  dispatcher   User?         @relation(fields: [dispatcherId], references: [id], onDelete: SetNull)
+  Organization Organization? @relation(fields: [organizationId], references: [id])
+  Recording    Recording[]
+
+  @@map("task_instance")
+}
+
+model Recording {
+  id                  String   @id @default(uuid())
+  conversationId      String
+  callSid             String
+  taskInstanceId      String?
+  organizationId      String
+  callDurationSeconds Int
+  cost                Float
+  transcriptSummary   String?
+  payload             Json
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+  taskInstance TaskInstance? @relation(fields: [taskInstanceId], references: [id], onDelete: Cascade)
+
+  @@map("recording")
+}
