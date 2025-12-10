@@ -1,13 +1,13 @@
-# Vaci - AI Call Center Agents
+# RevCenter - Your AI Call Center Agent
 
-AI-powered call center platform that deploys intelligent agents to handle customer calls, reduce wait times, and scale support operations 24/7.
+Transform your call center operations with intelligent AI agents that handle calls 24/7, intelligently qualify leads, book appointments, and seamlessly integrate with your existing systems.
 
 ## Features
 
 - **AI Voice Agents**: Intelligent agents powered by ElevenLabs for natural conversations
 - **Multi-tenant Organizations**: Manage multiple organizations with team invitations
 - **Real-time Dashboard**: Analytics and activity monitoring
-- **Task Management**: Create and dispatch tasks to AI agents
+- **Lead Management**: Create and manage leads with AI-powered qualification
 - **Call Recordings**: Full conversation history with transcripts
 - **Stripe Integration**: Built-in payment processing
 - **Authentication**: Email/password and Google OAuth support
@@ -43,8 +43,8 @@ AI-powered call center platform that deploys intelligent agents to handle custom
 ### 1. Clone and Install
 
 ```bash
-git clone https://github.com/mortonstreet/vaci.git
-cd vaci
+git clone https://github.com/mortonstreet/revcenter.git
+cd revcenter
 pnpm install
 ```
 

@@ -73,6 +73,10 @@ const createAgent = async () => {
     redirectNumber,
     externalId,
     externalType,
+    // MCP fields - null by default
+    mcpApiKey: null,
+    webhookSecret: null,
+    mcpEndpointUrl: null,
   })
 
   console.log(`Agent created: ${agent?.id}`)

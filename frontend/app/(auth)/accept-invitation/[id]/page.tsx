@@ -115,7 +115,7 @@ export default function AcceptInvitationPage() {
       <AuthCard title="Accept Invitation">
         <div className="space-y-6">
           <p className="text-center text-gray-600">
-            You&apos;ve been invited to join an organization on Vaci.
+            You&apos;ve been invited to join an organization on RevCenter.
           </p>
           
           <div className="space-y-3">

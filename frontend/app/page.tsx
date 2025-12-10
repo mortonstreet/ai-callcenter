@@ -4,15 +4,15 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white text-gray-900">
       {/* Sticky Navigation */}
-      <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100/50 shadow-sm">
+      <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
         <div className="max-w-6xl mx-auto px-5">
           <div className="flex justify-between items-center h-16">
-            <div className="text-xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
-              Vaci
+            <div className="text-xl font-bold tracking-tight text-[#1b191a]">
+              RevCenter
             </div>
             <Link
               href="/login"
-              className="px-5 py-2 text-sm font-medium rounded-full border border-gray-200 hover:border-[#ff991c] hover:text-[#ff991c] hover:bg-orange-50/50 transition-all duration-200"
+              className="px-5 py-2 text-sm font-medium rounded-full bg-[#1b191a] text-white hover:bg-[#2d2a2b] transition-all duration-200"
             >
               Sign in
             </Link>
@@ -23,212 +23,278 @@ export default function Home() {
       <main className="max-w-6xl mx-auto px-5 py-20 md:py-24 space-y-24 md:space-y-32">
         {/* Hero Section */}
         <section className="pt-8 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-white via-orange-50/40 via-50% to-[#ff991c]/25 -z-10 rounded-3xl" />
-          <div className="absolute top-0 right-0 w-96 h-96 bg-[#ff991c]/10 rounded-full blur-3xl -z-10" />
           <div className="grid gap-12 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] items-center relative">
             <div className="space-y-6">
-              <p className="inline-flex items-center rounded-full border border-gray-200/80 bg-white/90 backdrop-blur-sm px-4 py-1.5 text-xs font-medium text-gray-700 shadow-sm">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#ff991c] mr-2" />
-                AI-Powered · Call Center Automation
-              </p>
-              <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-gray-900 leading-tight">
-                AI agents that{" "}
-                <span className="bg-gradient-to-r from-[#ff991c] to-orange-600 bg-clip-text text-transparent">
-                  transform
-                </span>{" "}
-                your call center
+              <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight text-[#1b191a] leading-tight">
+                Your AI call center agent
               </h1>
               <p className="max-w-xl text-base sm:text-lg text-gray-600 leading-relaxed">
-                Intelligent AI agents that handle customer calls, reduce wait times, and scale your support operations 24/7 without the overhead.
+                Transform your call center operations with intelligent AI agents that handle calls 24/7, intelligently
+                qualify leads, book appointments, and seamlessly integrate with your existing systems.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 sm:items-center pt-2">
-                <div className="flex gap-3">
-                  <Link
-                    href="/signup"
-                    className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium rounded-full bg-[#ff991c] text-white hover:bg-[#e68a19] shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-0.5"
-                  >
-                    Get started
-                  </Link>
-                  <Link
-                    href="#get-started"
-                    className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium rounded-full border-2 border-gray-200 text-gray-700 hover:border-[#ff991c] hover:text-[#ff991c] hover:bg-orange-50/50 transition-all duration-200"
-                  >
-                    Learn more
-                  </Link>
-                </div>
+                <Link
+                  href="/signup"
+                  className="inline-flex items-center justify-center px-6 py-3 text-sm font-medium rounded-full bg-[#1b191a] text-white hover:bg-[#2d2a2b] shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-0.5"
+                >
+                  Get started
+                </Link>
                 <p className="text-xs text-gray-500 sm:ml-2">
                   Free trial available. No credit card required.
                 </p>
               </div>
             </div>
 
-            <div className="hidden md:block">
-              <div className="rounded-3xl border border-gray-200/80 bg-white/90 backdrop-blur-md px-6 py-5 shadow-xl space-y-4 transform hover:scale-[1.02] transition-transform duration-300">
-                <div className="flex items-center justify-between text-xs text-gray-500 font-medium">
-                  <span>Agent capabilities</span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    Always available
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  <div className="rounded-xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white px-4 py-3 shadow-sm hover:shadow-md transition-shadow">
-                    <p className="text-sm font-semibold text-gray-900 mb-1">
-                      Natural conversations
-                    </p>
-                    <p className="text-xs text-gray-600 leading-relaxed">
-                      AI agents that understand context and respond like human agents.
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm hover:shadow-md transition-shadow">
-                    <p className="text-sm font-semibold text-gray-900 mb-1">
-                      Instant deployment
-                    </p>
-                    <p className="text-xs text-gray-600 leading-relaxed">
-                      Get started in minutes with our simple integration and setup.
-                    </p>
-                  </div>
-                  <div className="rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/50 px-4 py-3 text-xs text-gray-500 text-center">
-                    See your call center metrics improve in real-time with our dashboard.
-                  </div>
+            <div className="hidden md:flex justify-center items-center relative h-80">
+              {/* Abstract visualization placeholder */}
+              <div className="relative w-64 h-64">
+                <div className="absolute inset-0 rounded-full border-2 border-[#1b191a]/10 animate-pulse" />
+                <div className="absolute inset-4 rounded-full border-2 border-[#1b191a]/20" />
+                <div className="absolute inset-8 rounded-full border-2 border-[#1b191a]/30" />
+                <div className="absolute inset-12 rounded-full bg-[#1b191a]/5 flex items-center justify-center">
+                  <div className="text-4xl">📞</div>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Get Started Section */}
-        <section id="get-started" className="space-y-8">
-          <div className="rounded-3xl bg-gradient-to-br from-[#ff991c]/10 via-orange-50/60 to-[#ff991c]/8 border-2 border-[#ff991c]/20 p-10 md:p-14 shadow-lg relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#ff991c]/5 rounded-full blur-2xl -z-0" />
-            <div className="max-w-3xl mx-auto space-y-8 relative z-10">
-              <div className="space-y-3 text-center">
-                <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
-                  How to get started
-                </h2>
-                <p className="text-base md:text-lg text-gray-700 leading-relaxed max-w-xl mx-auto">
-                  Deploy AI agents for your call center in three simple steps. No technical expertise required.
-                </p>
+        {/* Live Agent Section */}
+        <section className="relative py-12 overflow-hidden">
+          <div className="rounded-3xl border border-gray-200 bg-gray-50/50 backdrop-blur-sm p-8 md:p-12">
+            <div className="space-y-6">
+              <div className="text-center space-y-2">
+                <p className="text-xs font-semibold text-gray-500 tracking-widest">LIVE AGENT</p>
+                <h2 className="text-2xl md:text-3xl font-bold text-[#1b191a]">Intelligent voice processing in action</h2>
               </div>
-              <div className="space-y-6">
-                <div className="flex gap-5 group">
-                  <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-[#ff991c] to-orange-600 text-white flex items-center justify-center text-lg font-bold shadow-lg group-hover:scale-110 transition-transform duration-200">
-                    1
-                  </div>
-                  <div className="flex-1 space-y-2 pt-1">
-                    <h3 className="text-base font-semibold text-gray-900">
-                      Connect your phone system
-                    </h3>
-                    <p className="text-sm text-gray-600 leading-relaxed">
-                      Integrate with your existing call center infrastructure. We support all major telephony providers and APIs.
-                    </p>
-                  </div>
+              <div className="w-full h-24 flex items-center justify-center">
+                {/* Wave visualization placeholder */}
+                <div className="flex items-center gap-1">
+                  {[...Array(40)].map((_, i) => (
+                    <div
+                      key={i}
+                      className="w-1 bg-[#1b191a]/30 rounded-full animate-pulse"
+                      style={{
+                        height: `${20 + Math.sin(i * 0.5) * 15 + Math.random() * 10}px`,
+                        animationDelay: `${i * 50}ms`,
+                      }}
+                    />
+                  ))}
                 </div>
-                <div className="flex gap-5 group">
-                  <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-[#ff991c] to-orange-600 text-white flex items-center justify-center text-lg font-bold shadow-lg group-hover:scale-110 transition-transform duration-200">
-                    2
-                  </div>
-                  <div className="flex-1 space-y-2 pt-1">
-                    <h3 className="text-base font-semibold text-gray-900">
-                      Train your AI agent
-                    </h3>
-                    <p className="text-sm text-gray-600 leading-relaxed">
-                      Customize your agent&apos;s knowledge base, tone, and responses to match your brand and handle your specific use cases.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-5 group">
-                  <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gradient-to-br from-[#ff991c] to-orange-600 text-white flex items-center justify-center text-lg font-bold shadow-lg group-hover:scale-110 transition-transform duration-200">
-                    3
-                  </div>
-                  <div className="flex-1 space-y-2 pt-1">
-                    <h3 className="text-base font-semibold text-gray-900">
-                      Go live and scale
-                    </h3>
-                    <p className="text-sm text-gray-600 leading-relaxed">
-                      Deploy your AI agents and watch them handle calls instantly. Scale to thousands of concurrent conversations without adding staff.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="pt-6 flex justify-center">
-                <Link
-                  href="/signup"
-                  className="inline-flex items-center justify-center px-8 py-3.5 text-sm font-semibold rounded-full bg-[#ff991c] text-white hover:bg-[#e68a19] shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
-                >
-                  Get started now
-                </Link>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Contact Section */}
-        <section id="contact" className="space-y-8">
-          <div className="flex flex-col items-center text-center space-y-3">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
-              Contact us
-            </h2>
-            <p className="text-base text-gray-600 max-w-lg leading-relaxed">
-              Ready to transform your call center? Get in touch to schedule a demo or learn more about how Vaci can help your business.
+        {/* Capabilities Section */}
+        <section id="capabilities" className="space-y-12">
+          <div className="space-y-3 text-center">
+            <h2 className="text-3xl md:text-4xl font-bold text-[#1b191a]">What RevCenter Can Do</h2>
+            <p className="text-base md:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
+              Purpose-built for modern call centers, RevCenter handles everything from call intake to intelligent
+              booking and beyond.
             </p>
           </div>
-          <form className="space-y-5 max-w-lg mx-auto">
-            <div className="space-y-2">
-              <label
-                htmlFor="name"
-                className="block text-sm font-semibold text-gray-700"
-              >
-                Name
-              </label>
-              <input
-                id="name"
-                type="text"
-                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#ff991c] focus:ring-2 focus:ring-[#ff991c]/20 transition-all duration-200 bg-white"
-                placeholder="Jane Doe"
-              />
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Call Handling & Booking */}
+            <div className="rounded-2xl border border-gray-200 bg-white p-8 hover:border-[#1b191a]/30 hover:shadow-md transition-all duration-300">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-lg bg-[#1b191a]/5 text-[#1b191a] flex items-center justify-center flex-shrink-0 text-xl font-semibold">
+                  📞
+                </div>
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-[#1b191a]">Intelligent Call Handling & Booking</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    Answer and process calls naturally, ask qualifying questions, and book appointments directly into
+                    Service Titan and Google Calendar simultaneously. Four-hour time blocks with dynamic availability
+                    updates.
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="space-y-2">
-              <label
-                htmlFor="email"
-                className="block text-sm font-semibold text-gray-700"
-              >
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#ff991c] focus:ring-2 focus:ring-[#ff991c]/20 transition-all duration-200 bg-white"
-                placeholder="you@example.com"
-              />
+
+            {/* Lead Scoring */}
+            <div className="rounded-2xl border border-gray-200 bg-white p-8 hover:border-[#1b191a]/30 hover:shadow-md transition-all duration-300">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-lg bg-[#1b191a]/5 text-[#1b191a] flex items-center justify-center flex-shrink-0 text-xl font-semibold">
+                  🎯
+                </div>
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-[#1b191a]">Dynamic Lead Scoring & Prioritization</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    Automatically score leads based on equipment age, customer history, and custom criteria. Older units
+                    get extended sales time. The system learns and improves with every call.
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="space-y-2">
-              <label
-                htmlFor="message"
-                className="block text-sm font-semibold text-gray-700"
-              >
-                Message
-              </label>
-              <textarea
-                id="message"
-                rows={5}
-                className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#ff991c] focus:ring-2 focus:ring-[#ff991c]/20 transition-all duration-200 resize-none bg-white"
-                placeholder="How can we help?"
-              />
+
+            {/* Customization */}
+            <div className="rounded-2xl border border-gray-200 bg-white p-8 hover:border-[#1b191a]/30 hover:shadow-md transition-all duration-300">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-lg bg-[#1b191a]/5 text-[#1b191a] flex items-center justify-center flex-shrink-0 text-xl font-semibold">
+                  ⚙️
+                </div>
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-[#1b191a]">Built for Customization</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    Configure the agent to ask specific questions, collect custom data, and adapt to your unique
+                    workflow. Changes deploy in minutes without technical work.
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="flex justify-center pt-2">
-              <button
-                type="submit"
-                className="inline-flex items-center justify-center px-8 py-3.5 text-sm font-semibold rounded-full bg-[#ff991c] text-white hover:bg-[#e68a19] shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
-              >
-                Send message
-              </button>
+
+            {/* Multilingual */}
+            <div className="rounded-2xl border border-gray-200 bg-white p-8 hover:border-[#1b191a]/30 hover:shadow-md transition-all duration-300">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-lg bg-[#1b191a]/5 text-[#1b191a] flex items-center justify-center flex-shrink-0 text-xl font-semibold">
+                  🌍
+                </div>
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-[#1b191a]">Multilingual & Continuously Learning</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    Handle calls in 30+ languages with mid-call language switching. The agent improves with every
+                    interaction through manual optimization and self-learning models.
+                  </p>
+                </div>
+              </div>
             </div>
-          </form>
+
+            {/* Smart Info */}
+            <div className="rounded-2xl border border-gray-200 bg-white p-8 hover:border-[#1b191a]/30 hover:shadow-md transition-all duration-300">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-lg bg-[#1b191a]/5 text-[#1b191a] flex items-center justify-center flex-shrink-0 text-xl font-semibold">
+                  📊
+                </div>
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-[#1b191a]">Smart Information Management</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    Uses RAG to combine public data and your internal knowledge. Customer success team easily updates
+                    agent context. Guardrails keep conversations on-topic and professional.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Dashboard */}
+            <div className="rounded-2xl border border-gray-200 bg-white p-8 hover:border-[#1b191a]/30 hover:shadow-md transition-all duration-300">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-lg bg-[#1b191a]/5 text-[#1b191a] flex items-center justify-center flex-shrink-0 text-xl font-semibold">
+                  📈
+                </div>
+                <div className="space-y-3">
+                  <h3 className="text-lg font-semibold text-[#1b191a]">Workspace & Analytics Dashboard</h3>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    Track new tasks, customer information, and call recordings. View dispatch priorities, resolution
+                    metrics, and generated tickets in one powerful dashboard.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
 
-        <footer className="pt-12 border-t border-gray-200 text-sm text-gray-500 text-center">
-          <p>&copy; 2025 Vaci. All rights reserved.</p>
+        {/* Stats Section */}
+        <section className="space-y-8">
+          <div className="rounded-3xl bg-[#1b191a] p-10 md:p-14 shadow-lg relative overflow-hidden">
+            <div className="max-w-3xl mx-auto space-y-8 relative z-10">
+              <div className="space-y-3 text-center">
+                <h2 className="text-3xl md:text-4xl font-bold text-white">Built for Call Centers</h2>
+                <p className="text-base md:text-lg text-gray-300 leading-relaxed max-w-xl mx-auto">
+                  Seamless integration with your existing systems. Works with Service Titan, Google Calendar, and your
+                  current workflows.
+                </p>
+              </div>
+              <div className="grid md:grid-cols-3 gap-6 text-center">
+                <div className="space-y-3">
+                  <div className="text-4xl md:text-5xl font-bold text-white">24/7</div>
+                  <p className="text-sm text-gray-400">Always available to handle calls without fatigue or downtime.</p>
+                </div>
+                <div className="space-y-3">
+                  <div className="text-4xl md:text-5xl font-bold text-white">30+</div>
+                  <p className="text-sm text-gray-400">Languages supported with mid-call language switching.</p>
+                </div>
+                <div className="space-y-3">
+                  <div className="text-4xl md:text-5xl font-bold text-white">Real-time</div>
+                  <p className="text-sm text-gray-400">Instant booking, lead scoring, and dispatcher updates.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Deployment Steps */}
+        <section className="space-y-8">
+          <div className="space-y-3 text-center">
+            <h2 className="text-3xl md:text-4xl font-bold text-[#1b191a]">Deployment in 3 Steps</h2>
+            <p className="text-base md:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
+              Get your AI agent up and running quickly.
+            </p>
+          </div>
+          <div className="space-y-6 max-w-2xl mx-auto">
+            <div className="flex gap-5 group">
+              <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-[#1b191a] text-white flex items-center justify-center text-lg font-bold shadow-lg group-hover:scale-110 transition-transform duration-200">
+                1
+              </div>
+              <div className="flex-1 space-y-2 pt-1">
+                <h3 className="text-base font-semibold text-[#1b191a]">Connect Your Systems</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Integrate with Service Titan, Google Calendar, and your phone system. We handle all the technical
+                  setup.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-5 group">
+              <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-[#1b191a] text-white flex items-center justify-center text-lg font-bold shadow-lg group-hover:scale-110 transition-transform duration-200">
+                2
+              </div>
+              <div className="flex-1 space-y-2 pt-1">
+                <h3 className="text-base font-semibold text-[#1b191a]">Configure Your Agent</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Set up custom questions, booking rules, lead scoring criteria, and knowledge base. No coding required.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-5 group">
+              <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-[#1b191a] text-white flex items-center justify-center text-lg font-bold shadow-lg group-hover:scale-110 transition-transform duration-200">
+                3
+              </div>
+              <div className="flex-1 space-y-2 pt-1">
+                <h3 className="text-base font-semibold text-[#1b191a]">Go Live and Scale</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Start handling calls immediately. Monitor performance in your dashboard and watch your efficiency
+                  metrics improve.
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="pt-6 flex justify-center">
+            <Link
+              href="/signup"
+              className="inline-flex items-center justify-center px-8 py-3.5 text-sm font-semibold rounded-full bg-[#1b191a] text-white hover:bg-[#2d2a2b] shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
+            >
+              Get started now
+            </Link>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <footer className="pt-24 pb-16 border-t border-gray-200 space-y-12">
+          <div className="space-y-8">
+            <div className="text-center space-y-6">
+              <div className="inline-block">
+                <div className="text-5xl md:text-7xl font-black tracking-tighter text-[#1b191a]">REVCENTER</div>
+              </div>
+              <p className="text-center text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
+                AI-powered call center agent transforming customer service operations
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col items-center justify-center pt-8 border-t border-gray-200">
+            <p className="text-xs text-gray-400 font-medium tracking-wide">© All rights reserved RevCenter Corp 2025</p>
+          </div>
         </footer>
       </main>
     </div>

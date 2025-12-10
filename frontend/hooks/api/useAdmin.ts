@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { get, post } from "@/lib/api";
+import { get, post, patch, del } from "@/lib/api";
 import { AdminCreateOrganizationRequest, AdminCreateAgentRequest, DBOrganization, DBAgent } from "@shared/types/src";
 
 interface AdminStats {
@@ -65,6 +65,36 @@ export function useAdminCreateAgent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "organizations"] });
+    },
+  });
+}
+
+export function useAdminUpdateOrganizationLogo() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { organizationId: string; logo: string }) => {
+      return patch<{ data: DBOrganization }>(
+        `/admin/organizations/${data.organizationId}/logo`,
+        { logo: data.logo }
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "organizations"] });
+    },
+  });
+}
+
+export function useAdminDeleteOrganization() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (organizationId: string) => {
+      return del<{ success: boolean; message: string }>(
+        `/admin/organizations/${organizationId}`
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "organizations"] });
+      queryClient.invalidateQueries({ queryKey: ["admin", "stats"] });
     },
   });
 }

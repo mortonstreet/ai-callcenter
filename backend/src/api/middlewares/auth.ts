@@ -2,7 +2,7 @@ import { Express, Request, Response, NextFunction } from 'express'
 import passport from 'passport'
 import { Strategy as JwtStrategy, ExtractJwt } from 'passport-jwt'
 import { createHmac } from 'crypto'
-import { config } from '@/config'
+import { config, McpProvider } from '@/config'
 import logger from '@/lib/logger'
 import { findById } from '@/repositories/user.repository'
 import { fromNodeHeaders } from 'better-auth/node'
@@ -10,7 +10,24 @@ import { auth } from '@/lib/better-auth'
 import { isMemberOfOrganization } from '@/services/user.service'
 import { AuthRequest } from '@/types/handlers'
 import { findMember } from '@/repositories/organization.repository'
-import { OrganizationRole } from '@shared/types/src'
+import { OrganizationRole, AgentExternalType } from '@shared/types/src'
+import { findAgentByExternalId } from '@/repositories/agent.repository'
+
+// Helper to find provider by slug from env config
+const findProviderBySlug = (slug: string): McpProvider | undefined => {
+  return config.mcpProviders.find(p => p.slug === slug)
+}
+
+// Helper to extract agent_id from raw webhook body without fully parsing
+const extractAgentIdFromBody = (bodyString: string): string | null => {
+  try {
+    // Quick regex to extract agent_id without full JSON parse
+    const match = bodyString.match(/"agent_id"\s*:\s*"([^"]+)"/)
+    return match ? match[1] : null
+  } catch {
+    return null
+  }
+}
 
 export const withAuth = passport.authenticate('jwt', { session: false })
 
@@ -185,11 +202,33 @@ export const withElevenLabsWebhookAuth = async (
       ? rawBody.toString('utf8')
       : rawBody
 
+    // Try to find webhook secret from database first (scalable approach)
+    let webhookSecret: string | null = null
+    const agentExternalId = extractAgentIdFromBody(bodyString)
+    
+    if (agentExternalId) {
+      const agent = await findAgentByExternalId(agentExternalId, AgentExternalType.ELEVEN_LABS)
+      if (agent?.webhookSecret) {
+        webhookSecret = agent.webhookSecret
+        logger.info(`Using webhook secret from agent: ${agent.name}`)
+      }
+    }
+    
+    // Fallback to env config if no database secret found
+    if (!webhookSecret) {
+      webhookSecret = config.elevenLabs.webhookKey
+    }
+    
+    if (!webhookSecret) {
+      logger.error('No webhook secret available for verification')
+      return res.status(500).json({ error: 'Webhook secret not configured' })
+    }
+
     // ElevenLabs signature format: HMAC-SHA256(timestamp + "." + body)
     const payload = `${timestamp}.${bodyString}`
 
     // Calculate HMAC signature
-    const hmac = createHmac('sha256', config.elevenLabs.webhookKey)
+    const hmac = createHmac('sha256', webhookSecret)
     const calculatedSignature = hmac.update(payload, 'utf8').digest('hex')
 
     // Compare signatures
@@ -198,6 +237,7 @@ export const withElevenLabsWebhookAuth = async (
         provided: providedSignature,
         calculated: calculatedSignature,
         timestamp,
+        agentExternalId,
       })
       return res.status(401).json({ error: 'Invalid signature' })
     }
@@ -221,6 +261,128 @@ export const withElevenLabsWebhookAuth = async (
       req.body = JSON.parse(bodyString)
     } catch (parseError) {
       logger.error('Error parsing webhook body', parseError)
+      return res.status(400).json({ error: 'Invalid JSON body' })
+    }
+
+    next()
+  } catch (error) {
+    logger.error('Error verifying webhook signature', error)
+    return res.status(500).json({ error: 'Internal server error' })
+  }
+}
+
+// Dynamic webhook auth - tries database first, falls back to env config
+export const withWebhookAuth = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const providerSlug = req.params.providerSlug
+
+    // Get signature header (case-insensitive) - supports elevenlabs format
+    const signatureHeaderRaw =
+      req.headers['elevenlabs-signature'] || 
+      req.headers['Elevenlabs-Signature'] ||
+      req.headers['x-webhook-signature'] ||
+      req.headers['X-Webhook-Signature']
+    
+    if (!signatureHeaderRaw) {
+      return res.status(401).json({ error: 'Missing signature header' })
+    }
+
+    const signatureHeader = Array.isArray(signatureHeaderRaw)
+      ? signatureHeaderRaw[0]
+      : signatureHeaderRaw
+
+    // Parse signature header: t=timestamp,v0=signature
+    const signatureParts = signatureHeader.split(',')
+    const timestampMatch = signatureParts
+      .find((p: string) => p.startsWith('t='))
+      ?.split('=')[1]
+    const signatureMatch = signatureParts
+      .find((p: string) => p.startsWith('v0='))
+      ?.split('=')[1]
+
+    if (!timestampMatch || !signatureMatch) {
+      return res.status(401).json({ error: 'Invalid signature format' })
+    }
+
+    const timestamp = timestampMatch
+    const providedSignature = signatureMatch
+
+    const rawBody = req.body
+    if (!rawBody) {
+      return res.status(400).json({ error: 'Missing request body' })
+    }
+
+    const bodyString = Buffer.isBuffer(rawBody)
+      ? rawBody.toString('utf8')
+      : rawBody
+
+    // Try to find webhook secret from database first (scalable approach)
+    let webhookSecret: string | null = null
+    let providerName = providerSlug
+    const agentExternalId = extractAgentIdFromBody(bodyString)
+    
+    if (agentExternalId) {
+      const agent = await findAgentByExternalId(agentExternalId, 'ELEVEN_LABS')
+      if (agent?.webhookSecret) {
+        webhookSecret = agent.webhookSecret
+        providerName = agent.name
+        logger.info(`Using webhook secret from agent: ${agent.name}`)
+      }
+    }
+    
+    // Fallback to env config provider if no database secret found
+    if (!webhookSecret) {
+      const provider = findProviderBySlug(providerSlug)
+      if (provider) {
+        webhookSecret = provider.webhookKey
+        providerName = provider.name
+      }
+    }
+    
+    if (!webhookSecret) {
+      logger.warn(`No webhook secret found for provider: ${providerSlug}`)
+      return res.status(404).json({ error: 'Unknown provider or missing webhook secret' })
+    }
+
+    // Signature format: HMAC-SHA256(timestamp + "." + body)
+    const payload = `${timestamp}.${bodyString}`
+
+    // Calculate signature using found webhook key
+    const hmac = createHmac('sha256', webhookSecret)
+    const calculatedSignature = hmac.update(payload, 'utf8').digest('hex')
+
+    if (providedSignature !== calculatedSignature) {
+      logger.warn(`[${providerName}] Webhook signature verification failed`, {
+        provided: providedSignature,
+        calculated: calculatedSignature,
+        timestamp,
+        agentExternalId,
+      })
+      return res.status(401).json({ error: 'Invalid signature' })
+    }
+
+    // Verify timestamp is recent (within 5 minutes)
+    const timestampNum = parseInt(timestamp, 10)
+    const currentTime = Math.floor(Date.now() / 1000)
+    const timeDiff = Math.abs(currentTime - timestampNum)
+    if (timeDiff > 300) {
+      logger.warn(`[${providerName}] Webhook signature timestamp too old`, {
+        timestamp: timestampNum,
+        currentTime,
+        timeDiff,
+      })
+      return res.status(401).json({ error: 'Signature timestamp too old' })
+    }
+
+    // Parse the body now that signature is verified
+    try {
+      req.body = JSON.parse(bodyString)
+    } catch (parseError) {
+      logger.error(`[${providerName}] Error parsing webhook body`, parseError)
       return res.status(400).json({ error: 'Invalid JSON body' })
     }
 

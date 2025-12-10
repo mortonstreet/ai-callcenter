@@ -56,7 +56,7 @@ export default function AgentsPage() {
             <Bot className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600 mb-4">No agents yet</p>
             <a 
-              href="mailto:support@vaci.com" 
+              href="mailto:support@revcenter.ai" 
               className="inline-block px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition text-sm font-medium"
             >
               Contact Support to Get Started

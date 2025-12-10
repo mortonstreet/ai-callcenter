@@ -38,8 +38,8 @@ export const createOwnerInvitation = async (
   })
   await sendOrganizationInvitation({
     email: invitation.email,
-    invitedByUsername: 'Vaci Admin',
-    invitedByEmail: 'admin@vaci.io',
+    invitedByUsername: 'Rev Center Admin',
+    invitedByEmail: 'admin@revcenter.ai',
     teamName: organization.name,
     inviteLink: buildInvitationLink(invitation.id, invitation.email),
   })

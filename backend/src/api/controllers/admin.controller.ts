@@ -44,7 +44,7 @@ export const getAdminOrganizations: AuthRequestHandler<{}> = async (
 ) => {
   const organizations = await db
     .selectFrom('organization')
-    .select(['id', 'name', 'slug', 'createdAt'])
+    .select(['id', 'name', 'slug', 'logo', 'createdAt'])
     .orderBy('createdAt', 'desc')
     .limit(100)
     .execute()
@@ -80,7 +80,66 @@ export const createAgent: AuthRequestHandler<AdminCreateAgentRequest> = async (
     redirectNumber,
     externalId,
     externalType: AgentExternalType.ELEVEN_LABS,
+    // MCP fields - will be set later via updateAgentMcpCredentials
+    mcpApiKey: null,
+    webhookSecret: null,
+    mcpEndpointUrl: null,
   })
 
   res.json({ data: agent })
+}
+
+// Update organization logo
+interface UpdateOrganizationLogoRequest {
+  organizationId: string
+  logo: string // URL or base64 data
+}
+
+export const updateOrganizationLogo: AuthRequestHandler<
+  UpdateOrganizationLogoRequest
+> = async (req, res) => {
+  const { organizationId, logo } = req.validated
+
+  const organization = await db
+    .updateTable('organization')
+    .set({ logo })
+    .where('id', '=', organizationId)
+    .returningAll()
+    .executeTakeFirst()
+
+  if (!organization) {
+    return res.status(404).json({ error: 'Organization not found' })
+  }
+
+  res.json({ data: organization })
+}
+
+// Delete organization
+interface DeleteOrganizationRequest {
+  organizationId: string
+}
+
+export const deleteOrganization: AuthRequestHandler<
+  DeleteOrganizationRequest
+> = async (req, res) => {
+  const { organizationId } = req.validated
+
+  // Check if organization exists
+  const existingOrg = await db
+    .selectFrom('organization')
+    .select(['id', 'name'])
+    .where('id', '=', organizationId)
+    .executeTakeFirst()
+
+  if (!existingOrg) {
+    return res.status(404).json({ error: 'Organization not found' })
+  }
+
+  // Delete the organization (cascading deletes will handle related records)
+  await db
+    .deleteFrom('organization')
+    .where('id', '=', organizationId)
+    .execute()
+
+  res.json({ success: true, message: `Organization "${existingOrg.name}" deleted successfully` })
 }

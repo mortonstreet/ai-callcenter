@@ -10,8 +10,10 @@ import {
   useAdminUsers,
   useAdminOrganizations,
   useAdminCreateOrganization,
+  useAdminUpdateOrganizationLogo,
+  useAdminDeleteOrganization,
 } from "@/hooks/api/useAdmin";
-import { Users, Building2, Eye, Plus, Copy } from "lucide-react";
+import { Users, Building2, Eye, Plus, Copy, Image, Upload, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAdminStore } from "@/lib/admin-store";
 import { useRouter } from "next/navigation";
@@ -24,6 +26,9 @@ export default function AdminPage() {
   const [orgName, setOrgName] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
   const [agentModalOrg, setAgentModalOrg] = useState<{ id: string; name: string } | null>(null);
+  const [logoModalOrg, setLogoModalOrg] = useState<{ id: string; name: string; logo?: string | null } | null>(null);
+  const [logoUrl, setLogoUrl] = useState("");
+  const [deleteModalOrg, setDeleteModalOrg] = useState<{ id: string; name: string } | null>(null);
   const router = useRouter();
   const setImpersonatedOrg = useAdminStore((s) => s.setImpersonatedOrg);
   
@@ -31,6 +36,33 @@ export default function AdminPage() {
   const { data: usersData, isLoading: usersLoading } = useAdminUsers();
   const { data: orgsData, isLoading: orgsLoading } = useAdminOrganizations();
   const createOrgMutation = useAdminCreateOrganization();
+  const updateLogoMutation = useAdminUpdateOrganizationLogo();
+  const deleteOrgMutation = useAdminDeleteOrganization();
+
+  const handleUpdateLogo = () => {
+    if (!logoModalOrg || !logoUrl.trim()) {
+      toast.error("Please enter a logo URL");
+      return;
+    }
+    updateLogoMutation.mutate(
+      { organizationId: logoModalOrg.id, logo: logoUrl.trim() },
+      {
+        onSuccess: () => {
+          toast.success("Logo updated successfully");
+          setLogoModalOrg(null);
+          setLogoUrl("");
+        },
+        onError: () => {
+          toast.error("Failed to update logo");
+        },
+      }
+    );
+  };
+
+  const openLogoModal = (org: { id: string; name: string; logo?: string | null }) => {
+    setLogoModalOrg(org);
+    setLogoUrl(org.logo || "");
+  };
 
   const handleViewAsOrg = (org: { id: string; name: string }) => {
     setImpersonatedOrg({ id: org.id, name: org.name });
@@ -62,6 +94,19 @@ export default function AdminPage() {
         },
       }
     );
+  };
+
+  const handleDeleteOrg = () => {
+    if (!deleteModalOrg) return;
+    deleteOrgMutation.mutate(deleteModalOrg.id, {
+      onSuccess: () => {
+        toast.success(`Organization "${deleteModalOrg.name}" deleted successfully`);
+        setDeleteModalOrg(null);
+      },
+      onError: () => {
+        toast.error("Failed to delete organization");
+      },
+    });
   };
 
   const tabs: { id: Tab; label: string; icon: typeof Users }[] = [
@@ -216,6 +261,7 @@ export default function AdminPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 font-medium text-gray-700">Logo</th>
                     <th className="text-left py-3 px-4 font-medium text-gray-700">Name</th>
                     <th className="text-left py-3 px-4 font-medium text-gray-700">Slug</th>
                     <th className="text-left py-3 px-4 font-medium text-gray-700">Created</th>
@@ -225,6 +271,25 @@ export default function AdminPage() {
                 <tbody>
                   {orgsData?.data?.map((org) => (
                     <tr key={org.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 px-4">
+                        <button
+                          onClick={() => openLogoModal(org)}
+                          className="group relative w-10 h-10 rounded-lg border-2 border-dashed border-gray-300 hover:border-[var(--color-primary)] transition overflow-hidden flex items-center justify-center bg-gray-50"
+                        >
+                          {org.logo ? (
+                            <img 
+                              src={org.logo} 
+                              alt={`${org.name} logo`}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <Image className="h-4 w-4 text-gray-400 group-hover:text-[var(--color-primary)]" />
+                          )}
+                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
+                            <Upload className="h-4 w-4 text-white" />
+                          </div>
+                        </button>
+                      </td>
                       <td className="py-3 px-4 text-gray-900 font-medium">{org.name}</td>
                       <td className="py-3 px-4 text-gray-600">{org.slug}</td>
                       <td className="py-3 px-4 text-gray-500">
@@ -254,6 +319,13 @@ export default function AdminPage() {
                             <Eye className="h-3.5 w-3.5" />
                             View as
                           </button>
+                          <button
+                            onClick={() => setDeleteModalOrg({ id: org.id, name: org.name })}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-100 rounded-lg hover:bg-red-200 transition"
+                            title="Delete Organization"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -274,6 +346,135 @@ export default function AdminPage() {
           organizationId={agentModalOrg.id}
           organizationName={agentModalOrg.name}
         />
+      )}
+
+      {/* Logo Upload Modal */}
+      {logoModalOrg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div 
+            className="absolute inset-0 bg-black/50" 
+            onClick={() => {
+              setLogoModalOrg(null);
+              setLogoUrl("");
+            }} 
+          />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6 m-4">
+            <button
+              onClick={() => {
+                setLogoModalOrg(null);
+                setLogoUrl("");
+              }}
+              className="absolute top-4 right-4 p-1 text-gray-400 hover:text-gray-600 transition"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              Update Logo for {logoModalOrg.name}
+            </h2>
+            
+            {/* Logo Preview */}
+            <div className="mb-4 flex justify-center">
+              <div className="w-24 h-24 rounded-xl border-2 border-dashed border-gray-300 overflow-hidden flex items-center justify-center bg-gray-50">
+                {logoUrl ? (
+                  <img 
+                    src={logoUrl} 
+                    alt="Logo preview"
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <Image className="h-8 w-8 text-gray-400" />
+                )}
+              </div>
+            </div>
+            
+            <Input
+              label="Logo URL"
+              placeholder="https://example.com/logo.png"
+              value={logoUrl}
+              onChange={(e) => setLogoUrl(e.target.value)}
+            />
+            <p className="text-xs text-gray-500 mt-1 mb-4">
+              Enter a URL to an image (PNG, JPG, or SVG recommended)
+            </p>
+            
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setLogoModalOrg(null);
+                  setLogoUrl("");
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpdateLogo}
+                loading={updateLogoMutation.isPending}
+                disabled={updateLogoMutation.isPending || !logoUrl.trim()}
+                className="flex-1"
+              >
+                Save Logo
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalOrg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div 
+            className="absolute inset-0 bg-black/50" 
+            onClick={() => setDeleteModalOrg(null)} 
+          />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6 m-4">
+            <button
+              onClick={() => setDeleteModalOrg(null)}
+              className="absolute top-4 right-4 p-1 text-gray-400 hover:text-gray-600 transition"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <Trash2 className="h-5 w-5 text-red-600" />
+              </div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                Delete Organization
+              </h2>
+            </div>
+            
+            <p className="text-gray-600 mb-2">
+              Are you sure you want to delete <span className="font-semibold text-gray-900">{deleteModalOrg.name}</span>?
+            </p>
+            <p className="text-sm text-red-600 bg-red-50 rounded-lg p-3 mb-4">
+              This action cannot be undone. All members, agents, tasks, and recordings associated with this organization will be permanently deleted.
+            </p>
+            
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteModalOrg(null)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDeleteOrg}
+                loading={deleteOrgMutation.isPending}
+                disabled={deleteOrgMutation.isPending}
+                className="flex-1 !bg-red-600 hover:!bg-red-700"
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </Page>
   );

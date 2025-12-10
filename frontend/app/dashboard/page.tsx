@@ -4,15 +4,25 @@ import { useState, useMemo } from "react";
 import { Page } from "@/components/dashboard/Page";
 import { useTaskInstancesForAnalytics } from "@/hooks/api/useTask";
 import { useRecordingsForAnalytics } from "@/hooks/api/useRecording";
-import { useAgents } from "@/hooks/api/useAgent";
-import { ListTodo, Video, Bot, TrendingUp, Calendar, Gauge } from "lucide-react";
+import { 
+  Phone, 
+  CalendarCheck, 
+  TrendingUp, 
+  Target,
+  Clock,
+  ExternalLink,
+  CheckCircle2,
+  XCircle
+} from "lucide-react";
+import Link from "next/link";
 
-type DateRange = "24h" | "7d" | "30d" | "custom";
+type DateRange = "24h" | "7d" | "30d" | "all" | "custom";
 
 const DATE_RANGES: { id: DateRange; label: string }[] = [
   { id: "24h", label: "24 Hours" },
   { id: "7d", label: "7 Days" },
   { id: "30d", label: "30 Days" },
+  { id: "all", label: "All Time" },
   { id: "custom", label: "Custom" },
 ];
 
@@ -30,6 +40,10 @@ function getDateRange(range: DateRange, customStart?: string, customEnd?: string
       break;
     case "30d":
       startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      break;
+    case "all":
+      // Go back 2 years to capture all historical data
+      startDate = new Date(now.getTime() - 730 * 24 * 60 * 60 * 1000);
       break;
     case "custom":
       startDate = customStart ? new Date(customStart) : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -70,12 +84,67 @@ export default function DashboardPage() {
 
   const { data: tasksData, isLoading: tasksLoading } = useTaskInstancesForAnalytics(startDate, endDate);
   const { data: recordingsData, isLoading: recordingsLoading } = useRecordingsForAnalytics(startDate, endDate);
-  const { data: agents, isLoading: agentsLoading } = useAgents();
 
   const tasks = tasksData?.data || [];
   const recordings = recordingsData?.data || [];
 
-  // Calculate chart data
+  // Calculate REAL metrics based on actual Cal.com bookings and PRODUCTIVE calls only
+  const metrics = useMemo(() => {
+    // Actual Cal.com bookings (have a calcomBookingId - check for both null and undefined)
+    const actualBookings = tasks.filter(t => t.calcomBookingId != null && t.calcomBookingId !== '');
+    
+    // Filter to PRODUCTIVE calls only (exclude short_call, robocall, spam, no_conversation)
+    const productiveCalls = recordings.filter(r => 
+      (r as any).callQuality === 'productive' || 
+      (r as any).callQuality === null || 
+      (r as any).callQuality === undefined
+    );
+    
+    // Non-productive calls for reference
+    const nonProductiveCalls = recordings.filter(r => 
+      (r as any).callQuality && 
+      (r as any).callQuality !== 'productive'
+    );
+    
+    // Total calls (all recordings)
+    const totalCalls = recordings.length;
+    
+    // Productive call count
+    const productiveCallCount = productiveCalls.length;
+    
+    // Book rate = actual Cal.com bookings / PRODUCTIVE calls (not total calls)
+    const bookRate = productiveCallCount > 0 ? (actualBookings.length / productiveCallCount) * 100 : 0;
+    
+    // Upcoming appointments (booked with future date)
+    const now = new Date();
+    const upcomingAppointments = actualBookings.filter(t => 
+      t.appointmentTime && new Date(t.appointmentTime) > now
+    );
+    
+    // Completed appointments (in the past)
+    const completedAppointments = actualBookings.filter(t => 
+      t.appointmentTime && new Date(t.appointmentTime) <= now
+    );
+    
+    // Average call duration (of productive calls only)
+    const avgCallDuration = productiveCalls.length > 0 
+      ? productiveCalls.reduce((sum, r) => sum + (r.callDurationSeconds || 0), 0) / productiveCalls.length
+      : 0;
+
+    return {
+      totalCalls,
+      productiveCallCount,
+      nonProductiveCallCount: nonProductiveCalls.length,
+      actualBookings: actualBookings.length,
+      bookRate,
+      upcomingAppointments: upcomingAppointments.length,
+      completedAppointments: completedAppointments.length,
+      avgCallDuration,
+      recentBookings: actualBookings.slice(0, 5),
+    };
+  }, [tasks, recordings]);
+
+  // Calculate chart data - PRODUCTIVE Calls vs Bookings over time
   const chartData = useMemo(() => {
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -84,31 +153,50 @@ export default function DashboardPage() {
     return days.map((day) => {
       const dayStr = day.toISOString().split("T")[0];
       
-      const dayTasks = tasks.filter((t) => {
-        const taskDate = new Date(t.createdAt).toISOString().split("T")[0];
-        return taskDate === dayStr;
+      // PRODUCTIVE calls on this day only
+      const dayCalls = recordings.filter((r) => {
+        const recDate = new Date(r.createdAt).toISOString().split("T")[0];
+        const isProductive = (r as any).callQuality === 'productive' || 
+                            (r as any).callQuality === null || 
+                            (r as any).callQuality === undefined;
+        return recDate === dayStr && isProductive;
       });
 
-      const dayRecordings = recordings.filter((r) => {
+      // All calls on this day (for comparison)
+      const dayAllCalls = recordings.filter((r) => {
         const recDate = new Date(r.createdAt).toISOString().split("T")[0];
         return recDate === dayStr;
+      });
+
+      // Bookings created on this day (based on actual Cal.com booking)
+      const dayBookings = tasks.filter((t) => {
+        if (!t.calcomBookingId) return false;
+        const taskDate = new Date(t.createdAt).toISOString().split("T")[0];
+        return taskDate === dayStr;
       });
 
       return {
         date: day,
         label: day.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-        tasks: dayTasks.length,
-        recordings: dayRecordings.length,
+        calls: dayCalls.length,
+        totalCalls: dayAllCalls.length,
+        bookings: dayBookings.length,
       };
     });
   }, [tasks, recordings, startDate, endDate]);
 
-  const maxValue = Math.max(...chartData.map((d) => Math.max(d.tasks, d.recordings)), 1);
+  const maxValue = Math.max(...chartData.map((d) => Math.max(d.calls, d.bookings)), 1);
 
-  const isLoading = tasksLoading || recordingsLoading || agentsLoading;
+  const isLoading = tasksLoading || recordingsLoading;
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   return (
-    <Page title="Dashboard" subtitle="Overview of your organization's activity">
+    <Page title="Dashboard" subtitle="Track your booking performance">
       {/* Date Range Filter */}
       <div className="flex flex-wrap items-center gap-3 mb-8">
         <div className="flex bg-white rounded-xl border border-gray-200 p-1">
@@ -150,89 +238,100 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Stats Cards */}
+      {/* Main Stats Cards - Focus on BOOKING RATE */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        {/* Book Rate - Primary Metric (based on PRODUCTIVE calls) */}
+        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Total Tasks</p>
-              <p className="text-3xl font-semibold text-gray-900 mt-1">
-                {isLoading ? "..." : tasks.length}
+              <p className="text-sm font-medium text-emerald-100">Book Rate</p>
+              <p className="text-4xl font-bold mt-1">
+                {isLoading ? "..." : `${metrics.bookRate.toFixed(1)}%`}
+              </p>
+              <p className="text-xs text-emerald-200 mt-2">
+                {isLoading ? "" : `${metrics.actualBookings} bookings / ${metrics.productiveCallCount} real calls`}
               </p>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-              <ListTodo className="h-6 w-6 text-blue-600" />
+            <div className="w-14 h-14 rounded-xl bg-white/20 flex items-center justify-center">
+              <Target className="h-7 w-7 text-white" />
             </div>
           </div>
         </div>
 
+        {/* Productive Calls (excludes spam/robocalls) */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Total Recordings</p>
+              <p className="text-sm font-medium text-gray-500">Real Calls</p>
               <p className="text-3xl font-semibold text-gray-900 mt-1">
-                {isLoading ? "..." : recordings.length}
+                {isLoading ? "..." : metrics.productiveCallCount}
+              </p>
+              <p className="text-xs text-gray-400 mt-2">
+                {isLoading ? "" : (
+                  metrics.nonProductiveCallCount > 0 
+                    ? `+${metrics.nonProductiveCallCount} filtered (${metrics.totalCalls} total)` 
+                    : `Avg: ${formatDuration(metrics.avgCallDuration)}`
+                )}
               </p>
             </div>
             <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
-              <Video className="h-6 w-6 text-purple-600" />
+              <Phone className="h-6 w-6 text-purple-600" />
             </div>
           </div>
         </div>
 
+        {/* Cal.com Bookings */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Efficiency</p>
+              <p className="text-sm font-medium text-gray-500">Bookings</p>
               <p className="text-3xl font-semibold text-gray-900 mt-1">
-                {isLoading ? "..." : recordings.length === 0 ? "N/A" : `${Math.round((tasks.length / recordings.length) * 100)}%`}
+                {isLoading ? "..." : metrics.actualBookings}
               </p>
-              <p className="text-xs text-gray-400 mt-1">Task to recording ratio</p>
+              <p className="text-xs text-gray-400 mt-2">
+                Cal.com confirmed
+              </p>
             </div>
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-              recordings.length === 0 ? "bg-gray-100" :
-              (tasks.length / recordings.length) >= 0.8 ? "bg-green-100" :
-              (tasks.length / recordings.length) >= 0.5 ? "bg-yellow-100" : "bg-red-100"
-            }`}>
-              <Gauge className={`h-6 w-6 ${
-                recordings.length === 0 ? "text-gray-600" :
-                (tasks.length / recordings.length) >= 0.8 ? "text-green-600" :
-                (tasks.length / recordings.length) >= 0.5 ? "text-yellow-600" : "text-red-600"
-              }`} />
+            <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
+              <CalendarCheck className="h-6 w-6 text-blue-600" />
             </div>
           </div>
         </div>
 
+        {/* Upcoming Appointments */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">Active Agents</p>
+              <p className="text-sm font-medium text-gray-500">Upcoming</p>
               <p className="text-3xl font-semibold text-gray-900 mt-1">
-                {isLoading ? "..." : agents?.length || 0}
+                {isLoading ? "..." : metrics.upcomingAppointments}
+              </p>
+              <p className="text-xs text-gray-400 mt-2">
+                {metrics.completedAppointments} completed
               </p>
             </div>
-            <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
-              <Bot className="h-6 w-6 text-green-600" />
+            <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center">
+              <Clock className="h-6 w-6 text-orange-600" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Chart */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      {/* Chart - Calls vs Bookings */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Activity Overview</h3>
-            <p className="text-sm text-gray-500 mt-1">Tasks and recordings over time</p>
+            <h3 className="text-lg font-semibold text-gray-900">Calls vs Bookings</h3>
+            <p className="text-sm text-gray-500 mt-1">Track your conversion over time</p>
           </div>
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-blue-500" />
-              <span className="text-gray-600">Tasks</span>
+              <div className="w-3 h-3 rounded-full bg-purple-500" />
+              <span className="text-gray-600">Calls</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-purple-500" />
-              <span className="text-gray-600">Recordings</span>
+              <div className="w-3 h-3 rounded-full bg-emerald-500" />
+              <span className="text-gray-600">Bookings</span>
             </div>
           </div>
         </div>
@@ -251,23 +350,23 @@ export default function DashboardPage() {
               <div key={i} className="flex-1 flex flex-col items-center gap-1">
                 {/* Bars container */}
                 <div className="w-full flex-1 flex items-end justify-center gap-0.5">
-                  {/* Tasks bar */}
-                  <div
-                    className="w-[45%] bg-blue-500 rounded-t transition-all duration-300 hover:bg-blue-600"
-                    style={{
-                      height: `${(day.tasks / maxValue) * 100}%`,
-                      minHeight: day.tasks > 0 ? "4px" : "0",
-                    }}
-                    title={`${day.tasks} tasks`}
-                  />
-                  {/* Recordings bar */}
+                  {/* Calls bar */}
                   <div
                     className="w-[45%] bg-purple-500 rounded-t transition-all duration-300 hover:bg-purple-600"
                     style={{
-                      height: `${(day.recordings / maxValue) * 100}%`,
-                      minHeight: day.recordings > 0 ? "4px" : "0",
+                      height: `${(day.calls / maxValue) * 100}%`,
+                      minHeight: day.calls > 0 ? "4px" : "0",
                     }}
-                    title={`${day.recordings} recordings`}
+                    title={`${day.calls} calls`}
+                  />
+                  {/* Bookings bar */}
+                  <div
+                    className="w-[45%] bg-emerald-500 rounded-t transition-all duration-300 hover:bg-emerald-600"
+                    style={{
+                      height: `${(day.bookings / maxValue) * 100}%`,
+                      minHeight: day.bookings > 0 ? "4px" : "0",
+                    }}
+                    title={`${day.bookings} bookings`}
                   />
                 </div>
                 {/* Label */}
@@ -280,78 +379,157 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        {/* Recent Tasks */}
+      {/* Two Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Bookings - From Cal.com */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Recent Tasks</h3>
-            <TrendingUp className="h-5 w-5 text-gray-400" />
+            <div className="flex items-center gap-2">
+              <CalendarCheck className="h-5 w-5 text-emerald-500" />
+              <h3 className="text-lg font-semibold text-gray-900">Recent Bookings</h3>
+            </div>
+            <Link 
+              href="/dashboard/schedule" 
+              className="text-sm text-[var(--color-primary)] hover:underline flex items-center gap-1"
+            >
+              View schedule <ExternalLink className="h-3 w-3" />
+            </Link>
           </div>
+          
           {isLoading ? (
             <div className="text-center py-8 text-gray-500">Loading...</div>
-          ) : tasks.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">No tasks yet</div>
+          ) : metrics.recentBookings.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <CalendarCheck className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+              <p>No bookings yet</p>
+              <p className="text-sm text-gray-400 mt-1">
+                Bookings are created when a call leads to a Cal.com appointment
+              </p>
+            </div>
           ) : (
             <div className="space-y-3">
-              {tasks.slice(0, 5).map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                >
-                  <div>
-                    <p className="font-medium text-gray-900 text-sm">{task.taskName}</p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(task.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <span
-                    className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      task.status === "completed"
-                        ? "bg-green-100 text-green-700"
-                        : task.status === "failed"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }`}
+              {metrics.recentBookings.map((booking) => {
+                const appointmentDate = booking.appointmentTime ? new Date(booking.appointmentTime) : null;
+                const isPast = appointmentDate && appointmentDate < new Date();
+                const info = booking.info as Record<string, unknown> | null;
+                const customerName = info?.customerName as string || info?.name as string || 'Unknown Customer';
+                
+                return (
+                  <Link
+                    key={booking.id}
+                    href={`/dashboard/tasks/${booking.id}`}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition group"
                   >
-                    {task.status}
-                  </span>
-                </div>
-              ))}
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        isPast ? 'bg-gray-200' : 'bg-emerald-100'
+                      }`}>
+                        {isPast ? (
+                          <CheckCircle2 className="h-5 w-5 text-gray-500" />
+                        ) : (
+                          <Clock className="h-5 w-5 text-emerald-600" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900 text-sm group-hover:text-[var(--color-primary)]">
+                          {customerName}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {appointmentDate 
+                            ? appointmentDate.toLocaleString('en-US', { 
+                                weekday: 'short',
+                                month: 'short', 
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                              })
+                            : 'No date set'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      isPast 
+                        ? 'bg-gray-100 text-gray-600'
+                        : 'bg-emerald-100 text-emerald-700'
+                    }`}>
+                      {isPast ? 'Completed' : 'Upcoming'}
+                    </span>
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Recent Recordings */}
+        {/* Recent Calls */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Recent Recordings</h3>
-            <Calendar className="h-5 w-5 text-gray-400" />
+            <div className="flex items-center gap-2">
+              <Phone className="h-5 w-5 text-purple-500" />
+              <h3 className="text-lg font-semibold text-gray-900">Recent Calls</h3>
+            </div>
+            <Link 
+              href="/dashboard/recordings" 
+              className="text-sm text-[var(--color-primary)] hover:underline flex items-center gap-1"
+            >
+              View all <ExternalLink className="h-3 w-3" />
+            </Link>
           </div>
+          
           {isLoading ? (
             <div className="text-center py-8 text-gray-500">Loading...</div>
           ) : recordings.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">No recordings yet</div>
+            <div className="text-center py-8 text-gray-500">
+              <Phone className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+              <p>No calls recorded yet</p>
+            </div>
           ) : (
             <div className="space-y-3">
-              {recordings.slice(0, 5).map((recording) => (
-                <div
-                  key={recording.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                >
-                  <div>
-                    <p className="font-medium text-gray-900 text-sm truncate max-w-[200px]">
-                      {recording.conversationId}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(recording.createdAt).toLocaleDateString()}
-                    </p>
+              {recordings.slice(0, 5).map((recording) => {
+                // Find if this call led to a booking
+                const linkedLead = tasks.find(t => t.conversationId === recording.conversationId);
+                const hasBooking = linkedLead?.calcomBookingId !== null;
+                
+                return (
+                  <div
+                    key={recording.id}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        hasBooking ? 'bg-emerald-100' : 'bg-gray-200'
+                      }`}>
+                        {hasBooking ? (
+                          <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                        ) : (
+                          <XCircle className="h-5 w-5 text-gray-400" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900 text-sm">
+                          {formatDuration(recording.callDurationSeconds)} call
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(recording.createdAt).toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      hasBooking 
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {hasBooking ? 'Booked' : 'No booking'}
+                    </span>
                   </div>
-                  <span className="text-xs text-gray-500">
-                    {recording.callDurationSeconds ? `${Math.round(recording.callDurationSeconds)}s` : "-"}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -359,4 +537,3 @@ export default function DashboardPage() {
     </Page>
   );
 }
-

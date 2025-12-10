@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Vaci - AI Call Center Agents",
-  description: "Intelligent AI agents that handle customer calls, reduce wait times, and scale your support operations 24/7.",
+  title: "RevCenter - Your AI Call Center Agent",
+  description: "Transform your call center operations with intelligent AI agents that handle calls 24/7, qualify leads, and book appointments.",
 };
 
 export default function RootLayout({

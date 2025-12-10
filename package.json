@@ -1,7 +1,7 @@
 {
-  "name": "vaci",
+  "name": "revcenter",
   "version": "1.0.0",
-  "description": "AI-powered call center agents platform",
+  "description": "RevCenter - Your AI call center agent platform",
   "main": "index.js",
   "private": true,
   "scripts": {

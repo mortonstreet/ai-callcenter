@@ -28,6 +28,19 @@ export interface TaskInstanceWithRelations {
   taskFields?: any; // JSON field from task
   dispatcherName: string | null;
   dispatcherEmail: string | null;
+  // Lead fields
+  leadType: string | null;
+  resolutionType: string | null;
+  customerType: string | null;
+  leadScore: number | null;
+  estimatedValue: number | null;
+  // Cal.com booking fields
+  calcomBookingId: string | null;
+  calcomEventId: number | null;
+  appointmentTime: string | null;
+  // Tags and pipeline
+  tags: string[] | null;
+  pipelineStage: string | null;
 }
 
 export function useTaskInstances(filters?: Partial<Omit<GetTaskInstancesRequest, 'organizationId'>>) {
@@ -103,6 +116,36 @@ export function useUpdateTaskInstanceStatus() {
     },
     onError: (error: any) => {
       toast.error(error?.message || 'Failed to update status');
+    },
+  });
+}
+
+export function useUpdateTaskInstancePipeline() {
+  const queryClient = useQueryClient();
+  const activeOrganization = useEffectiveOrganization();
+  
+  return useMutation({
+    mutationFn: async (data: { id: string; pipelineStage: string }) => {
+      if (!activeOrganization?.data?.id) {
+        throw new Error('No active organization');
+      }
+      return await post(
+        `/task/${activeOrganization.data.id}/instances/${data.id}/pipeline`,
+        { pipelineStage: data.pipelineStage }
+      );
+    },
+    onSuccess: () => {
+      // Invalidate all task instances queries
+      queryClient.invalidateQueries({ 
+        queryKey: ['taskInstances', activeOrganization?.data?.id] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['taskInstance', activeOrganization?.data?.id] 
+      });
+      toast.success('Pipeline stage updated');
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to update pipeline stage');
     },
   });
 }

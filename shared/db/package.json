@@ -1,7 +1,7 @@
 {
   "name": "@shared/db",
   "version": "1.0.0",
-  "description": "Vaci database schema and migrations",
+  "description": "RevCenter database schema and migrations",
   "main": "index.js",
   "scripts": {
     "db:generate": "prisma generate",

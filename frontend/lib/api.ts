@@ -40,7 +40,16 @@ export const put = <T>(url: string, data?: any, options?: RequestInit): Promise<
   });
 
 export const patch = <T>(url: string, data?: any, options?: RequestInit): Promise<T> =>
-  fetch(`${env.API_URL.toString()}${url}`, { ...options, method: 'PATCH', body: data ? JSON.stringify(data) : undefined, credentials: 'include' }).then(response => {
+  fetch(`${env.API_URL.toString()}${url}`, { 
+    ...options, 
+    method: 'PATCH', 
+    body: data ? JSON.stringify(data) : undefined, 
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+  }).then(response => {
     if (!response.ok) {
       throw new Error(response.statusText);
     }

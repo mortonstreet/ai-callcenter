@@ -78,11 +78,16 @@ export const deleteTask = async (id: string, organizationId: string) => {
 }
 
 export const createRecording = async (
-  recording: Omit<DBRecording, 'id' | 'createdAt' | 'updatedAt'>,
+  recording: Omit<DBRecording, 'id' | 'createdAt' | 'updatedAt'> & { createdAt?: Date },
 ) => {
+  const { createdAt, ...rest } = recording
   return await db
     .insertInto('recording')
-    .values(withIdAndTimestamps(recording))
+    .values({
+      ...withIdAndTimestamps(rest),
+      createdAt: createdAt || new Date(),
+      updatedAt: new Date(),
+    })
     .returningAll()
     .executeTakeFirstOrThrow()
 }
@@ -99,6 +104,44 @@ export const findAgentByExternalId = async (
     .executeTakeFirst()
 }
 
+// Find agent by MCP API key - for authenticating MCP requests
+export const findAgentByMcpApiKey = async (mcpApiKey: string) => {
+  return await db
+    .selectFrom('agent')
+    .where('mcpApiKey', '=', mcpApiKey)
+    .selectAll()
+    .executeTakeFirst()
+}
+
+// Find agent by ID only (for webhook lookups where we know the agent)
+export const findAgentByIdOnly = async (id: string) => {
+  return await db
+    .selectFrom('agent')
+    .where('id', '=', id)
+    .selectAll()
+    .executeTakeFirst()
+}
+
+// Update agent MCP credentials
+export const updateAgentMcpCredentials = async (
+  id: string,
+  credentials: {
+    mcpApiKey?: string | null
+    webhookSecret?: string | null
+    mcpEndpointUrl?: string | null
+  },
+) => {
+  return await db
+    .updateTable('agent')
+    .set({
+      ...credentials,
+      updatedAt: new Date(),
+    })
+    .where('id', '=', id)
+    .returningAll()
+    .executeTakeFirstOrThrow()
+}
+
 export const findTaskInstanceByConversationId = async (
   conversationId: string,
   organizationId: string,
@@ -109,4 +152,35 @@ export const findTaskInstanceByConversationId = async (
     .where('organizationId', '=', organizationId)
     .selectAll()
     .executeTakeFirst()
+}
+
+// Find task instance by Cal.com booking ID
+export const findTaskInstanceByBookingId = async (bookingId: string) => {
+  return await db
+    .selectFrom('task_instance')
+    .where('calcomBookingId', '=', bookingId)
+    .selectAll()
+    .executeTakeFirst()
+}
+
+// Update task instance booking status (for Cal.com webhook events)
+export const updateTaskInstanceBookingStatus = async (
+  id: string,
+  updates: {
+    bookingStatus?: string | null
+    bookingCancelledAt?: Date | null
+    bookingCancelReason?: string | null
+    pipelineStage?: string | null
+    appointmentTime?: Date | null
+  },
+) => {
+  return await db
+    .updateTable('task_instance')
+    .set({
+      ...updates,
+      updatedAt: new Date(),
+    })
+    .where('id', '=', id)
+    .returningAll()
+    .executeTakeFirstOrThrow()
 }

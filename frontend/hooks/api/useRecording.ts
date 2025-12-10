@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { get } from '@/lib/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { get, post } from '@/lib/api';
 import { useEffectiveOrganization } from '@/lib/admin-store';
 import { GetRecordingsRequest, PaginatedResponse } from '@shared/types/src';
 import { DBRecording } from '@shared/types/src';
@@ -36,6 +36,37 @@ export function useRecordings(filters?: Partial<Omit<GetRecordingsRequest, 'orga
   });
 }
 
+interface SyncRecordingsResponse {
+  success: boolean;
+  synced: number;
+  agents: number;
+  errors?: string[];
+}
+
+export function useSyncRecordings() {
+  const queryClient = useQueryClient();
+  const activeOrganization = useEffectiveOrganization();
+  
+  return useMutation<SyncRecordingsResponse>({
+    mutationFn: async () => {
+      if (!activeOrganization?.data?.id) {
+        throw new Error('No active organization');
+      }
+      
+      return await post<SyncRecordingsResponse>(
+        `/task/${activeOrganization.data.id}/recordings/sync`,
+        {}
+      );
+    },
+    onSuccess: () => {
+      // Invalidate recordings queries to refresh data
+      queryClient.invalidateQueries({ 
+        queryKey: ['recordings', activeOrganization?.data?.id] 
+      });
+    },
+  });
+}
+
 export function useRecordingsForAnalytics(startDate?: string, endDate?: string) {
   const activeOrganization = useEffectiveOrganization();
   
@@ -56,6 +87,35 @@ export function useRecordingsForAnalytics(startDate?: string, endDate?: string) 
       );
     },
     enabled: !!activeOrganization?.data?.id,
+  });
+}
+
+interface UpdateRecordingQualityResponse {
+  success: boolean;
+  recording: DBRecording;
+}
+
+export function useUpdateRecordingQuality() {
+  const queryClient = useQueryClient();
+  const activeOrganization = useEffectiveOrganization();
+  
+  return useMutation<UpdateRecordingQualityResponse, Error, { recordingId: string; callQuality: string }>({
+    mutationFn: async ({ recordingId, callQuality }) => {
+      if (!activeOrganization?.data?.id) {
+        throw new Error('No active organization');
+      }
+      
+      return await post<UpdateRecordingQualityResponse>(
+        `/task/${activeOrganization.data.id}/recordings/${recordingId}/quality`,
+        { callQuality }
+      );
+    },
+    onSuccess: () => {
+      // Invalidate recordings queries to refresh data
+      queryClient.invalidateQueries({ 
+        queryKey: ['recordings', activeOrganization?.data?.id] 
+      });
+    },
   });
 }
 

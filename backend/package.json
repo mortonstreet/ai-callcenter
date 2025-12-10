@@ -1,7 +1,7 @@
 {
-  "name": "vaci-backend",
+  "name": "revcenter-backend",
   "version": "1.0.0",
-  "description": "Vaci API server",
+  "description": "RevCenter API server",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -10,7 +10,8 @@
     "tsc": "tsc --noEmit",
     "start": "node dist/server.mjs",
     "cli:script": "tsx cli/script.ts",
-    "cli:create-agent": "tsx cli/create-agent.ts"
+    "cli:create-agent": "tsx cli/create-agent.ts",
+    "cli:make-admin": "tsx cli/make-admin.ts"
   },
   "keywords": [],
   "author": "",

@@ -172,10 +172,16 @@ model Agent {
   externalType   String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  
+  // MCP Configuration - allows each agent to have unique credentials
+  mcpApiKey      String?  // API key for MCP authentication
+  webhookSecret  String?  // Secret for webhook signature verification  
+  mcpEndpointUrl String?  // Public URL for this agent's MCP endpoint (e.g., ngrok URL)
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   tasks        Task[]
 
+  @@unique([mcpApiKey]) // Ensure API keys are unique for lookup
   @@map("agent")
 }
 
@@ -211,6 +217,31 @@ model TaskInstance {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  // Lead Classification
+  leadType       String?  // "booking" | "non_booking"
+  resolutionType String?  // "resolved" | "unresolved"
+  
+  // Customer Classification
+  customerType   String?  // "new_customer" | "active_customer"
+  
+  // Lead Scoring
+  leadScore      Int?     // 1-100 quality score
+  estimatedValue Float?   // Estimated revenue potential in dollars
+  
+  // Cal.com Integration
+  calcomBookingId  String?   // Cal.com booking UID
+  calcomEventId    Int?      // Cal.com event type ID
+  appointmentTime  DateTime? // Scheduled appointment time
+  bookingStatus    String?   // "confirmed" | "cancelled" | "rescheduled" | "completed" | "no_show"
+  bookingCancelledAt DateTime? // When the booking was cancelled
+  bookingCancelReason String?  // Reason for cancellation
+  
+  // Tags for filtering (JSON array of strings)
+  tags           Json?    // ["human_caller", "urgent", "robo_caller", etc.]
+  
+  // Pipeline stage for Kanban view
+  pipelineStage  String?  @default("new") // "new" | "follow_up" | "dispatched" | "closed_won" | "closed_lost"
+
   task         Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
   dispatcher   User?         @relation(fields: [dispatcherId], references: [id], onDelete: SetNull)
   Organization Organization? @relation(fields: [organizationId], references: [id])
@@ -229,6 +260,8 @@ model Recording {
   cost                Float
   transcriptSummary   String?
   payload             Json
+  callQuality         String?  // "productive" | "short_call" | "robocall" | "spam" | "no_conversation"
+  callQualityReason   String?  // Explanation for the quality classification
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

@@ -39,6 +39,8 @@ export const GetTaskInstancesRequestSchema = PaginationRequestSchema.extend({
   dispatcherId: z.string().optional(),
   status: z.enum(Object.values(TaskStatus) as [string, ...string[]]).optional(),
   search: z.string().optional(), // For searching task names
+  startDate: z.string().optional(), // ISO date string for filtering
+  endDate: z.string().optional(), // ISO date string for filtering
 });
 
 export const UpdateTaskInstanceStatusRequestSchema = z.object({
@@ -69,6 +71,8 @@ export type TaskInstanceDetailsResponse = {
 // Recording Requests
 export const GetRecordingsRequestSchema = PaginationRequestSchema.extend({
   organizationId: z.string(),
+  startDate: z.string().optional(), // ISO date string for filtering
+  endDate: z.string().optional(), // ISO date string for filtering
 });
 
 export type CreateTaskRequest = z.infer<typeof CreateTaskRequestSchema>;

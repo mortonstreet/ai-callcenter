@@ -10,8 +10,7 @@ import {
 } from "@/hooks/api/useOrganization";
 import CreateOrganizationModal from "@/components/organization/CreateOrganizationModal";
 import { useActiveOrganization } from "@/lib/auth-client";
-import { useAdminStore } from "@/lib/admin-store";
-import { XCircle } from "lucide-react";
+import { DBUser } from "@shared/types/src";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = useSession();
@@ -21,8 +20,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { isLoading: isLoadingOrgs } = useOrganizations();
   const { data: organizations } = useOrganizations();
   const activeOrganization = useActiveOrganization();
-  const impersonatedOrg = useAdminStore((s) => s.impersonatedOrg);
-  const clearImpersonation = useAdminStore((s) => s.clearImpersonation);
+  const isAdmin = (session?.user as DBUser)?.isAdmin === true;
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -35,7 +33,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (isPending || !session || isLoadingOrgs) return;
 
-    // No orgs - show create modal
+    // Admin users don't need to create an organization - they can view all orgs
+    if (isAdmin) {
+      setShowCreateModal(false);
+      return;
+    }
+
+    // No orgs - show create modal for non-admin users
     if (organizations?.data?.length === 0) {
       setShowCreateModal(true);
       setModalAllowClose(false);
@@ -43,7 +47,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setShowCreateModal(false);
       setModalAllowClose(false);
     }
-  }, [isPending, session, isLoadingOrgs, organizations?.data?.length, activeOrganization]);
+  }, [isPending, session, isLoadingOrgs, organizations?.data?.length, activeOrganization, isAdmin]);
 
   if (isPending) {
     return (
@@ -72,34 +76,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setShowCreateModal(true);
   };
 
-  const hasNoOrganizations = !isLoadingOrgs && organizations?.data?.length === 0;
+  const hasNoOrganizations = !isAdmin && !isLoadingOrgs && organizations?.data?.length === 0;
 
   return (
     <>
       <div className="min-h-screen bg-gray-50">
         <Sidebar onLogout={handleLogout} onOpenCreateOrg={handleOpenCreateOrg} />
         
-        {/* Admin Impersonation Banner */}
-        {impersonatedOrg && (
-          <div className="fixed top-0 left-0 right-0 z-50 bg-purple-600 text-white">
-            <div className="sm:pl-60 md:pl-64">
-              <div className="flex items-center justify-between px-4 py-2 text-sm">
-                <span>
-                  <strong>Admin View:</strong> Viewing as member of <strong>{impersonatedOrg.name}</strong>
-                </span>
-                <button
-                  onClick={clearImpersonation}
-                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition"
-                >
-                  <XCircle className="h-4 w-4" />
-                  Stop Viewing
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        <main className={`pt-16 sm:pt-0 sm:pl-60 md:pl-64 px-4 md:px-6 py-6 md:py-8 ${impersonatedOrg ? 'mt-10' : ''}`}>
+        <main className="pt-16 sm:pt-0 sm:pl-60 md:pl-64 px-4 md:px-6 py-6 md:py-8">
           <div className="mx-auto max-w-[96rem]">
             {children}
           </div>

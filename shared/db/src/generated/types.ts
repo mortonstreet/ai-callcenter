@@ -31,6 +31,9 @@ export type Agent = {
   externalType: string
   createdAt: Generated<Timestamp>
   updatedAt: Timestamp
+  mcpApiKey: string | null
+  webhookSecret: string | null
+  mcpEndpointUrl: string | null
 }
 export type Example = {
   id: string
@@ -73,6 +76,8 @@ export type Recording = {
   cost: number
   transcriptSummary: string | null
   payload: unknown
+  callQuality: string | null
+  callQualityReason: string | null
   createdAt: Generated<Timestamp>
   updatedAt: Timestamp
 }
@@ -124,6 +129,19 @@ export type TaskInstance = {
   organizationId: string | null
   createdAt: Generated<Timestamp>
   updatedAt: Timestamp
+  leadType: string | null
+  resolutionType: string | null
+  customerType: string | null
+  leadScore: number | null
+  estimatedValue: number | null
+  calcomBookingId: string | null
+  calcomEventId: number | null
+  appointmentTime: Timestamp | null
+  bookingStatus: string | null
+  bookingCancelledAt: Timestamp | null
+  bookingCancelReason: string | null
+  tags: unknown | null
+  pipelineStage: Generated<string | null>
 }
 export type User = {
   id: string

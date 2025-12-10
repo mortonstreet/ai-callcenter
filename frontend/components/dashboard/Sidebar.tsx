@@ -4,16 +4,21 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, ListTodo, Video, Settings, LogOut, ChevronDown, Shield, LayoutDashboard } from "lucide-react";
+import { Bot, Users, Video, Settings, LogOut, ChevronDown, Shield, LayoutDashboard, Calendar, Kanban } from "lucide-react";
 import { useOrganizations, useSetActiveOrganizationMutation } from "@/hooks/api/useOrganization";
+import { useAdminOrganizations } from "@/hooks/api/useAdmin";
 import { toast } from "sonner";
 import { useActiveOrganization, useSession } from "@/lib/auth-client";
+import { useAdminStore, useEffectiveOrganization } from "@/lib/admin-store";
 import { DBUser } from "@shared/types/src";
+import { useQueryClient } from "@tanstack/react-query";
 
 const nav = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
   { href: "/dashboard/agents", label: "Agents", icon: Bot },
-  { href: "/dashboard/tasks", label: "Tasks", icon: ListTodo },
+  { href: "/dashboard/tasks", label: "Leads", icon: Users },
+  { href: "/dashboard/schedule", label: "Schedule", icon: Calendar },
+  { href: "/dashboard/pipeline", label: "Pipeline", icon: Kanban },
   { href: "/dashboard/recordings", label: "Recordings", icon: Video },
 ];
 
@@ -38,10 +43,19 @@ export default function Sidebar({
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const activeOrganization = useActiveOrganization();
+  const effectiveOrganization = useEffectiveOrganization();
   const { data: organizations } = useOrganizations();
+  const { data: adminOrgs } = useAdminOrganizations();
   const setActiveMutation = useSetActiveOrganizationMutation();
+  const setImpersonatedOrg = useAdminStore((s) => s.setImpersonatedOrg);
   const { data: session } = useSession();
   const isAdmin = (session?.user as DBUser)?.isAdmin === true;
+  const queryClient = useQueryClient();
+  
+  // For admins, show all organizations; for regular users, show only their orgs
+  const displayOrganizations = isAdmin 
+    ? adminOrgs?.data || []
+    : organizations?.data || [];
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -54,19 +68,43 @@ export default function Sidebar({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSwitchOrg = (orgId: string) => {
-    setActiveMutation.mutate(
-      { organizationId: orgId },
-      {
-        onSuccess: () => {
-          toast.success("Organization switched successfully");
-          setOrgDropdownOpen(false);
-        },
-        onError: () => {
-          toast.error("Failed to switch organization");
-        },
-      }
-    );
+  const handleSwitchOrg = (orgId: string, orgName: string, orgLogo?: string | null) => {
+    // Helper to invalidate all org-specific queries
+    const invalidateAllOrgQueries = () => {
+      // Clear ALL cached data for these query types to force fresh fetch
+      // This ensures schedule, pipeline, leads, recordings all sync properly
+      queryClient.removeQueries({ queryKey: ['taskInstances'] });
+      queryClient.removeQueries({ queryKey: ['taskInstancesAnalytics'] });
+      queryClient.removeQueries({ queryKey: ['taskInstance'] });
+      queryClient.removeQueries({ queryKey: ['recordings'] });
+      queryClient.removeQueries({ queryKey: ['recordingsAnalytics'] });
+      queryClient.removeQueries({ queryKey: ['agents'] });
+      queryClient.removeQueries({ queryKey: ['tasks'] });
+      queryClient.removeQueries({ queryKey: ['admin'] });
+    };
+
+    if (isAdmin) {
+      // Admins use impersonation to view any org seamlessly
+      setImpersonatedOrg({ id: orgId, name: orgName, logo: orgLogo });
+      setOrgDropdownOpen(false);
+      invalidateAllOrgQueries();
+      toast.success(`Switched to ${orgName}`);
+    } else {
+      // Regular users use the standard setActive mutation
+      setActiveMutation.mutate(
+        { organizationId: orgId },
+        {
+          onSuccess: () => {
+            setOrgDropdownOpen(false);
+            invalidateAllOrgQueries();
+            toast.success(`Switched to ${orgName}`);
+          },
+          onError: () => {
+            toast.error("Failed to switch organization");
+          },
+        }
+      );
+    }
   };
 
   const Item = ({
@@ -92,8 +130,8 @@ export default function Sidebar({
       {/* Mobile Top Nav */}
       <div className="sm:hidden fixed top-0 left-0 right-0 z-30 bg-white/90 backdrop-blur border-b border-gray-200">
         <div className="flex items-center justify-between px-4 py-3">
-          <Link href="/dashboard" className="text-lg font-semibold tracking-tight text-gray-900 hover:opacity-80 transition">
-            Vaci
+          <Link href="/dashboard" className="text-lg font-bold tracking-tight text-[#1b191a] hover:opacity-80 transition">
+            RevCenter
           </Link>
           
           <button
@@ -169,28 +207,36 @@ export default function Sidebar({
                 <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
                   Organizations
                 </div>
-                {organizations?.data?.map((org) => (
+                {displayOrganizations.map((org: any) => (
                   <button
                     key={org.id}
                     onClick={() => {
-                      handleSwitchOrg(org.id);
+                      handleSwitchOrg(org.id, org.name, org.logo);
                       setMobileMenuOpen(false);
                     }}
                     disabled={setActiveMutation.isPending}
                     className={`
                       w-full flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition
                       text-gray-800
-                      ${org.id === activeOrganization?.data?.id ? 'bg-gray-100' : 'hover:bg-gray-50'}
+                      ${org.id === effectiveOrganization?.data?.id ? 'bg-gray-100' : 'hover:bg-gray-50'}
                       disabled:opacity-50 disabled:cursor-not-allowed
                     `}
                   >
-                    <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)] flex items-center justify-center flex-shrink-0">
-                      <span className="text-white font-semibold text-sm">
-                        {org.name.charAt(0).toUpperCase()}
-                      </span>
+                    <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      {org.logo ? (
+                        <img 
+                          src={org.logo} 
+                          alt={org.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-white font-semibold text-sm">
+                          {org.name.charAt(0).toUpperCase()}
+                        </span>
+                      )}
                     </div>
                     <span className="flex-1 min-w-0 text-left text-gray-800">{org.name}</span>
-                    {org.id === activeOrganization?.data?.id && (
+                    {org.id === effectiveOrganization?.data?.id && (
                       <span className="flex-shrink-0 text-[var(--color-primary)]">✓</span>
                     )}
                   </button>
@@ -228,8 +274,8 @@ export default function Sidebar({
       >
         {/* Top: logo / app name */}
         <div className="mb-5 px-2">
-          <Link href="/dashboard" className="text-lg font-semibold tracking-tight text-gray-900 hover:opacity-80 transition">
-            Vaci
+          <Link href="/dashboard" className="text-xl font-bold tracking-tight text-[#1b191a] hover:opacity-80 transition">
+            RevCenter
           </Link>
         </div>
         
@@ -279,12 +325,20 @@ export default function Sidebar({
               "
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)] flex items-center justify-center flex-shrink-0">
-                  <span className="text-white font-semibold text-sm">
-                    {activeOrganization?.data?.name?.charAt(0).toUpperCase() || "O"}
-                  </span>
+                <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {effectiveOrganization?.data?.logo ? (
+                    <img 
+                      src={effectiveOrganization.data.logo} 
+                      alt={effectiveOrganization.data.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-white font-semibold text-sm">
+                      {effectiveOrganization?.data?.name?.charAt(0).toUpperCase() || "O"}
+                    </span>
+                  )}
                 </div>
-                <span className="truncate text-gray-800">{activeOrganization?.data?.name || "Organization"}</span>
+                <span className="truncate text-gray-800">{effectiveOrganization?.data?.name || "Organization"}</span>
               </div>
               <ChevronDown className={`h-4 w-4 transition-transform flex-shrink-0 ${orgDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -293,25 +347,33 @@ export default function Sidebar({
             {orgDropdownOpen && (
               <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
                 <div className="max-h-64 overflow-y-auto">
-                  {organizations?.data?.map((org) => (
+                  {displayOrganizations.map((org: any) => (
                     <button 
                       key={org.id}
-                      onClick={() => handleSwitchOrg(org.id)}
+                      onClick={() => handleSwitchOrg(org.id, org.name, org.logo)}
                       disabled={setActiveMutation.isPending}
                       className={`
                         w-full flex items-center gap-3 px-3 py-2 text-sm
                         hover:bg-gray-50 transition text-left
-                        ${org.id === activeOrganization?.data?.id ? 'bg-gray-50' : ''}
+                        ${org.id === effectiveOrganization?.data?.id ? 'bg-gray-50' : ''}
                         disabled:opacity-50 disabled:cursor-not-allowed
                       `}
                     >
-                      <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)] flex items-center justify-center flex-shrink-0">
-                        <span className="text-white font-semibold text-sm">
-                          {org.name.charAt(0).toUpperCase()}
-                        </span>
+                      <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        {org.logo ? (
+                          <img 
+                            src={org.logo} 
+                            alt={org.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-white font-semibold text-sm">
+                            {org.name.charAt(0).toUpperCase()}
+                          </span>
+                        )}
                       </div>
                       <span className="truncate text-gray-800">{org.name}</span>
-                      {org.id === activeOrganization?.data?.id && (
+                      {org.id === effectiveOrganization?.data?.id && (
                         <span className="ml-auto text-xs text-[var(--color-primary)]">✓</span>
                       )}
                     </button>

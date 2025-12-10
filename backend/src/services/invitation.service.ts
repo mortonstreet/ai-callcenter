@@ -9,8 +9,8 @@ export const createInvitation = async (
   const inviteLink = buildInvitationLink(invitationId, email)
   await sendOrganizationInvitation({
     email: email,
-    invitedByUsername: 'Vaci Admin',
-    invitedByEmail: 'admin@vaci.io',
+    invitedByUsername: 'Rev Center Admin',
+    invitedByEmail: 'admin@revcenter.ai',
     teamName: organizationName,
     inviteLink,
   })

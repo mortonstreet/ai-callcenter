@@ -3,11 +3,51 @@ import { z } from 'zod'
 
 dotenv.config()
 
+// Schema for individual MCP provider configuration
+const McpProviderSchema = z.object({
+  name: z.string(),
+  slug: z.string(),
+  apiKey: z.string(),
+  webhookKey: z.string(),
+  ngrokUrl: z.string().url().optional(),
+})
+
+export type McpProvider = z.infer<typeof McpProviderSchema>
+
+// Parse MCP_PROVIDERS from JSON env var, with fallback to legacy single provider
+const parseMcpProviders = (): McpProvider[] => {
+  const mcpProvidersJson = process.env.MCP_PROVIDERS
+  
+  if (mcpProvidersJson) {
+    try {
+      const parsed = JSON.parse(mcpProvidersJson)
+      return z.array(McpProviderSchema).parse(parsed)
+    } catch (e) {
+      console.error('Failed to parse MCP_PROVIDERS:', e)
+      return []
+    }
+  }
+  
+  // Fallback to legacy single provider config for backwards compatibility
+  if (process.env.ELEVEN_LABS_API_KEY && process.env.ELEVEN_LABS_WEBHOOK_KEY) {
+    return [{
+      name: 'ElevenLabs',
+      slug: 'elevenlabs',
+      apiKey: process.env.ELEVEN_LABS_API_KEY,
+      webhookKey: process.env.ELEVEN_LABS_WEBHOOK_KEY,
+      ngrokUrl: process.env.ELEVEN_LABS_NGROK_URL,
+    }]
+  }
+  
+  return []
+}
+
 const envSchema = z.object({
   PORT: z.coerce.number().default(8000),
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
     .default('development'),
+  TIMEZONE: z.string().default('America/New_York'),
   CORS_ORIGIN: z
     .string()
     .default('*')
@@ -35,8 +75,11 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string(),
   GOOGLE_CLIENT_SECRET: z.string(),
   RESEND_API_KEY: z.string(),
-  ELEVEN_LABS_API_KEY: z.string(),
-  ELEVEN_LABS_WEBHOOK_KEY: z.string(),
+  // Cal.com integration
+  CALCOM_API_KEY: z.string().optional(),
+  // Legacy single provider - now optional
+  ELEVEN_LABS_API_KEY: z.string().optional(),
+  ELEVEN_LABS_WEBHOOK_KEY: z.string().optional(),
 })
 
 const env = envSchema.parse(process.env)
@@ -47,7 +90,14 @@ const getTrustedOrigins = (corsOrigin: string | string[]): string[] => {
   return [corsOrigin]
 }
 
+// Set timezone globally
+process.env.TZ = env.TIMEZONE
+
+// Parse MCP providers from env
+const mcpProviders = parseMcpProviders()
+
 export const config = {
+  timezone: env.TIMEZONE,
   webhookApiKey: env.WEBHOOK_API_KEY,
   jwt: {
     secret: env.JWT_SECRET,
@@ -91,10 +141,17 @@ export const config = {
   resend: {
     apiKey: env.RESEND_API_KEY,
   },
+  // Multiple MCP providers support
+  mcpProviders,
+  // Legacy single provider - backwards compatible
   elevenLabs: {
-    apiKey: env.ELEVEN_LABS_API_KEY,
-    webhookKey: env.ELEVEN_LABS_WEBHOOK_KEY,
+    apiKey: env.ELEVEN_LABS_API_KEY || mcpProviders.find(p => p.slug === 'elevenlabs')?.apiKey || '',
+    webhookKey: env.ELEVEN_LABS_WEBHOOK_KEY || mcpProviders.find(p => p.slug === 'elevenlabs')?.webhookKey || '',
   },
-} as const
+  // Cal.com integration
+  calcom: {
+    apiKey: env.CALCOM_API_KEY || '',
+  },
+}
 
 export type Config = typeof config

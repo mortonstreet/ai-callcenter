@@ -5,6 +5,7 @@ import { useActiveOrganization } from './auth-client'
 interface ImpersonatedOrg {
   id: string
   name: string
+  logo?: string | null
 }
 
 interface AdminStore {
