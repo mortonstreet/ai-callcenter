@@ -105,28 +105,32 @@ export const auth = betterAuth({
         })
       },
     }),
-    stripe({
-      stripeClient,
-      stripeWebhookSecret: config.stripe.webhookSecret,
-      createCustomerOnSignUp: true,
-      subscription: {
-        enabled: true,
-        authorizeReference: async ({ user, referenceId, action }) => {
-          const member = await getOrganizationMember(referenceId, user.id)
-          return member?.role === 'owner' || member?.role === 'admin'
-        },
-        getCheckoutSessionParams: async () => {
-          return {
-            params: {
-              allow_promotion_codes: true,
+    ...(stripeClient
+      ? [
+          stripe({
+            stripeClient,
+            stripeWebhookSecret: config.stripe.webhookSecret!,
+            createCustomerOnSignUp: true,
+            subscription: {
+              enabled: true,
+              authorizeReference: async ({ user, referenceId, action }) => {
+                const member = await getOrganizationMember(referenceId, user.id)
+                return member?.role === 'owner' || member?.role === 'admin'
+              },
+              getCheckoutSessionParams: async () => {
+                return {
+                  params: {
+                    allow_promotion_codes: true,
+                  },
+                }
+              },
+              organization: {
+                enabled: true,
+              },
+              plans: STRIPE_PLANS,
             },
-          }
-        },
-        organization: {
-          enabled: true,
-        },
-        plans: STRIPE_PLANS,
-      },
-    }),
+          }),
+        ]
+      : []),
   ],
 })
