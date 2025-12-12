@@ -37,7 +37,7 @@ export const auth = betterAuth({
   advanced: {
     crossSubDomainCookies: {
       enabled: config.nodeEnv === 'production',
-      domain: '.vaci.io', // Allows cookies across vaci.io and api.vaci.io
+      domain: '.revcenter.ai', // Allows cookies across revcenter.ai and api.revcenter.ai
     },
     defaultCookieAttributes: {
       secure: config.nodeEnv === 'production',
