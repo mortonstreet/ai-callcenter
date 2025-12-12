@@ -1,8 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { get, post } from '@/lib/api';
 import { useEffectiveOrganization } from '@/lib/admin-store';
-import { GetRecordingsRequest, PaginatedResponse } from '@shared/types/src';
-import { DBRecording } from '@shared/types/src';
+import { GetRecordingsRequest, PaginatedResponse } from '@/lib/shared-types';
+import { DBRecording } from '@/lib/shared-types';
 
 const QUERY_KEYS = {
   recordings: (organizationId?: string, filters?: Partial<GetRecordingsRequest>) => 

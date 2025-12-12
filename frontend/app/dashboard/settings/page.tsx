@@ -16,7 +16,7 @@ import { useHasPasswordAuth } from "@/hooks/api/useUser";
 import { useChangePassword } from "@/hooks/api/useAuth";
 import { useEffectiveOrganization, useAdminStore } from "@/lib/admin-store";
 import { useCreateCheckoutSession, useOrganizationSubscription, useCreatePortalSession } from "@/hooks/api/useStripe";
-import { STRIPE_PLANS } from "@shared/types/src";
+import { STRIPE_PLANS } from "@/lib/shared-types";
 
 export default function SettingsPage() {
   const { data: session } = useSession();

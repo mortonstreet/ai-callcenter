@@ -22,7 +22,7 @@ import {
   CalendarCheck,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { TaskStatus, TaskField, PipelineStage } from "@shared/types/src";
+import { TaskStatus, TaskField, PipelineStage } from "@/lib/shared-types";
 import { getRecordingAudio } from "../../recordings/actions";
 import { toast } from "sonner";
 

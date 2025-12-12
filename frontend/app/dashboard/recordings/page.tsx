@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useRecordings, useSyncRecordings, useUpdateRecordingQuality } from "@/hooks/api/useRecording";
 import { ChevronLeft, ChevronRight, Play, Loader2, ExternalLink, RefreshCw, ChevronDown, ChevronUp, Check, Bot, Phone, Ban, Zap } from "lucide-react";
 import { Page } from "@/components/dashboard/Page";
-import { DBRecording, CallQuality } from "@shared/types/src";
+import { DBRecording, CallQuality } from "@/lib/shared-types";
 import { getRecordingAudio } from "./actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";

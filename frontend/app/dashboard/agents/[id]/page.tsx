@@ -6,13 +6,13 @@ import { use } from "react";
 import { Bot, ArrowLeft, Loader2, Edit2, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useAgent, useTasks, useUpdateTask, useDeleteTask } from "@/hooks/api/useAgent";
-import { AgentExternalType, TaskFieldRequest, TaskFieldType } from "@shared/types/src";
+import { AgentExternalType, TaskFieldRequest, TaskFieldType } from "@/lib/shared-types";
 import { ElevenLabsConversation } from "@/components/agent/ElevenLabsConversation";
 import { CreateTaskForm } from "@/components/agent/CreateTaskForm";
 import { useState } from "react";
 import { useIsAdminOrOwner, useListOrganizationMembers } from "@/hooks/api/useOrganization";
 import { toast } from "sonner";
-import { DBTask } from "@shared/types/src";
+import { DBTask } from "@/lib/shared-types";
 
 interface TaskCardProps {
   task: DBTask;

@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useTaskInstances, useUpdateTaskInstancePipeline, TaskInstanceWithRelations } from "@/hooks/api/useTask";
-import { PipelineStage } from "@shared/types/src";
+import { PipelineStage } from "@/lib/shared-types";
 import { useListOrganizationMembers } from "@/hooks/api/useOrganization";
 import { useSession } from "@/lib/auth-client";
 import { 

@@ -10,7 +10,7 @@ import { useAdminOrganizations } from "@/hooks/api/useAdmin";
 import { toast } from "sonner";
 import { useActiveOrganization, useSession } from "@/lib/auth-client";
 import { useAdminStore, useEffectiveOrganization } from "@/lib/admin-store";
-import { DBUser } from "@shared/types/src";
+import { DBUser } from "@/lib/shared-types";
 import { useQueryClient } from "@tanstack/react-query";
 
 const nav = [

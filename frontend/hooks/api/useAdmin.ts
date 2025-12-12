@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { get, post, patch, del } from "@/lib/api";
-import { AdminCreateOrganizationRequest, AdminCreateAgentRequest, DBOrganization, DBAgent } from "@shared/types/src";
+import { AdminCreateOrganizationRequest, AdminCreateAgentRequest, DBOrganization, DBAgent } from "@/lib/shared-types";
 
 interface AdminStats {
   users: number;

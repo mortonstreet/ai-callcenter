@@ -2,7 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { get, post } from '@/lib/api';
 import { useEffectiveOrganization } from '@/lib/admin-store';
-import { GetTaskInstancesRequest, PaginatedResponse, UpdateTaskInstanceStatusRequest, TaskInstanceDetailsResponse } from '@shared/types/src';
+import { GetTaskInstancesRequest, PaginatedResponse, UpdateTaskInstanceStatusRequest, TaskInstanceDetailsResponse } from '@/lib/shared-types';
 import { toast } from 'sonner';
 
 const QUERY_KEYS = {

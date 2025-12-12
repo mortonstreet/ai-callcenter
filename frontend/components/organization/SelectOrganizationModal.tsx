@@ -1,4 +1,4 @@
-import { DBOrganization } from "@shared/types/src";
+import { DBOrganization } from "@/lib/shared-types";
 import Modal from "../ui/Modal";
 
 interface SelectOrganizationModalProps {

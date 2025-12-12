@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { get } from '@/lib/api';
 import { QUERY_KEYS, ENDPOINTS } from '@/lib/config';
-import { AccountResponse } from '@shared/types/src';
+import { AccountResponse } from '@/lib/shared-types';
 
 /**
  * Get the current user's account information

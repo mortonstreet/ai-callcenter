@@ -3,8 +3,8 @@
 
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { TaskFieldType } from "@shared/types/src/task";
-import { type TaskField } from "@shared/types/src";
+import { TaskFieldType } from "@/lib/shared-types";
+import { type TaskField } from "@/lib/shared-types";
 import { useCreateTask } from "@/hooks/api/useAgent";
 import { useIsAdminOrOwner, useListOrganizationMembers } from "@/hooks/api/useOrganization";
 import { toast } from "sonner";

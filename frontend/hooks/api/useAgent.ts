@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { get, post, put, del } from '@/lib/api';
 import { QUERY_KEYS } from '@/lib/config';
 import { useEffectiveOrganization } from '@/lib/admin-store';
-import { DBAgent, CreateTaskRequest, UpdateTaskRequest, DBTask } from '@shared/types/src';
+import { DBAgent, CreateTaskRequest, UpdateTaskRequest, DBTask } from '@/lib/shared-types';
 import { toast } from 'sonner';
 
 /**

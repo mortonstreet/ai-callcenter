@@ -10,7 +10,7 @@ import {
 } from "@/hooks/api/useOrganization";
 import CreateOrganizationModal from "@/components/organization/CreateOrganizationModal";
 import { useActiveOrganization } from "@/lib/auth-client";
-import { DBUser } from "@shared/types/src";
+import { DBUser } from "@/lib/shared-types";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = useSession();
