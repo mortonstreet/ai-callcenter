@@ -51,7 +51,9 @@ router.patch(
   '/organizations/:organizationId/logo',
   withBetterAuth,
   validateAndMerge(UpdateOrganizationLogoSchema),
-  adminOnlyRoute<{ organizationId: string; logo: string }>(updateOrganizationLogo),
+  adminOnlyRoute<{ organizationId: string; logo: string }>(
+    updateOrganizationLogo,
+  ),
 )
 
 // Delete organization

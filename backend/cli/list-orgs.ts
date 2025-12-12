@@ -11,7 +11,7 @@ const listOrgs = async () => {
     console.log('\n👉 Create one from the dashboard after logging in.\n')
   } else {
     console.log('\n📋 Organizations:\n')
-    orgs.forEach(o => {
+    orgs.forEach((o) => {
       console.log(`  • ${o.name}`)
       console.log(`    ID: ${o.id}`)
       console.log(`    Slug: ${o.slug}\n`)

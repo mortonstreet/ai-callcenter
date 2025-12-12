@@ -17,7 +17,7 @@ export type McpProvider = z.infer<typeof McpProviderSchema>
 // Parse MCP_PROVIDERS from JSON env var, with fallback to legacy single provider
 const parseMcpProviders = (): McpProvider[] => {
   const mcpProvidersJson = process.env.MCP_PROVIDERS
-  
+
   if (mcpProvidersJson) {
     try {
       const parsed = JSON.parse(mcpProvidersJson)
@@ -27,18 +27,20 @@ const parseMcpProviders = (): McpProvider[] => {
       return []
     }
   }
-  
+
   // Fallback to legacy single provider config for backwards compatibility
   if (process.env.ELEVEN_LABS_API_KEY && process.env.ELEVEN_LABS_WEBHOOK_KEY) {
-    return [{
-      name: 'ElevenLabs',
-      slug: 'elevenlabs',
-      apiKey: process.env.ELEVEN_LABS_API_KEY,
-      webhookKey: process.env.ELEVEN_LABS_WEBHOOK_KEY,
-      ngrokUrl: process.env.ELEVEN_LABS_NGROK_URL,
-    }]
+    return [
+      {
+        name: 'ElevenLabs',
+        slug: 'elevenlabs',
+        apiKey: process.env.ELEVEN_LABS_API_KEY,
+        webhookKey: process.env.ELEVEN_LABS_WEBHOOK_KEY,
+        ngrokUrl: process.env.ELEVEN_LABS_NGROK_URL,
+      },
+    ]
   }
-  
+
   return []
 }
 
@@ -145,8 +147,14 @@ export const config = {
   mcpProviders,
   // Legacy single provider - backwards compatible
   elevenLabs: {
-    apiKey: env.ELEVEN_LABS_API_KEY || mcpProviders.find(p => p.slug === 'elevenlabs')?.apiKey || '',
-    webhookKey: env.ELEVEN_LABS_WEBHOOK_KEY || mcpProviders.find(p => p.slug === 'elevenlabs')?.webhookKey || '',
+    apiKey:
+      env.ELEVEN_LABS_API_KEY ||
+      mcpProviders.find((p) => p.slug === 'elevenlabs')?.apiKey ||
+      '',
+    webhookKey:
+      env.ELEVEN_LABS_WEBHOOK_KEY ||
+      mcpProviders.find((p) => p.slug === 'elevenlabs')?.webhookKey ||
+      '',
   },
   // Cal.com integration
   calcom: {

@@ -10,19 +10,21 @@ import logger from '@/lib/logger'
 const router = Router()
 
 // Webhook logging middleware
-const logWebhook = (providerSlug: string) => (req: any, res: any, next: any) => {
-  logger.info(`📥 WEBHOOK RECEIVED [${providerSlug}]`, {
-    headers: req.headers,
-    bodyType: typeof req.body,
-    bodyLength: req.body?.length || 0,
-  })
-  next()
-}
+const logWebhook =
+  (providerSlug: string) => (req: any, res: any, next: any) => {
+    logger.info(`📥 WEBHOOK RECEIVED [${providerSlug}]`, {
+      headers: req.headers,
+      bodyType: typeof req.body,
+      bodyLength: req.body?.length || 0,
+    })
+    next()
+  }
 
-const logAuthPassed = (providerSlug: string) => (req: any, res: any, next: any) => {
-  logger.info(`✅ WEBHOOK AUTH PASSED [${providerSlug}]`)
-  next()
-}
+const logAuthPassed =
+  (providerSlug: string) => (req: any, res: any, next: any) => {
+    logger.info(`✅ WEBHOOK AUTH PASSED [${providerSlug}]`)
+    next()
+  }
 
 // Legacy route - ElevenLabs specific
 router.post(
@@ -65,7 +67,7 @@ router.post(
       logger.error('Cal.com webhook error:', error)
       res.status(500).json({ error: 'Internal server error' })
     }
-  }
+  },
 )
 
 export default router

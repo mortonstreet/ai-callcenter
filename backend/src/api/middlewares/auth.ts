@@ -15,7 +15,7 @@ import { findAgentByExternalId } from '@/repositories/agent.repository'
 
 // Helper to find provider by slug from env config
 const findProviderBySlug = (slug: string): McpProvider | undefined => {
-  return config.mcpProviders.find(p => p.slug === slug)
+  return config.mcpProviders.find((p) => p.slug === slug)
 }
 
 // Helper to extract agent_id from raw webhook body without fully parsing
@@ -205,20 +205,23 @@ export const withElevenLabsWebhookAuth = async (
     // Try to find webhook secret from database first (scalable approach)
     let webhookSecret: string | null = null
     const agentExternalId = extractAgentIdFromBody(bodyString)
-    
+
     if (agentExternalId) {
-      const agent = await findAgentByExternalId(agentExternalId, AgentExternalType.ELEVEN_LABS)
+      const agent = await findAgentByExternalId(
+        agentExternalId,
+        AgentExternalType.ELEVEN_LABS,
+      )
       if (agent?.webhookSecret) {
         webhookSecret = agent.webhookSecret
         logger.info(`Using webhook secret from agent: ${agent.name}`)
       }
     }
-    
+
     // Fallback to env config if no database secret found
     if (!webhookSecret) {
       webhookSecret = config.elevenLabs.webhookKey
     }
-    
+
     if (!webhookSecret) {
       logger.error('No webhook secret available for verification')
       return res.status(500).json({ error: 'Webhook secret not configured' })
@@ -282,11 +285,11 @@ export const withWebhookAuth = async (
 
     // Get signature header (case-insensitive) - supports elevenlabs format
     const signatureHeaderRaw =
-      req.headers['elevenlabs-signature'] || 
+      req.headers['elevenlabs-signature'] ||
       req.headers['Elevenlabs-Signature'] ||
       req.headers['x-webhook-signature'] ||
       req.headers['X-Webhook-Signature']
-    
+
     if (!signatureHeaderRaw) {
       return res.status(401).json({ error: 'Missing signature header' })
     }
@@ -324,7 +327,7 @@ export const withWebhookAuth = async (
     let webhookSecret: string | null = null
     let providerName = providerSlug
     const agentExternalId = extractAgentIdFromBody(bodyString)
-    
+
     if (agentExternalId) {
       const agent = await findAgentByExternalId(agentExternalId, 'ELEVEN_LABS')
       if (agent?.webhookSecret) {
@@ -333,7 +336,7 @@ export const withWebhookAuth = async (
         logger.info(`Using webhook secret from agent: ${agent.name}`)
       }
     }
-    
+
     // Fallback to env config provider if no database secret found
     if (!webhookSecret) {
       const provider = findProviderBySlug(providerSlug)
@@ -342,10 +345,12 @@ export const withWebhookAuth = async (
         providerName = provider.name
       }
     }
-    
+
     if (!webhookSecret) {
       logger.warn(`No webhook secret found for provider: ${providerSlug}`)
-      return res.status(404).json({ error: 'Unknown provider or missing webhook secret' })
+      return res
+        .status(404)
+        .json({ error: 'Unknown provider or missing webhook secret' })
     }
 
     // Signature format: HMAC-SHA256(timestamp + "." + body)

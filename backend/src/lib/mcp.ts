@@ -5,21 +5,55 @@ import { findTasksByOrganizationId } from '@/repositories/organization.repositor
 import { findTaskInstanceByConversationId } from '@/repositories/agent.repository'
 import { McpCreateTaskInput, McpCreateTaskInputSchema } from '@/types/mcp'
 import { formatTasksForMcp } from '@/utils/task'
-import { createTaskInstanceWithDispatcher, updateTaskInstanceWithBooking } from '@/services/task.service'
+import {
+  createTaskInstanceWithDispatcher,
+  updateTaskInstanceWithBooking,
+} from '@/services/task.service'
 import { CalComClient } from '@/clients/calcom.client'
 import { config } from '@/config'
 
 // Schema for book-appointment input - email is optional for phone callback appointments
 const BookAppointmentInputSchema = z.object({
-  conversationId: z.string().optional().describe('The conversation ID to link the booking to the lead - get from system__conversation_id'),
+  conversationId: z
+    .string()
+    .optional()
+    .describe(
+      'The conversation ID to link the booking to the lead - get from system__conversation_id',
+    ),
   customerName: z.string().describe('Full name of the customer'),
-  customerPhone: z.string().describe('Phone number of the customer - REQUIRED for callback'),
-  customerEmail: z.string().optional().describe('Email address of the customer (optional - if not provided, we will call them back)'),
-  customerAddress: z.string().optional().describe('Service address of the customer'),
-  preferredDate: z.string().optional().describe('Preferred date for appointment (e.g., "tomorrow", "next monday", "2024-12-15")'),
-  serviceType: z.string().optional().describe('Type of service requested (e.g., "ants", "rodents", "general pest inspection")'),
-  locationType: z.string().optional().describe('Whether residential or commercial'),
-  notes: z.string().optional().describe('Additional notes about the appointment'),
+  customerPhone: z
+    .string()
+    .describe('Phone number of the customer - REQUIRED for callback'),
+  customerEmail: z
+    .string()
+    .optional()
+    .describe(
+      'Email address of the customer (optional - if not provided, we will call them back)',
+    ),
+  customerAddress: z
+    .string()
+    .optional()
+    .describe('Service address of the customer'),
+  preferredDate: z
+    .string()
+    .optional()
+    .describe(
+      'Preferred date for appointment (e.g., "tomorrow", "next monday", "2024-12-15")',
+    ),
+  serviceType: z
+    .string()
+    .optional()
+    .describe(
+      'Type of service requested (e.g., "ants", "rodents", "general pest inspection")',
+    ),
+  locationType: z
+    .string()
+    .optional()
+    .describe('Whether residential or commercial'),
+  notes: z
+    .string()
+    .optional()
+    .describe('Additional notes about the appointment'),
 })
 
 type BookAppointmentInput = z.infer<typeof BookAppointmentInputSchema>
@@ -32,9 +66,11 @@ export function createMcpServer(organizationId: string) {
     name: 'revcenter-mcp-server',
     version: '1.0.0',
   })
-  
+
   // Initialize Cal.com client if API key is available
-  const calcomClient = config.calcom.apiKey ? new CalComClient(config.calcom.apiKey) : null
+  const calcomClient = config.calcom.apiKey
+    ? new CalComClient(config.calcom.apiKey)
+    : null
 
   mcpServer.tool(
     'list-services',
@@ -111,13 +147,17 @@ export function createMcpServer(organizationId: string) {
     async (input: BookAppointmentInput) => {
       const hasEmail = input.customerEmail && input.customerEmail.trim() !== ''
       const effectiveEmail = hasEmail ? input.customerEmail! : PLACEHOLDER_EMAIL
-      
+
       logger.info(`🔧 TOOL CALLED: book-appointment`)
       logger.info(`📝 Customer: ${input.customerName}`)
       logger.info(`📞 Phone: ${input.customerPhone}`)
-      logger.info(`📧 Email: ${hasEmail ? input.customerEmail : '(none - phone callback)'}`)
+      logger.info(
+        `📧 Email: ${hasEmail ? input.customerEmail : '(none - phone callback)'}`,
+      )
       logger.info(`📍 Address: ${input.customerAddress || 'not provided'}`)
-      logger.info(`📝 Preferred Date: ${input.preferredDate || 'next available'}`)
+      logger.info(
+        `📝 Preferred Date: ${input.preferredDate || 'next available'}`,
+      )
 
       if (!calcomClient) {
         logger.warn('Cal.com client not configured - skipping booking')
@@ -127,8 +167,10 @@ export function createMcpServer(organizationId: string) {
               type: 'text' as const,
               text: JSON.stringify({
                 success: false,
-                error: 'Booking system not configured. Please transfer to scheduling team.',
-                message: 'Our scheduling team will contact you to confirm your appointment.',
+                error:
+                  'Booking system not configured. Please transfer to scheduling team.',
+                message:
+                  'Our scheduling team will contact you to confirm your appointment.',
               }),
             },
           ],
@@ -139,12 +181,14 @@ export function createMcpServer(organizationId: string) {
         // Get event types to find the inspection event
         const eventTypes = await calcomClient.getEventTypes()
         logger.info(`📋 Found ${eventTypes?.length || 0} event types`)
-        
+
         // Find "Free Pest Inspection" event type or use the first one
         let eventType = eventTypes?.find(
-          (et) => et.title.toLowerCase().includes('inspection') || et.title.toLowerCase().includes('pest')
+          (et) =>
+            et.title.toLowerCase().includes('inspection') ||
+            et.title.toLowerCase().includes('pest'),
         )
-        
+
         if (!eventType && eventTypes?.length > 0) {
           eventType = eventTypes[0]
         }
@@ -158,7 +202,8 @@ export function createMcpServer(organizationId: string) {
                 text: JSON.stringify({
                   success: false,
                   error: 'No appointment types available',
-                  message: 'Our scheduling team will contact you to schedule your free inspection.',
+                  message:
+                    'Our scheduling team will contact you to schedule your free inspection.',
                 }),
               },
             ],
@@ -166,7 +211,10 @@ export function createMcpServer(organizationId: string) {
         }
 
         // Get next available slot
-        const nextSlot = await calcomClient.getNextAvailableSlot(eventType.id, 14) // Look 14 days ahead
+        const nextSlot = await calcomClient.getNextAvailableSlot(
+          eventType.id,
+          14,
+        ) // Look 14 days ahead
 
         if (!nextSlot) {
           logger.warn('No available slots found')
@@ -177,7 +225,8 @@ export function createMcpServer(organizationId: string) {
                 text: JSON.stringify({
                   success: false,
                   error: 'No available appointment slots',
-                  message: 'Our scheduling team will contact you within 24 hours to schedule your free inspection.',
+                  message:
+                    'Our scheduling team will contact you within 24 hours to schedule your free inspection.',
                 }),
               },
             ],
@@ -190,14 +239,18 @@ export function createMcpServer(organizationId: string) {
           ``,
           `Customer: ${input.customerName}`,
           `Phone: ${input.customerPhone}`,
-          input.customerEmail ? `Email: ${input.customerEmail}` : `Email: Not provided - PHONE CALLBACK REQUIRED`,
+          input.customerEmail
+            ? `Email: ${input.customerEmail}`
+            : `Email: Not provided - PHONE CALLBACK REQUIRED`,
           input.customerAddress ? `Address: ${input.customerAddress}` : null,
           input.locationType ? `Location Type: ${input.locationType}` : null,
           input.serviceType ? `Service Requested: ${input.serviceType}` : null,
           input.notes ? `Additional Notes: ${input.notes}` : null,
           ``,
           `⚠️ ${hasEmail ? 'Customer will receive email confirmation' : 'NO EMAIL - Please call customer to confirm appointment'}`,
-        ].filter(Boolean).join('\n')
+        ]
+          .filter(Boolean)
+          .join('\n')
 
         // Create the booking
         const booking = await calcomClient.createBooking({
@@ -233,12 +286,17 @@ export function createMcpServer(organizationId: string) {
 
         logger.info(`✅ BOOKING CREATED: ${booking?.uid || booking?.id}`)
         logger.info(`📅 Appointment: ${formattedDate} at ${formattedTime}`)
-        logger.info(`📧 Email confirmation: ${hasEmail ? 'Yes' : 'No - phone callback'}`)
+        logger.info(
+          `📧 Email confirmation: ${hasEmail ? 'Yes' : 'No - phone callback'}`,
+        )
 
         // Link booking to task instance if we have a conversationId
         if (input.conversationId) {
           try {
-            const taskInstance = await findTaskInstanceByConversationId(input.conversationId, organizationId)
+            const taskInstance = await findTaskInstanceByConversationId(
+              input.conversationId,
+              organizationId,
+            )
             if (taskInstance) {
               await updateTaskInstanceWithBooking(taskInstance.id, {
                 calcomBookingId: String(booking?.uid || booking?.id),
@@ -283,7 +341,8 @@ export function createMcpServer(organizationId: string) {
               text: JSON.stringify({
                 success: false,
                 error: 'Failed to book appointment',
-                message: 'Our scheduling team will contact you within 24 hours to confirm your free inspection appointment.',
+                message:
+                  'Our scheduling team will contact you within 24 hours to confirm your free inspection appointment.',
               }),
             },
           ],

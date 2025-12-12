@@ -17,7 +17,10 @@ export const validateAndMerge = (schema: z.ZodSchema) => {
     } catch (error) {
       if (error instanceof ZodError) {
         console.error('Validation failed for URL:', req.url)
-        console.error('Validation errors:', JSON.stringify(error.issues, null, 2))
+        console.error(
+          'Validation errors:',
+          JSON.stringify(error.issues, null, 2),
+        )
         return res.status(StatusCodes.BAD_REQUEST).json({
           error: 'Validation failed',
           details: error.issues,

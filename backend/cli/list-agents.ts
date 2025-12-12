@@ -10,7 +10,7 @@ const listAgents = async () => {
     console.log('\n📭 No agents yet!\n')
   } else {
     console.log('\n🤖 Agents:\n')
-    agents.forEach(a => {
+    agents.forEach((a) => {
       console.log(`  • ${a.name}`)
       console.log(`    ID: ${a.id}`)
       console.log(`    Phone: ${a.phoneNumber}`)
@@ -29,7 +29,7 @@ const listAgents = async () => {
     console.log('   Create one in the dashboard or via CLI.\n')
   } else {
     console.log('📋 Services/Tasks:\n')
-    tasks.forEach(t => {
+    tasks.forEach((t) => {
       console.log(`  • ${t.name}`)
       console.log(`    ID: ${t.id}`)
       console.log(`    Required Info: ${JSON.stringify(t.requiredInfo)}\n`)

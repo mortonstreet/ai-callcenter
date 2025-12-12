@@ -56,12 +56,12 @@ export class CalComClient {
 
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
   ): Promise<T> {
     // v1 API uses query param for auth
     const separator = endpoint.includes('?') ? '&' : '?'
     const url = `${CALCOM_API_URL}${endpoint}${separator}apiKey=${this.apiKey}`
-    
+
     const response = await fetch(url, {
       ...options,
       headers: {
@@ -83,7 +83,9 @@ export class CalComClient {
    * Get all event types for the authenticated user
    */
   async getEventTypes(): Promise<CalComEventType[]> {
-    const response = await this.request<{ event_types: CalComEventType[] }>('/event-types')
+    const response = await this.request<{ event_types: CalComEventType[] }>(
+      '/event-types',
+    )
     return response.event_types || []
   }
 
@@ -96,10 +98,13 @@ export class CalComClient {
     length: number
     description?: string
   }): Promise<CalComEventType> {
-    const response = await this.request<{ event_type: CalComEventType }>('/event-types', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    })
+    const response = await this.request<{ event_type: CalComEventType }>(
+      '/event-types',
+      {
+        method: 'POST',
+        body: JSON.stringify(params),
+      },
+    )
     return response.event_type
   }
 
@@ -107,17 +112,19 @@ export class CalComClient {
    * Get available time slots for an event type
    * Uses the /slots endpoint with username and event slug
    */
-  async getAvailability(params: GetAvailabilityParams & { username?: string; eventSlug?: string }): Promise<{ slots: Record<string, Array<{ time: string }>> }> {
+  async getAvailability(
+    params: GetAvailabilityParams & { username?: string; eventSlug?: string },
+  ): Promise<{ slots: Record<string, Array<{ time: string }>> }> {
     const queryParams = new URLSearchParams({
       startTime: params.startTime,
       endTime: params.endTime,
       eventTypeId: params.eventTypeId.toString(),
     })
-    
+
     // v1 uses /availability endpoint
-    const response = await this.request<{ slots: Record<string, Array<{ time: string }>> }>(
-      `/slots?${queryParams.toString()}`
-    )
+    const response = await this.request<{
+      slots: Record<string, Array<{ time: string }>>
+    }>(`/slots?${queryParams.toString()}`)
     return response
   }
 
@@ -168,7 +175,7 @@ export class CalComClient {
    */
   async getNextAvailableSlot(
     eventTypeId: number,
-    daysAhead: number = 7
+    daysAhead: number = 7,
   ): Promise<string | null> {
     const startTime = new Date()
     const endTime = new Date()
@@ -215,4 +222,3 @@ export const initCalComClient = (apiKey: string): CalComClient => {
   calComClientInstance = new CalComClient(apiKey)
   return calComClientInstance
 }
-

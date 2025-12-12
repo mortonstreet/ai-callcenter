@@ -136,10 +136,10 @@ export const deleteOrganization: AuthRequestHandler<
   }
 
   // Delete the organization (cascading deletes will handle related records)
-  await db
-    .deleteFrom('organization')
-    .where('id', '=', organizationId)
-    .execute()
+  await db.deleteFrom('organization').where('id', '=', organizationId).execute()
 
-  res.json({ success: true, message: `Organization "${existingOrg.name}" deleted successfully` })
+  res.json({
+    success: true,
+    message: `Organization "${existingOrg.name}" deleted successfully`,
+  })
 }

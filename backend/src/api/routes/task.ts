@@ -30,7 +30,14 @@ const router = Router()
 const UpdatePipelineStageSchema = z.object({
   organizationId: z.string(),
   id: z.string(),
-  pipelineStage: z.enum(['new', 'follow_up', 'booked', 'dispatched', 'closed_won', 'closed_lost']),
+  pipelineStage: z.enum([
+    'new',
+    'follow_up',
+    'booked',
+    'dispatched',
+    'closed_won',
+    'closed_lost',
+  ]),
 })
 
 router.get(
@@ -91,7 +98,13 @@ router.post(
 const UpdateRecordingQualitySchema = z.object({
   organizationId: z.string(),
   recordingId: z.string(),
-  callQuality: z.enum(['productive', 'short_call', 'no_conversation', 'robocall', 'spam']),
+  callQuality: z.enum([
+    'productive',
+    'short_call',
+    'no_conversation',
+    'robocall',
+    'spam',
+  ]),
 })
 
 router.post(

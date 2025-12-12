@@ -18,7 +18,10 @@ import {
   findAgentsByOrganization,
   getLeadsForExport,
 } from '@/repositories/organization.repository'
-import { createRecording, findTaskInstanceByConversationId } from '@/repositories/agent.repository'
+import {
+  createRecording,
+  findTaskInstanceByConversationId,
+} from '@/repositories/agent.repository'
 import { ElevenLabsClient } from '@/clients/elevenlabs.client'
 import { config } from '@/config'
 import logger from '@/lib/logger'
@@ -54,7 +57,7 @@ const classifyCallQuality = (
 
   // 2. Check for actual conversation content
   const summaryLower = (transcriptSummary || '').toLowerCase()
-  
+
   // Robocall indicators
   const robocallIndicators = [
     'automated',
@@ -66,8 +69,10 @@ const classifyCallQuality = (
     'automated message',
     'robo',
   ]
-  
-  if (robocallIndicators.some(indicator => summaryLower.includes(indicator))) {
+
+  if (
+    robocallIndicators.some((indicator) => summaryLower.includes(indicator))
+  ) {
     return {
       quality: CallQuality.ROBOCALL,
       reason: 'Automated/robocall indicators detected in transcript',
@@ -86,7 +91,11 @@ const classifyCallQuality = (
     'ended abruptly',
   ]
 
-  if (noConversationIndicators.some(indicator => summaryLower.includes(indicator))) {
+  if (
+    noConversationIndicators.some((indicator) =>
+      summaryLower.includes(indicator),
+    )
+  ) {
     return {
       quality: CallQuality.NO_CONVERSATION,
       reason: 'No meaningful conversation detected',
@@ -95,10 +104,15 @@ const classifyCallQuality = (
 
   // 3. Check transcript turns if available (array format)
   if (Array.isArray(transcript)) {
-    const userTurns = transcript.filter(t => t.role === 'user').length
-    const agentTurns = transcript.filter(t => t.role === 'agent' || t.role === 'assistant').length
-    
-    if (userTurns < MIN_CONVERSATION_TURNS || agentTurns < MIN_CONVERSATION_TURNS) {
+    const userTurns = transcript.filter((t) => t.role === 'user').length
+    const agentTurns = transcript.filter(
+      (t) => t.role === 'agent' || t.role === 'assistant',
+    ).length
+
+    if (
+      userTurns < MIN_CONVERSATION_TURNS ||
+      agentTurns < MIN_CONVERSATION_TURNS
+    ) {
       return {
         quality: CallQuality.NO_CONVERSATION,
         reason: `Insufficient conversation turns (user: ${userTurns}, agent: ${agentTurns})`,
@@ -117,7 +131,7 @@ const classifyCallQuality = (
     'anyone there',
   ]
 
-  if (spamIndicators.some(indicator => summaryLower.includes(indicator))) {
+  if (spamIndicators.some((indicator) => summaryLower.includes(indicator))) {
     return {
       quality: CallQuality.SPAM,
       reason: 'Spam/prank call indicators detected',
@@ -142,15 +156,15 @@ const classifyCallQuality = (
     'inspection',
   ]
 
-  const hasProductiveContent = productiveIndicators.some(indicator => 
-    summaryLower.includes(indicator)
+  const hasProductiveContent = productiveIndicators.some((indicator) =>
+    summaryLower.includes(indicator),
   )
 
   // If duration is reasonable and no negative indicators, consider productive
   if (durationSecs >= 30 || hasProductiveContent) {
     return {
       quality: CallQuality.PRODUCTIVE,
-      reason: hasProductiveContent 
+      reason: hasProductiveContent
         ? 'Meaningful conversation with business intent detected'
         : `Call duration (${durationSecs}s) indicates real conversation`,
     }
@@ -228,7 +242,8 @@ export const getTaskInstanceHandler: AuthRequestHandler<
 export const getRecordingsHandler: AuthRequestHandler<
   GetRecordingsRequest
 > = async (req, res) => {
-  const { organizationId, page, limit, sortBy, sortOrder, startDate, endDate } = req.validated
+  const { organizationId, page, limit, sortBy, sortOrder, startDate, endDate } =
+    req.validated
 
   const result = await getRecordings({
     organizationId,
@@ -258,7 +273,7 @@ export const updateTaskInstancePipelineHandler: AuthRequestHandler<
   // Update lead type based on pipeline stage
   let leadType: string | null = null
   let resolutionType: string | null = null
-  
+
   if (pipelineStage === PipelineStage.CLOSED_WON) {
     leadType = LeadType.BOOKING
     resolutionType = 'resolved'
@@ -294,16 +309,18 @@ export const syncRecordingsHandler: AuthRequestHandler<
 
   try {
     const client = new ElevenLabsClient(apiKey)
-    
+
     // Get all agents for this organization
     const agents = await findAgentsByOrganization(organizationId)
-    const elevenLabsAgents = agents.filter(a => a.externalType === AgentExternalType.ELEVEN_LABS)
-    
+    const elevenLabsAgents = agents.filter(
+      (a) => a.externalType === AgentExternalType.ELEVEN_LABS,
+    )
+
     if (elevenLabsAgents.length === 0) {
-      return res.json({ 
-        success: true, 
+      return res.json({
+        success: true,
         message: 'No ElevenLabs agents found',
-        synced: 0 
+        synced: 0,
       })
     }
 
@@ -312,20 +329,22 @@ export const syncRecordingsHandler: AuthRequestHandler<
 
     for (const agent of elevenLabsAgents) {
       try {
-        logger.info(`📡 Syncing conversations for agent: ${agent.name} (${agent.externalId})`)
-        
+        logger.info(
+          `📡 Syncing conversations for agent: ${agent.name} (${agent.externalId})`,
+        )
+
         // Get recent conversations from ElevenLabs
         const conversations = await client.getNewConversations(agent.externalId)
-        
+
         for (const conv of conversations) {
           // Check if recording already exists
           const existingTaskInstance = await findTaskInstanceByConversationId(
             conv.conversation_id,
-            organizationId
+            organizationId,
           )
 
           // Use the actual call timestamp from ElevenLabs (convert Unix seconds to Date)
-          const callTimestamp = conv.metadata?.start_time_unix_secs 
+          const callTimestamp = conv.metadata?.start_time_unix_secs
             ? new Date(conv.metadata.start_time_unix_secs * 1000)
             : new Date()
 
@@ -336,18 +355,21 @@ export const syncRecordingsHandler: AuthRequestHandler<
             const callDuration = conv.metadata?.call_duration_secs || 0
             const transcriptSummary = conv.analysis?.transcript_summary || null
             const transcript = conv.transcript || null
-            
+
             const qualityResult = classifyCallQuality(
               callDuration,
               transcriptSummary,
               transcript,
             )
-            
-            logger.info(`📊 Call quality for ${conv.conversation_id}: ${qualityResult.quality} (${qualityResult.reason})`)
+
+            logger.info(
+              `📊 Call quality for ${conv.conversation_id}: ${qualityResult.quality} (${qualityResult.reason})`,
+            )
 
             const recording = await createRecording({
               conversationId: conv.conversation_id,
-              callSid: conv.metadata?.phone_call?.call_sid || conv.conversation_id,
+              callSid:
+                conv.metadata?.phone_call?.call_sid || conv.conversation_id,
               taskInstanceId: existingTaskInstance?.id || null,
               organizationId,
               callDurationSeconds: callDuration,
@@ -359,12 +381,16 @@ export const syncRecordingsHandler: AuthRequestHandler<
               callQualityReason: qualityResult.reason,
             })
 
-            logger.info(`✅ Created recording ${recording.id} for conversation ${conv.conversation_id} (quality: ${qualityResult.quality})`)
+            logger.info(
+              `✅ Created recording ${recording.id} for conversation ${conv.conversation_id} (quality: ${qualityResult.quality})`,
+            )
             totalSynced++
           } catch (error: any) {
             // Likely duplicate - skip
             if (error?.code === '23505' || error?.message?.includes('unique')) {
-              logger.info(`⏭️ Recording already exists for ${conv.conversation_id}`)
+              logger.info(
+                `⏭️ Recording already exists for ${conv.conversation_id}`,
+              )
             } else {
               throw error
             }
@@ -384,7 +410,9 @@ export const syncRecordingsHandler: AuthRequestHandler<
     })
   } catch (error: any) {
     logger.error('Failed to sync recordings:', error)
-    res.status(500).json({ error: error.message || 'Failed to sync recordings' })
+    res
+      .status(500)
+      .json({ error: error.message || 'Failed to sync recordings' })
   }
 }
 
@@ -401,7 +429,12 @@ const escapeCSV = (value: string | null | undefined): string => {
   if (value == null) return ''
   const str = String(value)
   // If contains comma, newline, or quote, wrap in quotes and escape quotes
-  if (str.includes(',') || str.includes('\n') || str.includes('"') || str.includes('\r')) {
+  if (
+    str.includes(',') ||
+    str.includes('\n') ||
+    str.includes('"') ||
+    str.includes('\r')
+  ) {
     return `"${str.replace(/"/g, '""')}"`
   }
   return str
@@ -411,24 +444,53 @@ const escapeCSV = (value: string | null | undefined): string => {
 const extractCustomerInfo = (info: Record<string, unknown> | null) => {
   if (!info) return { name: '', phone: '', email: '', address: '' }
   return {
-    name: String(info.name || info['customer-name'] || info.Name || info.customerName || ''),
-    phone: String(info['phone-number'] || info.phone || info['Phone Number'] || info.phoneNumber || ''),
-    email: String(info['email-address'] || info.email || info['Email Address'] || info.emailAddress || ''),
-    address: String(info.address || info['customer-address'] || info['location-address'] || info.Address || ''),
+    name: String(
+      info.name ||
+        info['customer-name'] ||
+        info.Name ||
+        info.customerName ||
+        '',
+    ),
+    phone: String(
+      info['phone-number'] ||
+        info.phone ||
+        info['Phone Number'] ||
+        info.phoneNumber ||
+        '',
+    ),
+    email: String(
+      info['email-address'] ||
+        info.email ||
+        info['Email Address'] ||
+        info.emailAddress ||
+        '',
+    ),
+    address: String(
+      info.address ||
+        info['customer-address'] ||
+        info['location-address'] ||
+        info.Address ||
+        '',
+    ),
   }
 }
 
 // Format transcript from recording payload
 const formatTranscript = (payload: Record<string, unknown> | null): string => {
   if (!payload) return ''
-  
+
   // Try to get transcript array from payload
-  const transcript = payload.transcript as Array<{ role: string; message: string }> | undefined
+  const transcript = payload.transcript as
+    | Array<{ role: string; message: string }>
+    | undefined
   if (!transcript || !Array.isArray(transcript)) return ''
-  
+
   // Format transcript as readable text
   return transcript
-    .map(entry => `${entry.role === 'agent' ? 'Agent' : 'Customer'}: ${entry.message}`)
+    .map(
+      (entry) =>
+        `${entry.role === 'agent' ? 'Agent' : 'Customer'}: ${entry.message}`,
+    )
     .join(' | ')
 }
 
@@ -439,10 +501,10 @@ const formatFriendlyDate = (date: Date | string | null): string => {
   const month = d.toLocaleString('en-US', { month: 'short' })
   const day = d.getDate()
   const year = d.getFullYear()
-  const time = d.toLocaleString('en-US', { 
-    hour: 'numeric', 
-    minute: '2-digit', 
-    hour12: true 
+  const time = d.toLocaleString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
   })
   return `${month} ${day} ${year} ${time}`
 }
@@ -457,17 +519,53 @@ const formatDuration = (seconds: number | null): string => {
 
 // All available export fields - ALL values go through escapeCSV for safety
 const EXPORT_FIELDS = {
-  name: { header: 'Name', getValue: (lead: any, customer: any) => escapeCSV(customer.name) },
-  phone: { header: 'Phone', getValue: (lead: any, customer: any) => escapeCSV(customer.phone) },
-  email: { header: 'Email', getValue: (lead: any, customer: any) => escapeCSV(customer.email) },
-  address: { header: 'Address', getValue: (lead: any, customer: any) => escapeCSV(customer.address) },
-  pipelineStage: { header: 'Pipeline Stage', getValue: (lead: any) => escapeCSV(lead.pipelineStage?.replace(/_/g, ' ')) },
-  estimatedValue: { header: 'Estimated Value', getValue: (lead: any) => lead.estimatedValue ? `$${lead.estimatedValue}` : '' },
-  leadScore: { header: 'Lead Score', getValue: (lead: any) => lead.leadScore ? String(lead.leadScore) : '' },
-  appointmentTime: { header: 'Appointment Time', getValue: (lead: any) => escapeCSV(formatFriendlyDate(lead.appointmentTime)) },
-  callDate: { header: 'Call Date', getValue: (lead: any) => escapeCSV(formatFriendlyDate(lead.createdAt)) },
-  callDuration: { header: 'Call Duration', getValue: (lead: any) => formatDuration(lead.recordingDuration) },
-  transcriptSummary: { header: 'Transcript Summary', getValue: (lead: any) => escapeCSV(lead.transcriptSummary?.replace(/\n/g, ' ').replace(/\r/g, '')) },
+  name: {
+    header: 'Name',
+    getValue: (lead: any, customer: any) => escapeCSV(customer.name),
+  },
+  phone: {
+    header: 'Phone',
+    getValue: (lead: any, customer: any) => escapeCSV(customer.phone),
+  },
+  email: {
+    header: 'Email',
+    getValue: (lead: any, customer: any) => escapeCSV(customer.email),
+  },
+  address: {
+    header: 'Address',
+    getValue: (lead: any, customer: any) => escapeCSV(customer.address),
+  },
+  pipelineStage: {
+    header: 'Pipeline Stage',
+    getValue: (lead: any) => escapeCSV(lead.pipelineStage?.replace(/_/g, ' ')),
+  },
+  estimatedValue: {
+    header: 'Estimated Value',
+    getValue: (lead: any) =>
+      lead.estimatedValue ? `$${lead.estimatedValue}` : '',
+  },
+  leadScore: {
+    header: 'Lead Score',
+    getValue: (lead: any) => (lead.leadScore ? String(lead.leadScore) : ''),
+  },
+  appointmentTime: {
+    header: 'Appointment Time',
+    getValue: (lead: any) =>
+      escapeCSV(formatFriendlyDate(lead.appointmentTime)),
+  },
+  callDate: {
+    header: 'Call Date',
+    getValue: (lead: any) => escapeCSV(formatFriendlyDate(lead.createdAt)),
+  },
+  callDuration: {
+    header: 'Call Duration',
+    getValue: (lead: any) => formatDuration(lead.recordingDuration),
+  },
+  transcriptSummary: {
+    header: 'Transcript Summary',
+    getValue: (lead: any) =>
+      escapeCSV(lead.transcriptSummary?.replace(/\n/g, ' ').replace(/\r/g, '')),
+  },
 }
 
 const DEFAULT_FIELDS = Object.keys(EXPORT_FIELDS)
@@ -482,21 +580,27 @@ export const exportLeadsHandler: AuthRequestHandler<
     const leads = await getLeadsForExport(organizationId, startDate, endDate)
 
     // Determine which fields to include
-    const selectedFields = fields 
-      ? fields.split(',').filter(f => f in EXPORT_FIELDS)
+    const selectedFields = fields
+      ? fields.split(',').filter((f) => f in EXPORT_FIELDS)
       : DEFAULT_FIELDS
 
     // Build CSV headers from selected fields
-    const headers = selectedFields.map(f => EXPORT_FIELDS[f as keyof typeof EXPORT_FIELDS].header)
+    const headers = selectedFields.map(
+      (f) => EXPORT_FIELDS[f as keyof typeof EXPORT_FIELDS].header,
+    )
 
     // Build CSV rows
-    const rows = leads.map(lead => {
-      const customer = extractCustomerInfo(lead.info as Record<string, unknown> | null)
-      
-      return selectedFields.map(field => {
-        const fieldConfig = EXPORT_FIELDS[field as keyof typeof EXPORT_FIELDS]
-        return fieldConfig.getValue(lead, customer)
-      }).join(',')
+    const rows = leads.map((lead) => {
+      const customer = extractCustomerInfo(
+        lead.info as Record<string, unknown> | null,
+      )
+
+      return selectedFields
+        .map((field) => {
+          const fieldConfig = EXPORT_FIELDS[field as keyof typeof EXPORT_FIELDS]
+          return fieldConfig.getValue(lead, customer)
+        })
+        .join(',')
     })
 
     // Combine headers and rows
@@ -510,11 +614,10 @@ export const exportLeadsHandler: AuthRequestHandler<
       filename += `-${new Date().toISOString().split('T')[0]}`
     }
     filename += '.csv'
-    
+
     res.setHeader('Content-Type', 'text/csv')
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
     res.send(csv)
-    
   } catch (error: any) {
     logger.error('Failed to export leads:', error)
     res.status(500).json({ error: error.message || 'Failed to export leads' })
@@ -537,16 +640,24 @@ export const updateRecordingQualityHandler: AuthRequestHandler<
   const { organizationId, recordingId, callQuality } = req.validated
 
   try {
-    const { updateRecordingQuality } = await import('@/repositories/organization.repository')
-    
-    const recording = await updateRecordingQuality(recordingId, organizationId, {
-      callQuality,
-      callQualityReason: 'Manually updated by user',
-    })
+    const { updateRecordingQuality } = await import(
+      '@/repositories/organization.repository'
+    )
+
+    const recording = await updateRecordingQuality(
+      recordingId,
+      organizationId,
+      {
+        callQuality,
+        callQualityReason: 'Manually updated by user',
+      },
+    )
 
     res.json({ success: true, recording })
   } catch (error: any) {
     logger.error('Failed to update recording quality:', error)
-    res.status(500).json({ error: error.message || 'Failed to update recording quality' })
+    res
+      .status(500)
+      .json({ error: error.message || 'Failed to update recording quality' })
   }
 }

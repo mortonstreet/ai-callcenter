@@ -78,7 +78,9 @@ export const deleteTask = async (id: string, organizationId: string) => {
 }
 
 export const createRecording = async (
-  recording: Omit<DBRecording, 'id' | 'createdAt' | 'updatedAt'> & { createdAt?: Date },
+  recording: Omit<DBRecording, 'id' | 'createdAt' | 'updatedAt'> & {
+    createdAt?: Date
+  },
 ) => {
   const { createdAt, ...rest } = recording
   return await db

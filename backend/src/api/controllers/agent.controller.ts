@@ -24,7 +24,11 @@ import {
 } from '@/repositories/agent.repository'
 import { formatTaskFields } from '@/utils/task'
 import logger from '@/lib/logger'
-import { AgentExternalType, PipelineStage, CallQuality } from '@shared/types/src'
+import {
+  AgentExternalType,
+  PipelineStage,
+  CallQuality,
+} from '@shared/types/src'
 import { randomBytes } from 'crypto'
 import { Request, Response } from 'express'
 
@@ -52,26 +56,47 @@ const classifyCallQuality = (
   }
 
   const summaryLower = (transcriptSummary || '').toLowerCase()
-  
+
   // Robocall indicators
-  const robocallIndicators = ['automated', 'press 1', 'recording', 'robot', 'robo']
-  if (robocallIndicators.some(i => summaryLower.includes(i))) {
-    return { quality: CallQuality.ROBOCALL, reason: 'Robocall indicators detected' }
+  const robocallIndicators = [
+    'automated',
+    'press 1',
+    'recording',
+    'robot',
+    'robo',
+  ]
+  if (robocallIndicators.some((i) => summaryLower.includes(i))) {
+    return {
+      quality: CallQuality.ROBOCALL,
+      reason: 'Robocall indicators detected',
+    }
   }
 
   // No conversation indicators
-  const noConvoIndicators = ['no response', 'hung up', 'disconnected', 'silence', 'no audio']
-  if (noConvoIndicators.some(i => summaryLower.includes(i))) {
-    return { quality: CallQuality.NO_CONVERSATION, reason: 'No meaningful conversation' }
+  const noConvoIndicators = [
+    'no response',
+    'hung up',
+    'disconnected',
+    'silence',
+    'no audio',
+  ]
+  if (noConvoIndicators.some((i) => summaryLower.includes(i))) {
+    return {
+      quality: CallQuality.NO_CONVERSATION,
+      reason: 'No meaningful conversation',
+    }
   }
 
   // Spam indicators
   const spamIndicators = ['wrong number', 'prank', 'spam', 'test call']
-  if (spamIndicators.some(i => summaryLower.includes(i))) {
+  if (spamIndicators.some((i) => summaryLower.includes(i))) {
     return { quality: CallQuality.SPAM, reason: 'Spam/prank call detected' }
   }
 
-  return { quality: CallQuality.PRODUCTIVE, reason: 'Productive call with real conversation' }
+  return {
+    quality: CallQuality.PRODUCTIVE,
+    reason: 'Productive call with real conversation',
+  }
 }
 
 export const getAgents: AuthRequestHandler<GetAgentsRequest> = async (
@@ -165,14 +190,22 @@ export const agentWebhook: ValidatedRequestHandler<ElevenLabsWebhook> = async (
 ) => {
   const webhook = req.validated
 
-  logger.info(`Received webhook type: ${webhook.type} for conversation: ${webhook.data.conversation_id}`)
+  logger.info(
+    `Received webhook type: ${webhook.type} for conversation: ${webhook.data.conversation_id}`,
+  )
 
   try {
     // Only process conversation.ended events for recordings
     // Other events (started, in_progress) are acknowledged but not recorded
-    if (webhook.type !== 'conversation.ended' && webhook.type !== 'post_call_transcription') {
+    if (
+      webhook.type !== 'conversation.ended' &&
+      webhook.type !== 'post_call_transcription'
+    ) {
       logger.info(`Ignoring webhook type: ${webhook.type}`)
-      return res.json({ success: true, message: `Webhook type ${webhook.type} acknowledged` })
+      return res.json({
+        success: true,
+        message: `Webhook type ${webhook.type} acknowledged`,
+      })
     }
 
     // Find the agent in our system by ElevenLabs agent_id
@@ -197,8 +230,10 @@ export const agentWebhook: ValidatedRequestHandler<ElevenLabsWebhook> = async (
     const callDuration = webhook.data.metadata?.call_duration_secs || 0
     const transcriptSummary = webhook.data.analysis?.transcript_summary || null
     const qualityResult = classifyCallQuality(callDuration, transcriptSummary)
-    
-    logger.info(`📊 Call quality: ${qualityResult.quality} (${qualityResult.reason})`)
+
+    logger.info(
+      `📊 Call quality: ${qualityResult.quality} (${qualityResult.reason})`,
+    )
 
     // Create the recording
     const recording = await createRecording({
@@ -243,11 +278,11 @@ export const updateAgentMcpConfig: AuthRequestHandler<{
   generateNewApiKey?: boolean
   generateNewWebhookSecret?: boolean
 }> = async (req, res) => {
-  const { 
-    id, 
-    organizationId, 
-    mcpApiKey, 
-    webhookSecret, 
+  const {
+    id,
+    organizationId,
+    mcpApiKey,
+    webhookSecret,
     mcpEndpointUrl,
     generateNewApiKey,
     generateNewWebhookSecret,
@@ -283,7 +318,7 @@ export const updateAgentMcpConfig: AuthRequestHandler<{
   }
 
   const updatedAgent = await updateAgentMcpCredentials(id, updates)
-  
+
   logger.info(`Updated MCP config for agent ${agent.name} (${id})`)
 
   res.json({
@@ -325,7 +360,12 @@ export const getAgentMcpConfig: AuthRequestHandler<{
 
 // Cal.com webhook types
 interface CalComWebhookPayload {
-  triggerEvent: 'BOOKING_CREATED' | 'BOOKING_CANCELLED' | 'BOOKING_RESCHEDULED' | 'BOOKING_CONFIRMED' | 'BOOKING_REJECTED'
+  triggerEvent:
+    | 'BOOKING_CREATED'
+    | 'BOOKING_CANCELLED'
+    | 'BOOKING_RESCHEDULED'
+    | 'BOOKING_CONFIRMED'
+    | 'BOOKING_REJECTED'
   createdAt: string
   payload: {
     uid: string
@@ -368,13 +408,16 @@ export const calcomWebhook = async (req: Request, res: Response) => {
     if (!taskInstance) {
       logger.warn(`No task instance found for Cal.com booking: ${bookingUid}`)
       // Still return success - booking might not be from our system
-      return res.json({ success: true, message: 'Booking not linked to any lead' })
+      return res.json({
+        success: true,
+        message: 'Booking not linked to any lead',
+      })
     }
 
     switch (webhook.triggerEvent) {
       case 'BOOKING_CANCELLED': {
         logger.info(`📅 Booking CANCELLED: ${bookingUid}`)
-        
+
         await updateTaskInstanceBookingStatus(taskInstance.id, {
           bookingStatus: 'cancelled',
           bookingCancelledAt: new Date(),
@@ -383,8 +426,8 @@ export const calcomWebhook = async (req: Request, res: Response) => {
           pipelineStage: PipelineStage.FOLLOW_UP,
         })
 
-        return res.json({ 
-          success: true, 
+        return res.json({
+          success: true,
           message: 'Booking cancelled, lead moved to follow-up',
           taskInstanceId: taskInstance.id,
         })
@@ -392,16 +435,18 @@ export const calcomWebhook = async (req: Request, res: Response) => {
 
       case 'BOOKING_RESCHEDULED': {
         logger.info(`📅 Booking RESCHEDULED: ${bookingUid}`)
-        
+
         await updateTaskInstanceBookingStatus(taskInstance.id, {
           bookingStatus: 'rescheduled',
-          appointmentTime: webhook.payload.startTime ? new Date(webhook.payload.startTime) : null,
+          appointmentTime: webhook.payload.startTime
+            ? new Date(webhook.payload.startTime)
+            : null,
           // Stay in booked stage
           pipelineStage: PipelineStage.BOOKED,
         })
 
-        return res.json({ 
-          success: true, 
+        return res.json({
+          success: true,
           message: 'Booking rescheduled',
           taskInstanceId: taskInstance.id,
           newTime: webhook.payload.startTime,
@@ -410,14 +455,14 @@ export const calcomWebhook = async (req: Request, res: Response) => {
 
       case 'BOOKING_CONFIRMED': {
         logger.info(`📅 Booking CONFIRMED: ${bookingUid}`)
-        
+
         await updateTaskInstanceBookingStatus(taskInstance.id, {
           bookingStatus: 'confirmed',
           pipelineStage: PipelineStage.BOOKED,
         })
 
-        return res.json({ 
-          success: true, 
+        return res.json({
+          success: true,
           message: 'Booking confirmed',
           taskInstanceId: taskInstance.id,
         })
@@ -425,7 +470,7 @@ export const calcomWebhook = async (req: Request, res: Response) => {
 
       case 'BOOKING_REJECTED': {
         logger.info(`📅 Booking REJECTED: ${bookingUid}`)
-        
+
         await updateTaskInstanceBookingStatus(taskInstance.id, {
           bookingStatus: 'cancelled',
           bookingCancelledAt: new Date(),
@@ -433,8 +478,8 @@ export const calcomWebhook = async (req: Request, res: Response) => {
           pipelineStage: PipelineStage.FOLLOW_UP,
         })
 
-        return res.json({ 
-          success: true, 
+        return res.json({
+          success: true,
           message: 'Booking rejected, lead moved to follow-up',
           taskInstanceId: taskInstance.id,
         })
@@ -442,7 +487,10 @@ export const calcomWebhook = async (req: Request, res: Response) => {
 
       default: {
         logger.info(`📅 Unhandled Cal.com event: ${webhook.triggerEvent}`)
-        return res.json({ success: true, message: `Event ${webhook.triggerEvent} acknowledged` })
+        return res.json({
+          success: true,
+          message: `Event ${webhook.triggerEvent} acknowledged`,
+        })
       }
     }
   } catch (error) {

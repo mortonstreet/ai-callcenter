@@ -4,20 +4,26 @@ import {
   updateTaskInstance as updateTaskInstanceRepository,
 } from '@/repositories/organization.repository'
 import { McpCreateTaskInput } from '@/types/mcp'
-import { TaskStatus, LeadType, PipelineStage, CustomerType } from '@shared/types/src'
+import {
+  TaskStatus,
+  LeadType,
+  PipelineStage,
+  CustomerType,
+} from '@shared/types/src'
 import { findById as findUserById } from '@/repositories/user.repository'
 import { sendTaskInstanceToDispatcher } from '@/clients/email.client'
 
 // Lead scoring based on service type and customer info
 const calculateLeadScore = (serviceArgs: Record<string, unknown>): number => {
   let score = 50 // Base score
-  
+
   // Commercial properties are typically higher value
-  const locationType = serviceArgs['location-status'] || serviceArgs['locationType']
+  const locationType =
+    serviceArgs['location-status'] || serviceArgs['locationType']
   if (locationType === 'commercial') {
     score += 20
   }
-  
+
   // Has complete contact info
   if (serviceArgs['email-address'] || serviceArgs['customerEmail']) {
     score += 10
@@ -28,19 +34,23 @@ const calculateLeadScore = (serviceArgs: Record<string, unknown>): number => {
   if (serviceArgs['address'] || serviceArgs['customerAddress']) {
     score += 10
   }
-  
+
   return Math.min(score, 100)
 }
 
 // Estimate revenue based on service type and location
-const estimateRevenue = (serviceArgs: Record<string, unknown>, taskName?: string): number => {
+const estimateRevenue = (
+  serviceArgs: Record<string, unknown>,
+  taskName?: string,
+): number => {
   let baseValue = 200 // Base inspection value
-  
-  const locationType = serviceArgs['location-status'] || serviceArgs['locationType']
+
+  const locationType =
+    serviceArgs['location-status'] || serviceArgs['locationType']
   if (locationType === 'commercial') {
     baseValue = 500 // Commercial jobs are higher value
   }
-  
+
   // Adjust based on service type
   const serviceName = (taskName || '').toLowerCase()
   if (serviceName.includes('wildlife') || serviceName.includes('removal')) {
@@ -49,21 +59,24 @@ const estimateRevenue = (serviceArgs: Record<string, unknown>, taskName?: string
   if (serviceName.includes('termite')) {
     baseValue *= 2
   }
-  
+
   return baseValue
 }
 
 // Determine initial tags based on input
-const generateInitialTags = (serviceArgs: Record<string, unknown>): string[] => {
+const generateInitialTags = (
+  serviceArgs: Record<string, unknown>,
+): string[] => {
   const tags: string[] = ['human_caller'] // Default - will be updated if robo detected
-  
-  const locationType = serviceArgs['location-status'] || serviceArgs['locationType']
+
+  const locationType =
+    serviceArgs['location-status'] || serviceArgs['locationType']
   if (locationType === 'commercial') {
     tags.push('commercial')
   } else {
     tags.push('residential')
   }
-  
+
   return tags
 }
 
@@ -75,11 +88,11 @@ export const createTaskInstance = async (
   if (!task) {
     throw new Error('Task not found')
   }
-  
+
   const leadScore = calculateLeadScore(input.serviceArgs)
   const estimatedValue = estimateRevenue(input.serviceArgs, task.name)
   const tags = generateInitialTags(input.serviceArgs)
-  
+
   const taskInstance = await createTaskInstanceRepository({
     taskId: task.id,
     status: TaskStatus.PENDING,
@@ -116,7 +129,7 @@ export const updateTaskInstanceWithBooking = async (
     calcomBookingId: string
     calcomEventId?: number
     appointmentTime: Date
-  }
+  },
 ) => {
   return await updateTaskInstanceRepository(taskInstanceId, {
     leadType: LeadType.BOOKING,

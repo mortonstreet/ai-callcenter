@@ -209,10 +209,18 @@ export const getTaskInstances = async (filters: {
     baseQuery = baseQuery.where('task.name', 'ilike', `%${filters.search}%`)
   }
   if (filters.startDate) {
-    baseQuery = baseQuery.where('task_instance.createdAt', '>=', new Date(filters.startDate))
+    baseQuery = baseQuery.where(
+      'task_instance.createdAt',
+      '>=',
+      new Date(filters.startDate),
+    )
   }
   if (filters.endDate) {
-    baseQuery = baseQuery.where('task_instance.createdAt', '<=', new Date(filters.endDate))
+    baseQuery = baseQuery.where(
+      'task_instance.createdAt',
+      '<=',
+      new Date(filters.endDate),
+    )
   }
 
   // Get total count - separate query
@@ -328,14 +336,18 @@ export const getRecordings = async (filters: {
   let countQuery = db
     .selectFrom('recording')
     .where('organizationId', '=', filters.organizationId)
-  
+
   if (filters.startDate) {
-    countQuery = countQuery.where('createdAt', '>=', new Date(filters.startDate))
+    countQuery = countQuery.where(
+      'createdAt',
+      '>=',
+      new Date(filters.startDate),
+    )
   }
   if (filters.endDate) {
     countQuery = countQuery.where('createdAt', '<=', new Date(filters.endDate))
   }
-  
+
   // Get total count
   const countResult = await countQuery
     .select(db.fn.countAll<number>().as('count'))
@@ -346,26 +358,26 @@ export const getRecordings = async (filters: {
   let query = db
     .selectFrom('recording')
     .where('organizationId', '=', filters.organizationId)
-  
+
   if (filters.startDate) {
     query = query.where('createdAt', '>=', new Date(filters.startDate))
   }
   if (filters.endDate) {
     query = query.where('createdAt', '<=', new Date(filters.endDate))
   }
-  
+
   query = query.select([
-      'id',
-      'conversationId',
-      'callSid',
-      'taskInstanceId',
-      'organizationId',
-      'callDurationSeconds',
-      'transcriptSummary',
-      'payload',
-      'createdAt',
-      'updatedAt',
-    ])
+    'id',
+    'conversationId',
+    'callSid',
+    'taskInstanceId',
+    'organizationId',
+    'callDurationSeconds',
+    'transcriptSummary',
+    'payload',
+    'createdAt',
+    'updatedAt',
+  ])
 
   // Apply sorting
   const sortBy = filters.sortBy || 'createdAt'
@@ -423,15 +435,23 @@ export const getLeadsForExport = async (
   let taskQuery = db
     .selectFrom('task_instance')
     .where('task_instance.organizationId', '=', organizationId)
-  
+
   // Apply date filters
   if (startDate) {
-    taskQuery = taskQuery.where('task_instance.createdAt', '>=', new Date(startDate))
+    taskQuery = taskQuery.where(
+      'task_instance.createdAt',
+      '>=',
+      new Date(startDate),
+    )
   }
   if (endDate) {
-    taskQuery = taskQuery.where('task_instance.createdAt', '<=', new Date(endDate))
+    taskQuery = taskQuery.where(
+      'task_instance.createdAt',
+      '<=',
+      new Date(endDate),
+    )
   }
-  
+
   const tasks = await taskQuery
     .select([
       'task_instance.id',
@@ -450,14 +470,22 @@ export const getLeadsForExport = async (
   let recordingQuery = db
     .selectFrom('recording')
     .where('recording.organizationId', '=', organizationId)
-  
+
   if (startDate) {
-    recordingQuery = recordingQuery.where('recording.createdAt', '>=', new Date(startDate))
+    recordingQuery = recordingQuery.where(
+      'recording.createdAt',
+      '>=',
+      new Date(startDate),
+    )
   }
   if (endDate) {
-    recordingQuery = recordingQuery.where('recording.createdAt', '<=', new Date(endDate))
+    recordingQuery = recordingQuery.where(
+      'recording.createdAt',
+      '<=',
+      new Date(endDate),
+    )
   }
-  
+
   const recordings = await recordingQuery
     .select([
       'recording.id',
@@ -470,11 +498,11 @@ export const getLeadsForExport = async (
     .execute()
 
   // Create maps of recordings for quick lookup
-  const recordingByTaskId = new Map<string, typeof recordings[0]>()
-  const recordingByConvId = new Map<string, typeof recordings[0]>()
-  const recordingByPhone = new Map<string, typeof recordings[0]>()
-  const recordingByEmail = new Map<string, typeof recordings[0]>()
-  
+  const recordingByTaskId = new Map<string, (typeof recordings)[0]>()
+  const recordingByConvId = new Map<string, (typeof recordings)[0]>()
+  const recordingByPhone = new Map<string, (typeof recordings)[0]>()
+  const recordingByEmail = new Map<string, (typeof recordings)[0]>()
+
   for (const rec of recordings) {
     if (rec.taskInstanceId) {
       recordingByTaskId.set(rec.taskInstanceId, rec)
@@ -485,16 +513,17 @@ export const getLeadsForExport = async (
     // Extract customer data from ElevenLabs data_collection_results
     const payload = rec.payload as Record<string, any> | null
     const dataCollection = payload?.analysis?.data_collection_results
-    
+
     // Try phone number
-    const phoneNumber = dataCollection?.customer_phone?.value ||
-                       payload?.metadata?.phone_call?.from_number
+    const phoneNumber =
+      dataCollection?.customer_phone?.value ||
+      payload?.metadata?.phone_call?.from_number
     if (phoneNumber) {
       // Normalize phone number (remove non-digits)
       const normalizedPhone = String(phoneNumber).replace(/\D/g, '')
       recordingByPhone.set(normalizedPhone, rec)
     }
-    
+
     // Try email
     const email = dataCollection?.customer_email?.value
     if (email) {
@@ -509,33 +538,35 @@ export const getLeadsForExport = async (
   }
 
   // Match recordings to tasks
-  const leads = tasks.map(task => {
+  const leads = tasks.map((task) => {
     // Try to find a matching recording by multiple methods
     let recording = recordingByTaskId.get(task.id)
-    
+
     if (!recording && task.conversationId) {
       recording = recordingByConvId.get(task.conversationId)
     }
-    
+
     const taskInfo = task.info as Record<string, any> | null
-    
+
     // Try matching by phone number from task info
     if (!recording) {
-      const taskPhone = taskInfo?.['phone-number'] || taskInfo?.phone || taskInfo?.phoneNumber
+      const taskPhone =
+        taskInfo?.['phone-number'] || taskInfo?.phone || taskInfo?.phoneNumber
       if (taskPhone) {
         const normalizedTaskPhone = normalizePhone(taskPhone)
         recording = recordingByPhone.get(normalizedTaskPhone)
       }
     }
-    
+
     // Try matching by email from task info
     if (!recording) {
-      const taskEmail = taskInfo?.['email-address'] || taskInfo?.email || taskInfo?.emailAddress
+      const taskEmail =
+        taskInfo?.['email-address'] || taskInfo?.email || taskInfo?.emailAddress
       if (taskEmail) {
         recording = recordingByEmail.get(taskEmail.toLowerCase())
       }
     }
-    
+
     return {
       ...task,
       recordingDuration: recording?.callDurationSeconds || null,

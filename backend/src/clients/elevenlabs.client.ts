@@ -6,20 +6,22 @@ interface ElevenLabsConversation {
   agent_id: string
   conversation_id: string
   status: 'processing' | 'done' | 'failed'
-  transcript?: string | Array<{
-    role: 'agent' | 'user'
-    message: string
-    time_in_call_secs?: number
-    tool_calls?: Array<{
-      tool_name: string
-      params_as_json?: string
-    }>
-    tool_results?: Array<{
-      tool_name: string
-      result_value?: string
-      is_error?: boolean
-    }>
-  }>
+  transcript?:
+    | string
+    | Array<{
+        role: 'agent' | 'user'
+        message: string
+        time_in_call_secs?: number
+        tool_calls?: Array<{
+          tool_name: string
+          params_as_json?: string
+        }>
+        tool_results?: Array<{
+          tool_name: string
+          result_value?: string
+          is_error?: boolean
+        }>
+      }>
   metadata?: {
     start_time_unix_secs?: number
     end_time_unix_secs?: number
@@ -69,9 +71,12 @@ export class ElevenLabsClient {
     this.apiKey = apiKey
   }
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {},
+  ): Promise<T> {
     const url = `${ELEVENLABS_API_URL}${endpoint}`
-    
+
     const response = await fetch(url, {
       ...options,
       headers: {
@@ -95,9 +100,12 @@ export class ElevenLabsClient {
    * @param agentId - The ElevenLabs agent ID
    * @param pageSize - Number of conversations to return (default 100)
    */
-  async listConversations(agentId: string, pageSize: number = 100): Promise<ListConversationsResponse> {
+  async listConversations(
+    agentId: string,
+    pageSize: number = 100,
+  ): Promise<ListConversationsResponse> {
     return this.request<ListConversationsResponse>(
-      `/convai/conversations?agent_id=${agentId}&page_size=${pageSize}`
+      `/convai/conversations?agent_id=${agentId}&page_size=${pageSize}`,
     )
   }
 
@@ -105,9 +113,11 @@ export class ElevenLabsClient {
    * Get conversation details including full transcript
    * @param conversationId - The conversation ID
    */
-  async getConversation(conversationId: string): Promise<ElevenLabsConversationDetail> {
+  async getConversation(
+    conversationId: string,
+  ): Promise<ElevenLabsConversationDetail> {
     return this.request<ElevenLabsConversationDetail>(
-      `/convai/conversations/${conversationId}`
+      `/convai/conversations/${conversationId}`,
     )
   }
 
@@ -115,9 +125,11 @@ export class ElevenLabsClient {
    * Get conversation audio as a buffer
    * @param conversationId - The conversation ID
    */
-  async getConversationAudio(conversationId: string): Promise<{ buffer: Buffer; contentType: string }> {
+  async getConversationAudio(
+    conversationId: string,
+  ): Promise<{ buffer: Buffer; contentType: string }> {
     const url = `${ELEVENLABS_API_URL}/convai/conversations/${conversationId}/audio`
-    
+
     const response = await fetch(url, {
       headers: {
         'xi-api-key': this.apiKey,
@@ -126,8 +138,12 @@ export class ElevenLabsClient {
 
     if (!response.ok) {
       const errorText = await response.text()
-      logger.error(`ElevenLabs audio API error: ${response.status} - ${errorText}`)
-      throw new Error(`ElevenLabs audio API error: ${response.status} - ${errorText}`)
+      logger.error(
+        `ElevenLabs audio API error: ${response.status} - ${errorText}`,
+      )
+      throw new Error(
+        `ElevenLabs audio API error: ${response.status} - ${errorText}`,
+      )
     }
 
     const arrayBuffer = await response.arrayBuffer()
@@ -139,34 +155,44 @@ export class ElevenLabsClient {
 
   /**
    * Fetch new conversations since last sync and return processed data
-   * @param agentId - The ElevenLabs agent ID  
+   * @param agentId - The ElevenLabs agent ID
    * @param sinceTimestamp - Only get conversations after this timestamp (Unix seconds)
    */
-  async getNewConversations(agentId: string, sinceTimestamp?: number): Promise<ElevenLabsConversationDetail[]> {
+  async getNewConversations(
+    agentId: string,
+    sinceTimestamp?: number,
+  ): Promise<ElevenLabsConversationDetail[]> {
     const response = await this.listConversations(agentId)
-    
+
     const newConversations: ElevenLabsConversationDetail[] = []
-    
+
     for (const conv of response.conversations) {
       // Skip if conversation is still processing
       if (conv.status !== 'done') {
         continue
       }
-      
+
       // Skip if older than sinceTimestamp
-      if (sinceTimestamp && conv.metadata?.start_time_unix_secs && conv.metadata.start_time_unix_secs < sinceTimestamp) {
+      if (
+        sinceTimestamp &&
+        conv.metadata?.start_time_unix_secs &&
+        conv.metadata.start_time_unix_secs < sinceTimestamp
+      ) {
         continue
       }
-      
+
       // Get full conversation details
       try {
         const details = await this.getConversation(conv.conversation_id)
         newConversations.push(details)
       } catch (error) {
-        logger.error(`Failed to get conversation ${conv.conversation_id}:`, error)
+        logger.error(
+          `Failed to get conversation ${conv.conversation_id}:`,
+          error,
+        )
       }
     }
-    
+
     return newConversations
   }
 }
@@ -188,4 +214,3 @@ export const initElevenLabsClient = (apiKey: string): ElevenLabsClient => {
   elevenLabsClientInstance = new ElevenLabsClient(apiKey)
   return elevenLabsClientInstance
 }
-

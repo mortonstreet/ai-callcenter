@@ -10,7 +10,7 @@ const generateSecureKey = (prefix: string = ''): string => {
 
 const addMcpKey = async () => {
   const mcpApiKey = generateSecureKey('mcp_')
-  
+
   const agent = await db
     .updateTable('agent')
     .set({
@@ -26,9 +26,13 @@ const addMcpKey = async () => {
   console.log(`   Agent ID: ${agent.id}`)
   console.log(`   ElevenLabs ID: ${agent.externalId}`)
   console.log(`\n🔑 MCP API Key: ${mcpApiKey}`)
-  console.log(`\n📍 MCP Endpoint: https://meerkat-revcenter.ngrok.dev/api/mcp/sse`)
+  console.log(
+    `\n📍 MCP Endpoint: https://meerkat-revcenter.ngrok.dev/api/mcp/sse`,
+  )
   console.log(`\n⚙️  Configure your ElevenLabs agent with:`)
-  console.log(`   - Server URL: https://meerkat-revcenter.ngrok.dev/api/mcp/sse`)
+  console.log(
+    `   - Server URL: https://meerkat-revcenter.ngrok.dev/api/mcp/sse`,
+  )
   console.log(`   - Header: x-api-key: ${mcpApiKey}\n`)
 }
 
@@ -38,6 +42,3 @@ addMcpKey()
     console.error('Error:', err)
     process.exit(1)
   })
-
-
-

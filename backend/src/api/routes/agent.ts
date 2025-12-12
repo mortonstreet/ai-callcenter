@@ -43,7 +43,7 @@ const UpdateAgentMcpConfigSchema = z.object({
   generateNewWebhookSecret: z.boolean().optional(),
 })
 
-// Schema for getting agent MCP configuration  
+// Schema for getting agent MCP configuration
 const GetAgentMcpConfigSchema = z.object({
   id: z.string(),
   organizationId: z.string(),
