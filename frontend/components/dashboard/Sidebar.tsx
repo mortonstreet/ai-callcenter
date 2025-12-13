@@ -195,6 +195,20 @@ export default function Sidebar({
                     )}
                   </button>
                 ))}
+                {onOpenCreateOrg && (
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onOpenCreateOrg();
+                    }}
+                    className="w-full flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition text-[var(--color-primary)] hover:bg-gray-50"
+                  >
+                    <div className="w-8 h-8 rounded-lg border-2 border-dashed border-[var(--color-primary)] flex items-center justify-center flex-shrink-0">
+                      <span className="text-[var(--color-primary)] font-semibold text-lg">+</span>
+                    </div>
+                    <span>Create Organization</span>
+                  </button>
+                )}
               </div>
               
               <button
@@ -294,7 +308,7 @@ export default function Sidebar({
               <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
                 <div className="max-h-64 overflow-y-auto">
                   {organizations?.data?.map((org) => (
-                    <button 
+                    <button
                       key={org.id}
                       onClick={() => handleSwitchOrg(org.id)}
                       disabled={setActiveMutation.isPending}
@@ -316,6 +330,23 @@ export default function Sidebar({
                       )}
                     </button>
                   ))}
+                  {onOpenCreateOrg && (
+                    <>
+                      <div className="border-t border-gray-100" />
+                      <button
+                        onClick={() => {
+                          setOrgDropdownOpen(false);
+                          onOpenCreateOrg();
+                        }}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-sm hover:bg-gray-50 transition text-left text-[var(--color-primary)]"
+                      >
+                        <div className="w-8 h-8 rounded-lg border-2 border-dashed border-[var(--color-primary)] flex items-center justify-center flex-shrink-0">
+                          <span className="text-[var(--color-primary)] font-semibold text-lg">+</span>
+                        </div>
+                        <span>Create Organization</span>
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             )}

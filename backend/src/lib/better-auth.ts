@@ -93,6 +93,32 @@ export const auth = betterAuth({
         },
       },
     },
+    organization: {
+      create: {
+        before: async (
+          _org: { name: string; slug: string },
+          context: { context?: { session?: { user?: { id: string } } } },
+        ) => {
+          // Only platform admins can create organizations
+          const userId = context?.context?.session?.user?.id
+          if (!userId) {
+            throw new Error(
+              'Authentication required to create an organization.',
+            )
+          }
+          const user = await db
+            .selectFrom('user')
+            .where('id', '=', userId)
+            .select('isAdmin')
+            .executeTakeFirst()
+
+          if (!user?.isAdmin) {
+            throw new Error('Only administrators can create organizations.')
+          }
+          return { data: _org }
+        },
+      },
+    },
   },
   emailAndPassword: {
     enabled: true,

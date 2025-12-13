@@ -118,25 +118,14 @@ export default function AcceptInvitationPage() {
             You&apos;ve been invited to join an organization on Vaci.
           </p>
           
-          <div className="space-y-3">
-            <Button
-              onClick={handleAcceptInvitation}
-              loading={isAccepting}
-              disabled={isAccepting}
-              className="w-full"
-            >
-              Accept Invitation
-            </Button>
-            
-            <Button
-              onClick={() => router.push("/dashboard")}
-              variant="outline"
-              disabled={isAccepting}
-              className="w-full"
-            >
-              Decline
-            </Button>
-          </div>
+          <Button
+            onClick={handleAcceptInvitation}
+            loading={isAccepting}
+            disabled={isAccepting}
+            className="w-full"
+          >
+            Accept Invitation
+          </Button>
         </div>
       </AuthCard>
     </div>
