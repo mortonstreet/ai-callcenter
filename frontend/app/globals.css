@@ -3,7 +3,7 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-  --color-primary:    #ff991c;
+  --color-primary: #1b191a;
 }
 
 @theme inline {
@@ -39,21 +39,21 @@ html, body { height: 100%; background: linear-gradient(#fff, #f7f7f8); }
 }
 
 .color-primary {
-  color: #ff991c;
+  color: #1b191a;
 }
 
 .bg-primary {
-  background-color: #ff991c;
+  background-color: #1b191a;
 }
 
 .border-primary {
-  border-color: #ff991c;
+  border-color: #1b191a;
 }
 
 .text-primary {
-  color: #ff991c;
+  color: #1b191a;
 }
 
 .hover\:bg-primary:hover {
-  background-color: #e68a19;
+  background-color: #2d2a2b;
 }
