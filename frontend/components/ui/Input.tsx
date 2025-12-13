@@ -24,6 +24,7 @@ export default function Input({ label, error, hint, className = "", type, ...res
                       ${error ? "border-red-500" : "border-gray-300"}
                       text-black placeholder:text-gray-400
                       ${isPassword ? "pr-10" : ""}
+                      ${rest.disabled ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""}
                       ${className}`}
         />
 

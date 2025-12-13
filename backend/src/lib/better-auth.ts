@@ -1,6 +1,6 @@
 import { betterAuth, Session } from 'better-auth'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
-import { prisma_OnlyForBetterAuth } from '@/lib/db'
+import { prisma_OnlyForBetterAuth, db } from '@/lib/db'
 import { organization } from 'better-auth/plugins'
 import { buildInvitationLink } from '@/utils/invitation.utils'
 import {
@@ -45,6 +45,28 @@ export const auth = betterAuth({
     },
   },
   databaseHooks: {
+    user: {
+      create: {
+        before: async (user) => {
+          // Enforce invite-only signup: check if a valid invitation exists for this email
+          const invitation = await db
+            .selectFrom('invitation')
+            .where('email', '=', user.email)
+            .where('status', '=', 'pending')
+            .where('expiresAt', '>', new Date())
+            .selectAll()
+            .executeTakeFirst()
+
+          if (!invitation) {
+            throw new Error(
+              'Signup requires a valid invitation. Please contact an administrator.',
+            )
+          }
+
+          return { data: user }
+        },
+      },
+    },
     session: {
       create: {
         before: async (data, _context) => {
