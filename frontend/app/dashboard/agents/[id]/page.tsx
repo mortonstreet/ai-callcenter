@@ -117,7 +117,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
 
   if (isEditing) {
     return (
-      <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
+      <div className="border-[0.5px] border-gray-300 rounded-xl p-4 bg-gray-50">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -127,7 +127,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black placeholder:text-gray-400"
+              className="w-full px-3 py-2 border-[0.5px] border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black placeholder:text-gray-400"
               placeholder="Service name"
               required
             />
@@ -140,7 +140,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black placeholder:text-gray-400"
+              className="w-full px-3 py-2 border-[0.5px] border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black placeholder:text-gray-400"
               placeholder="Give your agent more context about this service, such as pricing current discounts, etc."
             />
           </div>
@@ -151,7 +151,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
             <select
               value={dispatcherUserId}
               onChange={(e) => setDispatcherUserId(e.target.value)}
-              className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black"
+              className="w-full px-3 py-2 pr-8 border-[0.5px] border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black"
               aria-label="Assign to user"
             >
               <option value="">No assignment (optional)</option>
@@ -178,7 +178,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
             </div>
             <div className="space-y-3">
               {taskFields.map((field, index) => (
-                <div key={index} className="flex gap-3 items-start p-3 bg-white rounded-lg border border-gray-200">
+                <div key={index} className="flex gap-3 items-start p-3 bg-white rounded-lg border-[0.5px] border-gray-300">
                   <div className="flex-1 space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -187,14 +187,14 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
                           value={field.name}
                           onChange={(e) => updateField(index, { name: e.target.value })}
                           placeholder="Field name"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black placeholder:text-gray-400"
+                          className="w-full px-3 py-2 border-[0.5px] border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black placeholder:text-gray-400"
                         />
                       </div>
                       <div>
                         <select
                           value={field.type}
                           onChange={(e) => updateField(index, { type: e.target.value as TaskFieldType })}
-                          className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black"
+                          className="w-full px-3 py-2 pr-8 border-[0.5px] border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black"
                           aria-label="Field type"
                         >
                           {FIELD_TYPE_OPTIONS.map((option) => (
@@ -211,7 +211,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
                         value={field.description || ""}
                         onChange={(e) => updateField(index, { description: e.target.value })}
                         placeholder="Field description (optional)"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black placeholder:text-gray-400"
+                        className="w-full px-3 py-2 border-[0.5px] border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black placeholder:text-gray-400"
                       />
                     </div>
                   </div>
@@ -251,7 +251,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:border-gray-300 transition">
+    <div className="bg-white border-[0.5px] border-gray-300 rounded-xl p-4 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)] hover:border-gray-300 transition">
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <h4 className="font-semibold text-gray-900 mb-1">{task.name}</h4>
@@ -347,7 +347,7 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
           Back to Agents
         </Link>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+        <div className="bg-white rounded-xl border-[0.5px] border-gray-300 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
           <div className="flex items-start justify-between mb-6">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center">
@@ -380,7 +380,7 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+          <div className="bg-white rounded-xl border-[0.5px] border-gray-300 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -395,14 +395,14 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
           </div>
 
           {isElevenLabs && (
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+            <div className="bg-white rounded-xl border-[0.5px] border-gray-300 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Test Your Agent</h3>
               <ElevenLabsConversation agentId={agent.externalId} />
             </div>
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+        <div className="bg-white rounded-xl border-[0.5px] border-gray-300 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Services</h3>
             {!showCreateTask && isAdminOrOwner && (

@@ -76,10 +76,10 @@ export default function Sidebar({
       href={href}
       onClick={onClick}
       className={[
-        "group flex items-center gap-3 rounded-xl px-3 py-1.5 text-[15px] font-medium text-neutral-800",
+        "group flex items-center gap-3 rounded-xl px-3 py-1.5 text-[15px] font-medium text-neutral-600",
         active
-          ? "bg-white shadow-lg shadow-black/1"
-          : "hover:bg-gray-50 hover:shadow-lg hover:shadow-black/1 active:bg-white active:shadow-lg active:shadow-black/1",
+          ? "bg-gray-100 text-black!"
+          : "hover:bg-gray-50 active:bg-gray-100 active:text-black",
       ].join(" ")}
     >
       <Icon className="h-[18px] w-[18px] opacity-90" />
@@ -235,8 +235,8 @@ export default function Sidebar({
       <aside
         className="
           fixed inset-y-0 left-0 z-20
-          w-64 md:w-72
-          bg-[#f5f5f5]
+          w-56 md:w-64
+          bg-white
           px-3 py-4 md:px-4 md:py-6
           hidden sm:flex
           flex-col
@@ -253,7 +253,7 @@ export default function Sidebar({
         </div>
 
         {/* Primary nav */}
-        <nav className="space-y-1">
+        <nav className="space-y-0.5">
           {nav.map((n) => (
             <Item
               key={n.href}
@@ -266,7 +266,7 @@ export default function Sidebar({
         </nav>
 
         {/* Bottom actions pinned */}
-        <div className="mt-auto space-y-2 pt-6">
+        <div className="mt-auto space-y-0.5 pt-6">
           {isAdmin && adminNav.map((n) => (
             <Item
               key={n.href}
@@ -292,7 +292,7 @@ export default function Sidebar({
               onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
               className="
                 group flex w-full items-center justify-between gap-3 rounded-xl px-3 py-1.5 text-[15px] font-medium
-                text-neutral-800 hover:bg-gray-50 hover:shadow-lg hover:shadow-black/1 active:bg-white active:shadow-lg active:shadow-black/1 cursor-pointer
+                text-neutral-600 hover:bg-gray-50 active:bg-gray-100 active:text-black cursor-pointer
               "
             >
               <div className="flex items-center gap-3 min-w-0">
@@ -301,7 +301,7 @@ export default function Sidebar({
                     {activeOrganization?.data?.name?.charAt(0).toUpperCase() || "O"}
                   </span>
                 </div>
-                <span className="truncate text-neutral-800">{activeOrganization?.data?.name || "Organization"}</span>
+                <span className="truncate">{activeOrganization?.data?.name || "Organization"}</span>
               </div>
               <ChevronDown className={`h-4 w-4 transition-transform flex-shrink-0 ${orgDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -356,7 +356,7 @@ export default function Sidebar({
             onClick={onLogout}
             className="
               group flex w-full items-center gap-3 rounded-xl px-3 py-1.5 text-[15px] font-medium
-              text-red-600 hover:bg-gray-50 hover:shadow-lg hover:shadow-black/1 active:bg-white active:shadow-lg active:shadow-black/1 cursor-pointer
+              text-red-600 hover:bg-gray-50 active:bg-gray-100 cursor-pointer
             "
           >
             <LogOut className="h-[18px] w-[18px]" />

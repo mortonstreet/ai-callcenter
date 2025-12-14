@@ -152,7 +152,7 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
 
       <div className="grid gap-6">
         {/* Details Card with Status */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+        <div className="bg-white rounded-xl border-[0.5px] border-gray-300 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Details</h2>
           
           {/* Status Selector */}
@@ -220,7 +220,7 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
         </div>
 
         {/* Collected Information */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+        <div className="bg-white rounded-xl border-[0.5px] border-gray-300 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Collected Information</h2>
           {displayFields.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -263,7 +263,7 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
 
         {/* Recording Section */}
         {recording && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+          <div className="bg-white rounded-xl border-[0.5px] border-gray-300 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Recording</h2>
             <div className="space-y-4">
               {/* Call Duration */}
@@ -321,7 +321,7 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
 
         {/* Transcript Section */}
         {transcript.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+          <div className="bg-white rounded-xl border-[0.5px] border-gray-300 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Conversation Transcript</h2>
             <div className="space-y-4">
               {transcript.map((turn: any, index: number) => {

@@ -90,7 +90,7 @@ export default function RecordingsPage() {
   return (
     <Page title="Recordings" subtitle="Listen to call recordings">
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border-[0.5px] border-gray-300 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -148,7 +148,7 @@ export default function RecordingsPage() {
                         )}
                       </div>
                       {hoveredId === recording.id && recording.transcriptSummary && (
-                        <div className="absolute z-10 left-6 right-6 top-full mt-1 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-lg max-w-2xl">
+                        <div className="absolute z-10 left-6 right-6 top-full mt-1 p-3 bg-gray-900 text-white text-sm rounded-lg shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]-lg max-w-2xl">
                           {recording.transcriptSummary}
                         </div>
                       )}
@@ -201,7 +201,7 @@ export default function RecordingsPage() {
               <button
                 onClick={() => setPage(page - 1)}
                 disabled={!pagination.hasPrevPage}
-                className="px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                className="px-3 py-1 border-[0.5px] border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
               >
                 <ChevronLeft className="h-4 w-4" />
                 Previous
@@ -209,7 +209,7 @@ export default function RecordingsPage() {
               <button
                 onClick={() => setPage(page + 1)}
                 disabled={!pagination.hasNextPage}
-                className="px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                className="px-3 py-1 border-[0.5px] border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
               >
                 Next
                 <ChevronRight className="h-4 w-4" />

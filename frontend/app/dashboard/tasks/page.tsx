@@ -101,7 +101,7 @@ export default function TasksPage() {
               placeholder="Search by task name..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-black"
+              className="w-full pl-10 pr-4 py-2 border-[0.5px] border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-black"
             />
           </div>
         </div>
@@ -112,7 +112,7 @@ export default function TasksPage() {
             setStatusFilter(e.target.value);
             setPage(1);
           }}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-black"
+          className="px-4 py-2 border-[0.5px] border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-black"
           aria-label="Filter by status"
         >
           <option value="">All Statuses</option>
@@ -130,7 +130,7 @@ export default function TasksPage() {
             setHasSetDefaultDispatcher(true); // Mark as manually changed
             setPage(1);
           }}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-black"
+          className="px-4 py-2 border-[0.5px] border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-black"
           aria-label="Filter by assignee"
         >
           <option value="">All Assignees</option>
@@ -148,7 +148,7 @@ export default function TasksPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border-[0.5px] border-gray-300 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -231,7 +231,7 @@ export default function TasksPage() {
               <button
                 onClick={() => setPage(page - 1)}
                 disabled={!pagination.hasPrevPage}
-                className="px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                className="px-3 py-1 border-[0.5px] border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
               >
                 <ChevronLeft className="h-4 w-4" />
                 Previous
@@ -239,7 +239,7 @@ export default function TasksPage() {
               <button
                 onClick={() => setPage(page + 1)}
                 disabled={!pagination.hasNextPage}
-                className="px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                className="px-3 py-1 border-[0.5px] border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
               >
                 Next
                 <ChevronRight className="h-4 w-4" />
