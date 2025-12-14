@@ -76,10 +76,10 @@ export default function Sidebar({
       href={href}
       onClick={onClick}
       className={[
-        "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition",
+        "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-black",
         active
-          ? "bg-[var(--color-primary)] text-white"
-          : "text-gray-800 hover:bg-gray-100",
+          ? "bg-white shadow-lg shadow-black/1"
+          : "hover:bg-gray-50 hover:shadow-lg hover:shadow-black/1 active:bg-white active:shadow-lg active:shadow-black/1",
       ].join(" ")}
     >
       <Icon className="h-5 w-5 opacity-90" />
@@ -93,7 +93,7 @@ export default function Sidebar({
       <div className="sm:hidden fixed top-0 left-0 right-0 z-30 bg-white/90 backdrop-blur border-b border-gray-200">
         <div className="flex items-center justify-between px-4 py-3">
           <Link href="/dashboard" className="text-lg font-semibold tracking-tight text-gray-900 hover:opacity-80 transition">
-            Vaci
+            RevCenter
           </Link>
           
           <button
@@ -234,7 +234,7 @@ export default function Sidebar({
         className="
           fixed inset-y-0 left-0 z-20
           w-60 md:w-64
-          border-r border-gray-200 bg-white/90 backdrop-blur
+          bg-[#f5f5f5]
           px-3 py-4 md:px-4 md:py-6
           hidden sm:flex
           flex-col
@@ -243,14 +243,12 @@ export default function Sidebar({
         {/* Top: logo / app name */}
         <div className="mb-5 px-2">
           <Link href="/dashboard" className="text-lg font-semibold tracking-tight text-gray-900 hover:opacity-80 transition">
-            Vaci
+            RevCenter
           </Link>
         </div>
-        
-        <div className="border-b border-gray-200 mb-6" />
 
         {/* Primary nav */}
-        <nav className="space-y-2">
+        <nav className="space-y-1">
           {nav.map((n) => (
             <Item
               key={n.href}
@@ -272,7 +270,7 @@ export default function Sidebar({
         </nav>
 
         {/* Bottom actions pinned */}
-        <div className="mt-auto space-y-2 pt-6 border-t border-gray-200">
+        <div className="mt-auto space-y-2 pt-6">
           {bottom.map((n) => (
             <Item
               key={n.href}
@@ -288,13 +286,13 @@ export default function Sidebar({
             <button
               onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
               className="
-                group flex w-full items-center justify-between gap-3 rounded-xl pl-1 pr-3 py-2 text-sm font-medium
-                text-gray-800 hover:bg-gray-100 transition border border-gray-200
+                group flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm font-medium
+                text-black hover:bg-gray-50 hover:shadow-lg hover:shadow-black/1 active:bg-white active:shadow-lg active:shadow-black/1 cursor-pointer
               "
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)] flex items-center justify-center flex-shrink-0">
-                  <span className="text-white font-semibold text-sm">
+                <div className="w-5 h-5 rounded bg-[var(--color-primary)] flex items-center justify-center flex-shrink-0">
+                  <span className="text-white font-semibold text-xs">
                     {activeOrganization?.data?.name?.charAt(0).toUpperCase() || "O"}
                   </span>
                 </div>
@@ -305,47 +303,44 @@ export default function Sidebar({
 
             {/* Dropdown */}
             {orgDropdownOpen && (
-              <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
-                <div className="max-h-64 overflow-y-auto">
+              <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-xl shadow-lg p-1.5">
+                <div className="max-h-64 overflow-y-auto space-y-1">
                   {organizations?.data?.map((org) => (
                     <button
                       key={org.id}
                       onClick={() => handleSwitchOrg(org.id)}
                       disabled={setActiveMutation.isPending}
                       className={`
-                        w-full flex items-center gap-3 px-3 py-2 text-sm
-                        hover:bg-gray-50 transition text-left
-                        ${org.id === activeOrganization?.data?.id ? 'bg-gray-50' : ''}
+                        w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg cursor-pointer text-left
+                        hover:bg-gray-100 active:bg-gray-200
+                        ${org.id === activeOrganization?.data?.id ? 'bg-gray-100' : ''}
                         disabled:opacity-50 disabled:cursor-not-allowed
                       `}
                     >
-                      <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)] flex items-center justify-center flex-shrink-0">
-                        <span className="text-white font-semibold text-sm">
+                      <div className="w-5 h-5 rounded bg-[var(--color-primary)] flex items-center justify-center shrink-0">
+                        <span className="text-white font-semibold text-xs">
                           {org.name.charAt(0).toUpperCase()}
                         </span>
                       </div>
-                      <span className="truncate text-gray-800">{org.name}</span>
+                      <span className="truncate text-black">{org.name}</span>
                       {org.id === activeOrganization?.data?.id && (
                         <span className="ml-auto text-xs text-[var(--color-primary)]">✓</span>
                       )}
                     </button>
                   ))}
                   {onOpenCreateOrg && (
-                    <>
-                      <div className="border-t border-gray-100" />
-                      <button
-                        onClick={() => {
-                          setOrgDropdownOpen(false);
-                          onOpenCreateOrg();
-                        }}
-                        className="w-full flex items-center gap-3 px-3 py-2 text-sm hover:bg-gray-50 transition text-left text-[var(--color-primary)]"
-                      >
-                        <div className="w-8 h-8 rounded-lg border-2 border-dashed border-[var(--color-primary)] flex items-center justify-center flex-shrink-0">
-                          <span className="text-[var(--color-primary)] font-semibold text-lg">+</span>
-                        </div>
-                        <span>Create Organization</span>
-                      </button>
-                    </>
+                    <button
+                      onClick={() => {
+                        setOrgDropdownOpen(false);
+                        onOpenCreateOrg();
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg cursor-pointer text-left text-[var(--color-primary)] hover:bg-gray-100 active:bg-gray-200"
+                    >
+                      <div className="w-5 h-5 rounded border-2 border-dashed border-[var(--color-primary)] flex items-center justify-center shrink-0">
+                        <span className="text-[var(--color-primary)] font-semibold text-xs">+</span>
+                      </div>
+                      <span>Create Organization</span>
+                    </button>
                   )}
                 </div>
               </div>
@@ -356,7 +351,7 @@ export default function Sidebar({
             onClick={onLogout}
             className="
               group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium
-              text-red-600 hover:bg-red-50 transition
+              text-red-600 hover:bg-gray-50 hover:shadow-lg hover:shadow-black/1 active:bg-white active:shadow-lg active:shadow-black/1 cursor-pointer
             "
           >
             <LogOut className="h-5 w-5" />
