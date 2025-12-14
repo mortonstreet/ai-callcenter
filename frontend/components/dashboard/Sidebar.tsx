@@ -4,7 +4,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, ListTodo, Video, Settings, LogOut, ChevronDown, Shield, LayoutDashboard } from "lucide-react";
+import { Bot, ListTodo, Video, Settings, LogOut, ChevronDown, ChevronsUpDown, Shield, LayoutDashboard, User } from "lucide-react";
 import { useOrganizations, useSetActiveOrganizationMutation } from "@/hooks/api/useOrganization";
 import { toast } from "sonner";
 import { useActiveOrganization, useSession } from "@/lib/auth-client";
@@ -17,6 +17,7 @@ const nav = [
   { href: "/dashboard/tasks", label: "Tasks", icon: ListTodo },
   { href: "/dashboard/recordings", label: "Recordings", icon: Video },
 ];
+
 
 const bottom = [
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
@@ -37,18 +38,23 @@ export default function Sidebar({
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const profileDropdownRef = useRef<HTMLDivElement>(null);
   const activeOrganization = useActiveOrganization();
   const { data: organizations } = useOrganizations();
   const setActiveMutation = useSetActiveOrganizationMutation();
   const { data: session } = useSession();
   const isAdmin = (session?.user as DBUser)?.isAdmin === true;
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setOrgDropdownOpen(false);
+      }
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
+        setProfileDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -214,19 +220,33 @@ export default function Sidebar({
                 )}
               </div>
               
-              <button
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onLogout?.();
-                }}
-                className="
-                  group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium
-                  text-red-600 hover:bg-red-50 transition
-                "
-              >
-                <LogOut className="h-[18px] w-[18px]" />
-                <span>Logout</span>
-              </button>
+              {/* Mobile Profile Section */}
+              <div className="space-y-2">
+                <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
+                  Profile
+                </div>
+                <Link
+                  href="/dashboard/settings"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition text-neutral-800 hover:bg-gray-50"
+                >
+                  <Settings className="h-[18px] w-[18px]" />
+                  <span>Settings</span>
+                </Link>
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onLogout?.();
+                  }}
+                  className="
+                    group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium
+                    text-red-600 hover:bg-red-50 transition
+                  "
+                >
+                  <LogOut className="h-[18px] w-[18px]" />
+                  <span>Logout</span>
+                </button>
+              </div>
             </div>
           </nav>
         </div>
@@ -304,7 +324,7 @@ export default function Sidebar({
                 </div>
                 <span className="truncate">{activeOrganization?.data?.name || "Organization"}</span>
               </div>
-              <ChevronDown className={`h-4 w-4 transition-transform flex-shrink-0 ${orgDropdownOpen ? 'rotate-180' : ''}`} />
+              <ChevronsUpDown className="h-4 w-4 shrink-0" />
             </button>
 
             {/* Dropdown */}
@@ -350,16 +370,56 @@ export default function Sidebar({
             )}
           </div>
 
-          <button
-            onClick={onLogout}
-            className="
-              group flex w-full items-center gap-3 rounded-xl px-3 py-1.5 text-[15px] font-medium
-              text-red-600 hover:bg-gray-50 active:bg-gray-100 cursor-pointer
-            "
-          >
-            <LogOut className="h-[18px] w-[18px]" />
-            <span>Logout</span>
-          </button>
+          {/* Profile Menu */}
+          <div className="relative" ref={profileDropdownRef}>
+            <button
+              onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+              className="
+                group flex w-full items-center justify-between gap-3 rounded-xl px-3 py-1.5 text-[15px] font-medium
+                text-neutral-600 hover:bg-gray-50 active:bg-gray-100 active:text-black cursor-pointer
+              "
+            >
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-5 h-5 rounded-full bg-neutral-200 flex items-center justify-center shrink-0">
+                  <User className="h-3 w-3 text-neutral-600" />
+                </div>
+                <span className="truncate">{session?.user?.name || "Profile"}</span>
+              </div>
+              <ChevronDown className={`h-4 w-4 transition-transform shrink-0 ${profileDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Profile Dropdown */}
+            {profileDropdownOpen && (
+              <div className={`absolute bottom-full left-0 right-0 mb-0.5 ${cardStyles} p-1.5`}>
+                <div className="space-y-0.5">
+                  <Link
+                    href="/dashboard/settings"
+                    onClick={() => setProfileDropdownOpen(false)}
+                    className="
+                      w-full flex items-center gap-3 px-3 py-1.5 text-[15px] font-medium rounded-lg cursor-pointer text-left
+                      text-neutral-600 hover:bg-gray-50 active:bg-gray-100 active:text-black
+                    "
+                  >
+                    <Settings className="h-[18px] w-[18px]" />
+                    <span>Settings</span>
+                  </Link>
+                  <button
+                    onClick={() => {
+                      setProfileDropdownOpen(false);
+                      onLogout?.();
+                    }}
+                    className="
+                      w-full flex items-center gap-3 px-3 py-1.5 text-[15px] font-medium rounded-lg cursor-pointer text-left
+                      text-red-600 hover:bg-red-50 active:bg-red-100
+                    "
+                  >
+                    <LogOut className="h-[18px] w-[18px]" />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </aside>
     </>
