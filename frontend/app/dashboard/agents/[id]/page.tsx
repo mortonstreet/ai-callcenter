@@ -117,7 +117,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
 
   if (isEditing) {
     return (
-      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+      <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -251,7 +251,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
   }
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition">
+    <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:border-gray-300 transition">
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <h4 className="font-semibold text-gray-900 mb-1">{task.name}</h4>
@@ -347,7 +347,7 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
           Back to Agents
         </Link>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
           <div className="flex items-start justify-between mb-6">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center">
@@ -380,7 +380,7 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -395,14 +395,14 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
           </div>
 
           {isElevenLabs && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Test Your Agent</h3>
               <ElevenLabsConversation agentId={agent.externalId} />
             </div>
           )}
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Services</h3>
             {!showCreateTask && isAdminOrOwner && (

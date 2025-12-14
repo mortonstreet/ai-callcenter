@@ -111,7 +111,7 @@ export default function DashboardPage() {
     <Page title="Dashboard" subtitle="Overview of your organization's activity">
       {/* Date Range Filter */}
       <div className="flex flex-wrap items-center gap-3 mb-8">
-        <div className="flex bg-white rounded-xl border border-gray-200 p-1">
+        <div className="flex bg-white rounded-xl border border-gray-200 p-1 shadow-sm">
           {DATE_RANGES.map((range) => (
             <button
               key={range.id}
@@ -152,7 +152,7 @@ export default function DashboardPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Total Tasks</p>
@@ -166,7 +166,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Total Recordings</p>
@@ -180,7 +180,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Efficiency</p>
@@ -203,7 +203,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500">Active Agents</p>
@@ -219,7 +219,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Chart */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Activity Overview</h3>
@@ -283,7 +283,7 @@ export default function DashboardPage() {
       {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         {/* Recent Tasks */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Recent Tasks</h3>
             <TrendingUp className="h-5 w-5 text-gray-400" />
@@ -323,7 +323,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent Recordings */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Recent Recordings</h3>
             <Calendar className="h-5 w-5 text-gray-400" />

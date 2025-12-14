@@ -21,7 +21,7 @@ export default function AgentsPage() {
         )}
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 shadow-sm">
             <p className="text-sm text-red-800">Failed to load agents. Please try again.</p>
           </div>
         )}
@@ -32,7 +32,7 @@ export default function AgentsPage() {
               <Link
                 key={agent.id}
                 href={`/dashboard/agents/${agent.id}`}
-                className="group p-6 bg-white rounded-lg border border-gray-200 hover:border-[var(--color-primary)] hover:shadow-md transition cursor-pointer"
+                className="group p-6 bg-white rounded-xl border border-gray-200 shadow-sm hover:border-[var(--color-primary)] hover:shadow-md transition cursor-pointer"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="w-10 h-10 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center flex-shrink-0">

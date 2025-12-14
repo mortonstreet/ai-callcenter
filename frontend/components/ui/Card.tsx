@@ -25,7 +25,7 @@ export default function Card({
 }) {
   return (
     <div
-      className={`w-full ${size ? sizeClass[size] : ''} rounded-2xl border border-gray-200 bg-white/90 p-6 md:p-8 shadow-sm overflow-hidden ${className}`}
+      className={`w-full ${size ? sizeClass[size] : ''} rounded-xl border border-gray-200 bg-white p-6 md:p-8 shadow-sm overflow-hidden ${className}`}
     >
       <h2 className="mb-6 text-xl font-semibold text-gray-900">
         {title}

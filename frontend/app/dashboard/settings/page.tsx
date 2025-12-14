@@ -314,7 +314,7 @@ export default function SettingsPage() {
                     <div className="text-sm text-gray-500">Loading subscription...</div>
                   ) : subscription ? (
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[var(--color-primary)]/5 to-[var(--color-primary)]/10 rounded-lg border border-[var(--color-primary)]/20">
+                      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[var(--color-primary)]/5 to-[var(--color-primary)]/10 rounded-xl border border-[var(--color-primary)]/20">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-[var(--color-primary)] rounded-lg flex items-center justify-center">
                             <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -340,7 +340,7 @@ export default function SettingsPage() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      <div className="p-4 bg-[var(--color-primary)]/5 rounded-lg border border-[var(--color-primary)]/20">
+                      <div className="p-4 bg-[var(--color-primary)]/5 rounded-xl border border-[var(--color-primary)]/20">
                         <div className="space-y-1">
                             <p className="text-sm font-medium text-gray-900">Currently on: Free Plan</p>
                           <p className="text-sm text-[var(--color-primary)]">
@@ -384,7 +384,7 @@ export default function SettingsPage() {
                     <div className="space-y-4">
                       <h3 className="text-sm font-semibold text-gray-900">Invite New Member</h3>
                       {impersonatedOrg ? (
-                        <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                        <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl shadow-sm">
                           <p className="text-sm text-purple-700">
                             To invite members to <strong>{impersonatedOrg.name}</strong>, use the Admin Dashboard.
                           </p>
@@ -440,7 +440,7 @@ export default function SettingsPage() {
                         return (
                           <div
                             key={member.id}
-                            className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+                            className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
                           >
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-full bg-[var(--color-primary)] flex items-center justify-center overflow-hidden">
@@ -525,7 +525,7 @@ export default function SettingsPage() {
                             return (
                               <div
                                 key={invitation.id}
-                                className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+                                className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
                               >
                                 <div className="flex items-center gap-3">
                                   <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
