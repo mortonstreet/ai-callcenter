@@ -76,13 +76,13 @@ export default function Sidebar({
       href={href}
       onClick={onClick}
       className={[
-        "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-black",
+        "group flex items-center gap-3 rounded-xl px-3 py-1.5 text-[15px] font-medium text-neutral-800",
         active
           ? "bg-white shadow-lg shadow-black/1"
           : "hover:bg-gray-50 hover:shadow-lg hover:shadow-black/1 active:bg-white active:shadow-lg active:shadow-black/1",
       ].join(" ")}
     >
-      <Icon className="h-5 w-5 opacity-90" />
+      <Icon className="h-[18px] w-[18px] opacity-90" />
       <span className="truncate">{label}</span>
     </Link>
   );
@@ -92,7 +92,10 @@ export default function Sidebar({
       {/* Mobile Top Nav */}
       <div className="sm:hidden fixed top-0 left-0 right-0 z-30 bg-white/90 backdrop-blur border-b border-gray-200">
         <div className="flex items-center justify-between px-4 py-3">
-          <Link href="/dashboard" className="text-lg font-semibold tracking-tight text-gray-900 hover:opacity-80 transition">
+          <Link href="/dashboard" className="flex items-center gap-2 text-2xl font-black tracking-tighter text-neutral-800 uppercase hover:opacity-80 transition">
+            <div className="w-6 h-6 rounded-md bg-neutral-800 flex items-center justify-center">
+              {/* Icon placeholder */}
+            </div>
             RevCenter
           </Link>
           
@@ -103,19 +106,19 @@ export default function Sidebar({
           >
             <span
               className={[
-                "block w-6 h-0.5 bg-gray-900 transition-all duration-300 ease-in-out",
+                "block w-6 h-0.5 bg-neutral-800 transition-all duration-300 ease-in-out",
                 mobileMenuOpen ? "rotate-45 translate-y-2" : "",
               ].join(" ")}
             />
             <span
               className={[
-                "block w-6 h-0.5 bg-gray-900 transition-all duration-300 ease-in-out",
+                "block w-6 h-0.5 bg-neutral-800 transition-all duration-300 ease-in-out",
                 mobileMenuOpen ? "opacity-0" : "",
               ].join(" ")}
             />
             <span
               className={[
-                "block w-6 h-0.5 bg-gray-900 transition-all duration-300 ease-in-out",
+                "block w-6 h-0.5 bg-neutral-800 transition-all duration-300 ease-in-out",
                 mobileMenuOpen ? "-rotate-45 -translate-y-2" : "",
               ].join(" ")}
             />
@@ -141,18 +144,17 @@ export default function Sidebar({
               />
             ))}
 
-            {isAdmin && adminNav.map((n) => (
-              <Item
-                key={n.href}
-                href={n.href}
-                label={n.label}
-                icon={n.icon}
-                active={pathname?.startsWith(n.href)}
-                onClick={() => setMobileMenuOpen(false)}
-              />
-            ))}
-            
             <div className="pt-2 mt-2 border-t border-gray-200 space-y-2">
+              {isAdmin && adminNav.map((n) => (
+                <Item
+                  key={n.href}
+                  href={n.href}
+                  label={n.label}
+                  icon={n.icon}
+                  active={pathname?.startsWith(n.href)}
+                  onClick={() => setMobileMenuOpen(false)}
+                />
+              ))}
               {bottom.map((n) => (
                 <Item
                   key={n.href}
@@ -179,7 +181,7 @@ export default function Sidebar({
                     disabled={setActiveMutation.isPending}
                     className={`
                       w-full flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition
-                      text-gray-800
+                      text-neutral-800
                       ${org.id === activeOrganization?.data?.id ? 'bg-gray-100' : 'hover:bg-gray-50'}
                       disabled:opacity-50 disabled:cursor-not-allowed
                     `}
@@ -189,7 +191,7 @@ export default function Sidebar({
                         {org.name.charAt(0).toUpperCase()}
                       </span>
                     </div>
-                    <span className="flex-1 min-w-0 text-left text-gray-800">{org.name}</span>
+                    <span className="flex-1 min-w-0 text-left text-neutral-800">{org.name}</span>
                     {org.id === activeOrganization?.data?.id && (
                       <span className="flex-shrink-0 text-[var(--color-primary)]">✓</span>
                     )}
@@ -221,7 +223,7 @@ export default function Sidebar({
                   text-red-600 hover:bg-red-50 transition
                 "
               >
-                <LogOut className="h-5 w-5" />
+                <LogOut className="h-[18px] w-[18px]" />
                 <span>Logout</span>
               </button>
             </div>
@@ -233,7 +235,7 @@ export default function Sidebar({
       <aside
         className="
           fixed inset-y-0 left-0 z-20
-          w-60 md:w-64
+          w-64 md:w-72
           bg-[#f5f5f5]
           px-3 py-4 md:px-4 md:py-6
           hidden sm:flex
@@ -242,7 +244,10 @@ export default function Sidebar({
       >
         {/* Top: logo / app name */}
         <div className="mb-5 px-2">
-          <Link href="/dashboard" className="text-lg font-semibold tracking-tight text-gray-900 hover:opacity-80 transition">
+          <Link href="/dashboard" className="flex items-center gap-2 text-3xl font-black tracking-tighter text-neutral-800 uppercase hover:opacity-80 transition">
+            <div className="w-6 h-6 rounded-md bg-neutral-800 flex items-center justify-center">
+              {/* Icon placeholder */}
+            </div>
             RevCenter
           </Link>
         </div>
@@ -258,6 +263,10 @@ export default function Sidebar({
               active={n.href === "/dashboard" ? pathname === n.href : pathname?.startsWith(n.href)}
             />
           ))}
+        </nav>
+
+        {/* Bottom actions pinned */}
+        <div className="mt-auto space-y-2 pt-6">
           {isAdmin && adminNav.map((n) => (
             <Item
               key={n.href}
@@ -267,10 +276,6 @@ export default function Sidebar({
               active={pathname?.startsWith(n.href)}
             />
           ))}
-        </nav>
-
-        {/* Bottom actions pinned */}
-        <div className="mt-auto space-y-2 pt-6">
           {bottom.map((n) => (
             <Item
               key={n.href}
@@ -286,8 +291,8 @@ export default function Sidebar({
             <button
               onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
               className="
-                group flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm font-medium
-                text-black hover:bg-gray-50 hover:shadow-lg hover:shadow-black/1 active:bg-white active:shadow-lg active:shadow-black/1 cursor-pointer
+                group flex w-full items-center justify-between gap-3 rounded-xl px-3 py-1.5 text-[15px] font-medium
+                text-neutral-800 hover:bg-gray-50 hover:shadow-lg hover:shadow-black/1 active:bg-white active:shadow-lg active:shadow-black/1 cursor-pointer
               "
             >
               <div className="flex items-center gap-3 min-w-0">
@@ -296,7 +301,7 @@ export default function Sidebar({
                     {activeOrganization?.data?.name?.charAt(0).toUpperCase() || "O"}
                   </span>
                 </div>
-                <span className="truncate text-gray-800">{activeOrganization?.data?.name || "Organization"}</span>
+                <span className="truncate text-neutral-800">{activeOrganization?.data?.name || "Organization"}</span>
               </div>
               <ChevronDown className={`h-4 w-4 transition-transform flex-shrink-0 ${orgDropdownOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -322,7 +327,7 @@ export default function Sidebar({
                           {org.name.charAt(0).toUpperCase()}
                         </span>
                       </div>
-                      <span className="truncate text-black">{org.name}</span>
+                      <span className="truncate text-neutral-800">{org.name}</span>
                       {org.id === activeOrganization?.data?.id && (
                         <span className="ml-auto text-xs text-[var(--color-primary)]">✓</span>
                       )}
@@ -350,11 +355,11 @@ export default function Sidebar({
           <button
             onClick={onLogout}
             className="
-              group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium
+              group flex w-full items-center gap-3 rounded-xl px-3 py-1.5 text-[15px] font-medium
               text-red-600 hover:bg-gray-50 hover:shadow-lg hover:shadow-black/1 active:bg-white active:shadow-lg active:shadow-black/1 cursor-pointer
             "
           >
-            <LogOut className="h-5 w-5" />
+            <LogOut className="h-[18px] w-[18px]" />
             <span>Logout</span>
           </button>
         </div>
