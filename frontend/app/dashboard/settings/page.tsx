@@ -440,7 +440,7 @@ export default function SettingsPage() {
                         return (
                           <div
                             key={member.id}
-                            className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
+                            className="flex items-center justify-between p-4 bg-white border-[0.5px] border-gray-300 rounded-xl hover:bg-gray-50"
                           >
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-full bg-[var(--color-primary)] flex items-center justify-center overflow-hidden">
@@ -525,7 +525,7 @@ export default function SettingsPage() {
                             return (
                               <div
                                 key={invitation.id}
-                                className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
+                                className="flex items-center justify-between p-4 bg-white border-[0.5px] border-gray-300 rounded-xl hover:bg-gray-50"
                               >
                                 <div className="flex items-center gap-3">
                                   <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">

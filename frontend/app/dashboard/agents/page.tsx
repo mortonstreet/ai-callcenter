@@ -4,6 +4,7 @@ import { Page } from "@/components/dashboard/Page";
 import Link from "next/link";
 import { Bot, Loader2 } from "lucide-react";
 import { useAgents } from "@/hooks/api/useAgent";
+import { cardStyles } from "@/components/ui/Card";
 
 export default function AgentsPage() {
   const { data: agents, isLoading, error } = useAgents();
@@ -32,7 +33,7 @@ export default function AgentsPage() {
               <Link
                 key={agent.id}
                 href={`/dashboard/agents/${agent.id}`}
-                className="group p-6 bg-white rounded-xl border-[0.5px] border-gray-300 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)] hover:border-[var(--color-primary)] hover:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)] transition cursor-pointer"
+                className={`group p-6 ${cardStyles} hover:border-[var(--color-primary)] cursor-pointer`}
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="w-10 h-10 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center flex-shrink-0">

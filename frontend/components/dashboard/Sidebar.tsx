@@ -9,6 +9,7 @@ import { useOrganizations, useSetActiveOrganizationMutation } from "@/hooks/api/
 import { toast } from "sonner";
 import { useActiveOrganization, useSession } from "@/lib/auth-client";
 import { DBUser } from "@shared/types/src";
+import { cardStyles } from "@/components/ui/Card";
 
 const nav = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
@@ -308,17 +309,17 @@ export default function Sidebar({
 
             {/* Dropdown */}
             {orgDropdownOpen && (
-              <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-xl shadow-lg p-1.5">
-                <div className="max-h-64 overflow-y-auto space-y-1">
+              <div className={`absolute bottom-full left-0 right-0 mb-0.5 ${cardStyles} p-1.5`}>
+                <div className="max-h-64 overflow-y-auto space-y-0.5">
                   {organizations?.data?.map((org) => (
                     <button
                       key={org.id}
                       onClick={() => handleSwitchOrg(org.id)}
                       disabled={setActiveMutation.isPending}
                       className={`
-                        w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg cursor-pointer text-left
-                        hover:bg-gray-100 active:bg-gray-200
-                        ${org.id === activeOrganization?.data?.id ? 'bg-gray-100' : ''}
+                        w-full flex items-center gap-3 px-3 py-1.5 text-[15px] font-medium rounded-lg cursor-pointer text-left
+                        hover:bg-gray-50 active:bg-gray-100 active:text-black
+                        ${org.id === activeOrganization?.data?.id ? 'bg-gray-100 text-black' : 'text-neutral-600'}
                         disabled:opacity-50 disabled:cursor-not-allowed
                       `}
                     >
@@ -327,10 +328,7 @@ export default function Sidebar({
                           {org.name.charAt(0).toUpperCase()}
                         </span>
                       </div>
-                      <span className="truncate text-neutral-800">{org.name}</span>
-                      {org.id === activeOrganization?.data?.id && (
-                        <span className="ml-auto text-xs text-[var(--color-primary)]">✓</span>
-                      )}
+                      <span className="truncate">{org.name}</span>
                     </button>
                   ))}
                   {onOpenCreateOrg && (
@@ -339,7 +337,7 @@ export default function Sidebar({
                         setOrgDropdownOpen(false);
                         onOpenCreateOrg();
                       }}
-                      className="w-full flex items-center gap-3 px-3 py-2 text-sm rounded-lg cursor-pointer text-left text-[var(--color-primary)] hover:bg-gray-100 active:bg-gray-200"
+                      className="w-full flex items-center gap-3 px-3 py-1.5 text-[15px] font-medium rounded-lg cursor-pointer text-left text-[var(--color-primary)] hover:bg-gray-50 active:bg-gray-100"
                     >
                       <div className="w-5 h-5 rounded border-2 border-dashed border-[var(--color-primary)] flex items-center justify-center shrink-0">
                         <span className="text-[var(--color-primary)] font-semibold text-xs">+</span>

@@ -8,6 +8,7 @@ import { DBRecording } from "@shared/types/src";
 import { getRecordingAudio } from "./actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { cardStyles } from "@/components/ui/Card";
 
 export default function RecordingsPage() {
   const router = useRouter();
@@ -90,7 +91,7 @@ export default function RecordingsPage() {
   return (
     <Page title="Recordings" subtitle="Listen to call recordings">
       {/* Table */}
-      <div className="bg-white rounded-xl border-[0.5px] border-gray-300 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)] overflow-hidden">
+      <div className={`${cardStyles} overflow-hidden`}>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">

@@ -6,6 +6,7 @@ import { useTaskInstancesForAnalytics } from "@/hooks/api/useTask";
 import { useRecordingsForAnalytics } from "@/hooks/api/useRecording";
 import { useAgents } from "@/hooks/api/useAgent";
 import { ListTodo, Video, Bot, TrendingUp, Calendar, Gauge } from "lucide-react";
+import { cardStyles } from "@/components/ui/Card";
 
 type DateRange = "24h" | "7d" | "30d" | "custom";
 
@@ -111,16 +112,16 @@ export default function DashboardPage() {
     <Page title="Dashboard" subtitle="Overview of your organization's activity">
       {/* Date Range Filter */}
       <div className="flex flex-wrap items-center gap-3 mb-8">
-        <div className="flex gap-1 items-center bg-white rounded-xl border-[0.5px] border-gray-300 p-1 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
+        <div className={`flex gap-1 items-center ${cardStyles} p-1`}>
           {DATE_RANGES.map((range) => (
             <button
               key={range.id}
               onClick={() => setSelectedRange(range.id)}
               className={`
-                px-4 py-2 text-sm font-medium rounded-lg transition cursor-pointer active:bg-gray-200
+                px-4 py-2 text-sm font-medium rounded-lg cursor-pointer active:bg-gray-100
                 ${selectedRange === range.id
-                  ? "bg-gray-200 text-gray-900"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                  ? "bg-gray-100 text-gray-900"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
                 }
               `}
             >
@@ -151,7 +152,7 @@ export default function DashboardPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white rounded-xl border-[0.5px] border-gray-300 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
+        <div className={`${cardStyles} p-6`}>
           <div className="flex items-center gap-2 mb-1">
             <ListTodo className="h-4 w-4 text-gray-500" />
             <p className="text-sm font-medium text-gray-500">Total Tasks</p>
@@ -161,7 +162,7 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <div className="bg-white rounded-xl border-[0.5px] border-gray-300 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
+        <div className={`${cardStyles} p-6`}>
           <div className="flex items-center gap-2 mb-1">
             <Video className="h-4 w-4 text-gray-500" />
             <p className="text-sm font-medium text-gray-500">Total Recordings</p>
@@ -171,7 +172,7 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <div className="bg-white rounded-xl border-[0.5px] border-gray-300 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
+        <div className={`${cardStyles} p-6`}>
           <div className="flex items-center gap-2 mb-1">
             <Gauge className="h-4 w-4 text-gray-500" />
             <p className="text-sm font-medium text-gray-500">Efficiency</p>
@@ -182,7 +183,7 @@ export default function DashboardPage() {
           <p className="text-xs text-gray-400 mt-1">Task to recording ratio</p>
         </div>
 
-        <div className="bg-white rounded-xl border-[0.5px] border-gray-300 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
+        <div className={`${cardStyles} p-6`}>
           <div className="flex items-center gap-2 mb-1">
             <Bot className="h-4 w-4 text-gray-500" />
             <p className="text-sm font-medium text-gray-500">Active Agents</p>
@@ -194,7 +195,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Chart */}
-      <div className="bg-white rounded-xl border-[0.5px] border-gray-300 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
+      <div className={`${cardStyles} p-6`}>
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Activity Overview</h3>
@@ -258,7 +259,7 @@ export default function DashboardPage() {
       {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         {/* Recent Tasks */}
-        <div className="bg-white rounded-xl border-[0.5px] border-gray-300 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
+        <div className={`${cardStyles} p-6`}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Recent Tasks</h3>
             <TrendingUp className="h-5 w-5 text-gray-400" />
@@ -298,7 +299,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent Recordings */}
-        <div className="bg-white rounded-xl border-[0.5px] border-gray-300 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
+        <div className={`${cardStyles} p-6`}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Recent Recordings</h3>
             <Calendar className="h-5 w-5 text-gray-400" />

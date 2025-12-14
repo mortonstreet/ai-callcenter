@@ -13,6 +13,7 @@ import { useState } from "react";
 import { useIsAdminOrOwner, useListOrganizationMembers } from "@/hooks/api/useOrganization";
 import { toast } from "sonner";
 import { DBTask } from "@shared/types/src";
+import { cardStyles } from "@/components/ui/Card";
 
 interface TaskCardProps {
   task: DBTask;
@@ -347,7 +348,7 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
           Back to Agents
         </Link>
 
-        <div className="bg-white rounded-xl border-[0.5px] border-gray-300 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
+        <div className={`${cardStyles} p-6`}>
           <div className="flex items-start justify-between mb-6">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center">
@@ -380,7 +381,7 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="bg-white rounded-xl border-[0.5px] border-gray-300 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
+          <div className={`${cardStyles} p-6`}>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -395,14 +396,14 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
           </div>
 
           {isElevenLabs && (
-            <div className="bg-white rounded-xl border-[0.5px] border-gray-300 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
+            <div className={`${cardStyles} p-6`}>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Test Your Agent</h3>
               <ElevenLabsConversation agentId={agent.externalId} />
             </div>
           )}
         </div>
 
-        <div className="bg-white rounded-xl border-[0.5px] border-gray-300 p-6 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
+        <div className={`${cardStyles} p-6`}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Services</h3>
             {!showCreateTask && isAdminOrOwner && (

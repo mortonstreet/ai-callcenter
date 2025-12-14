@@ -9,6 +9,7 @@ import { useSession } from "@/lib/auth-client";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Page } from "@/components/dashboard/Page";
 import { useRouter } from "next/navigation";
+import { cardStyles } from "@/components/ui/Card";
 
 const STATUS_OPTIONS = Object.values(TaskStatus);
 
@@ -148,7 +149,7 @@ export default function TasksPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border-[0.5px] border-gray-300 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)] overflow-hidden">
+      <div className={`${cardStyles} overflow-hidden`}>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
