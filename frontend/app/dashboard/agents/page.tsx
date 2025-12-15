@@ -33,14 +33,14 @@ export default function AgentsPage() {
               <Link
                 key={agent.id}
                 href={`/dashboard/agents/${agent.id}`}
-                className={`group p-6 ${cardStyles} hover:border-[var(--color-primary)] cursor-pointer`}
+                className={`group p-6 ${cardStyles} transition-colors hover:bg-gray-50 active:bg-gray-100 cursor-pointer`}
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="w-10 h-10 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center flex-shrink-0">
                     <Bot className="h-5 w-5 text-[var(--color-primary)]" />
                   </div>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-1 group-hover:text-[var(--color-primary)] transition">
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">
                   {agent.name}
                 </h3>
                 <div className="text-xs text-gray-500 space-y-1">
@@ -60,9 +60,9 @@ export default function AgentsPage() {
               href="mailto:support@vaci.com"
               className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium cursor-pointer
                 bg-gradient-to-b from-[#1f1d1e] to-[#555253] text-white border border-[#0a0909]
-                shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]-[inset_0_1px_0_0_rgba(255,255,255,0.4),inset_0_-1px_0_0_rgba(0,0,0,0.6)]
+                shadow-[inset_0_1px_0_0_rgba(255,255,255,0.4),inset_0_-1px_0_0_rgba(0,0,0,0.6)]
                 hover:from-[#0d0c0c] hover:to-[#3d3a3b] hover:text-white/90
-                active:from-[#050505] active:to-[#2d2a2b] active:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]-[inset_0_2px_4px_0_rgba(0,0,0,0.5)]
+                active:from-[#050505] active:to-[#2d2a2b] active:shadow-[inset_0_2px_4px_0_rgba(0,0,0,0.5)]
                 active:text-white/80 [&:active>span]:translate-y-[1px]"
             >
               <span className="inline-block">Contact Support to Get Started</span>

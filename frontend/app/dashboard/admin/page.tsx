@@ -12,6 +12,7 @@ import {
   useAdminCreateOrganization,
 } from "@/hooks/api/useAdmin";
 import { Users, Building2, Eye, Plus, Copy } from "lucide-react";
+import StatsCard from "@/components/ui/StatsCard";
 import { toast } from "sonner";
 import { useAdminStore } from "@/lib/admin-store";
 import { useRouter } from "next/navigation";
@@ -73,33 +74,18 @@ export default function AdminPage() {
     <Page title="Admin" subtitle="Manage users and organizations">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className={`${cardStyles} p-6`}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Users className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Total Users</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                {statsLoading ? "..." : stats?.users ?? 0}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className={`${cardStyles} p-6`}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-              <Building2 className="h-5 w-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Organizations</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                {statsLoading ? "..." : stats?.organizations ?? 0}
-              </p>
-            </div>
-          </div>
-        </div>
+        <StatsCard
+          icon={Users}
+          label="Total Users"
+          value={stats?.users ?? 0}
+          isLoading={statsLoading}
+        />
+        <StatsCard
+          icon={Building2}
+          label="Organizations"
+          value={stats?.organizations ?? 0}
+          isLoading={statsLoading}
+        />
       </div>
 
       {/* Tabs */}
@@ -110,10 +96,10 @@ export default function AdminPage() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`
-                flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition
+                flex items-center gap-2 pb-3 text-sm font-medium border-b-2 cursor-pointer
                 ${activeTab === tab.id
                   ? "border-[var(--color-primary)] text-[var(--color-primary)]"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  : "border-transparent text-gray-500 hover:text-gray-700 active:text-gray-900"
                 }
               `}
             >
@@ -203,6 +189,7 @@ export default function AdminPage() {
                 type="submit"
                 loading={createOrgMutation.isPending}
                 disabled={createOrgMutation.isPending}
+                className="min-w-[120px]"
               >
                 Create
               </Button>
@@ -234,7 +221,7 @@ export default function AdminPage() {
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleCopyOrgId(org.id)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 active:bg-gray-300 transition cursor-pointer"
                             title="Copy Organization ID"
                           >
                             <Copy className="h-3.5 w-3.5" />
@@ -242,14 +229,14 @@ export default function AdminPage() {
                           </button>
                           <button
                             onClick={() => setAgentModalOrg({ id: org.id, name: org.name })}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-100 rounded-lg hover:bg-green-200 transition"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-100 rounded-lg hover:bg-green-200 active:bg-green-300 transition cursor-pointer"
                           >
                             <Plus className="h-3.5 w-3.5" />
                             Agent
                           </button>
                           <button
                             onClick={() => handleViewAsOrg(org)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] bg-[var(--color-primary)]/10 rounded-lg hover:bg-[var(--color-primary)]/20 transition"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] bg-[var(--color-primary)]/10 rounded-lg hover:bg-[var(--color-primary)]/20 active:bg-[var(--color-primary)]/30 transition cursor-pointer"
                           >
                             <Eye className="h-3.5 w-3.5" />
                             View as

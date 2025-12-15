@@ -31,8 +31,8 @@ export default function Dropdown({
   }, []);
 
   const positionClasses = {
-    top: "bottom-full mb-1",
-    bottom: "top-full mt-1",
+    top: "bottom-full mb-0.5",
+    bottom: "top-full mt-0.5",
   };
 
   const alignClasses = {
@@ -41,11 +41,11 @@ export default function Dropdown({
   };
 
   return (
-    <div className={`relative ${className}`} ref={dropdownRef}>
+    <div className={`relative ${className}`} ref={dropdownRef} data-dropdown>
       <div onClick={() => setIsOpen(!isOpen)}>{trigger}</div>
       {isOpen && (
         <div
-          className={`absolute ${positionClasses[position]} ${alignClasses[align]} z-50 min-w-full ${cardStyles} p-1.5`}
+          className={`absolute ${positionClasses[position]} ${alignClasses[align]} z-50 min-w-full ${cardStyles} p-1.5 flex flex-col gap-0.5`}
         >
           <DropdownContext.Provider value={{ close: () => setIsOpen(false) }}>
             {children}
@@ -112,7 +112,7 @@ export function DropdownItem({
   };
 
   const variantStyles = {
-    default: `text-neutral-600 hover:bg-gray-50 active:bg-gray-100 active:text-black ${active ? "bg-gray-100 text-black" : ""}`,
+    default: `hover:bg-gray-50 active:bg-gray-100 active:text-black ${active ? "bg-gray-100 text-black" : "text-neutral-600"}`,
     danger: "text-red-600 hover:bg-red-50 active:bg-red-100",
   };
 

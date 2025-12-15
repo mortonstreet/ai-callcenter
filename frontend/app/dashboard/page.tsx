@@ -7,6 +7,7 @@ import { useRecordingsForAnalytics } from "@/hooks/api/useRecording";
 import { useAgents } from "@/hooks/api/useAgent";
 import { ListTodo, Video, Bot, TrendingUp, Calendar, Gauge } from "lucide-react";
 import { cardStyles } from "@/components/ui/Card";
+import StatsCard from "@/components/ui/StatsCard";
 
 type DateRange = "24h" | "7d" | "30d" | "custom";
 
@@ -112,7 +113,7 @@ export default function DashboardPage() {
     <Page title="Dashboard" subtitle="Overview of your organization's activity">
       {/* Date Range Filter */}
       <div className="flex flex-wrap items-center gap-3 mb-8">
-        <div className={`flex gap-1 items-center ${cardStyles} p-1`}>
+        <div className={`flex gap-0.5 items-center ${cardStyles} p-1`}>
           {DATE_RANGES.map((range) => (
             <button
               key={range.id}
@@ -152,46 +153,31 @@ export default function DashboardPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className={`${cardStyles} p-6`}>
-          <div className="flex items-center gap-2 mb-1">
-            <ListTodo className="h-4 w-4 text-gray-500" />
-            <p className="text-sm font-medium text-gray-500">Total Tasks</p>
-          </div>
-          <p className="text-3xl font-semibold text-gray-900">
-            {isLoading ? "..." : tasks.length}
-          </p>
-        </div>
-
-        <div className={`${cardStyles} p-6`}>
-          <div className="flex items-center gap-2 mb-1">
-            <Video className="h-4 w-4 text-gray-500" />
-            <p className="text-sm font-medium text-gray-500">Total Recordings</p>
-          </div>
-          <p className="text-3xl font-semibold text-gray-900">
-            {isLoading ? "..." : recordings.length}
-          </p>
-        </div>
-
-        <div className={`${cardStyles} p-6`}>
-          <div className="flex items-center gap-2 mb-1">
-            <Gauge className="h-4 w-4 text-gray-500" />
-            <p className="text-sm font-medium text-gray-500">Efficiency</p>
-          </div>
-          <p className="text-3xl font-semibold text-gray-900">
-            {isLoading ? "..." : recordings.length === 0 ? "N/A" : `${Math.round((tasks.length / recordings.length) * 100)}%`}
-          </p>
-          <p className="text-xs text-gray-400 mt-1">Task to recording ratio</p>
-        </div>
-
-        <div className={`${cardStyles} p-6`}>
-          <div className="flex items-center gap-2 mb-1">
-            <Bot className="h-4 w-4 text-gray-500" />
-            <p className="text-sm font-medium text-gray-500">Active Agents</p>
-          </div>
-          <p className="text-3xl font-semibold text-gray-900">
-            {isLoading ? "..." : agents?.length || 0}
-          </p>
-        </div>
+        <StatsCard
+          icon={ListTodo}
+          label="Total Tasks"
+          value={tasks.length}
+          isLoading={isLoading}
+        />
+        <StatsCard
+          icon={Video}
+          label="Total Recordings"
+          value={recordings.length}
+          isLoading={isLoading}
+        />
+        <StatsCard
+          icon={Gauge}
+          label="Efficiency"
+          value={recordings.length === 0 ? "N/A" : `${Math.round((tasks.length / recordings.length) * 100)}%`}
+          subtitle="Task to recording ratio"
+          isLoading={isLoading}
+        />
+        <StatsCard
+          icon={Bot}
+          label="Active Agents"
+          value={agents?.length || 0}
+          isLoading={isLoading}
+        />
       </div>
 
       {/* Chart */}

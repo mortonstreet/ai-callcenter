@@ -14,6 +14,7 @@ import { useIsAdminOrOwner, useListOrganizationMembers } from "@/hooks/api/useOr
 import { toast } from "sonner";
 import { DBTask } from "@shared/types/src";
 import { cardStyles } from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
 
 interface TaskCardProps {
   task: DBTask;
@@ -284,7 +285,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
           <div className="flex gap-1">
             <button
               onClick={onEdit}
-              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+              className="p-2 text-neutral-600 hover:bg-gray-50 active:bg-gray-100 active:text-black rounded-lg cursor-pointer"
               aria-label="Edit task"
             >
               <Edit2 className="h-4 w-4" />
@@ -292,7 +293,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
             <button
               onClick={handleDelete}
               disabled={deleteTaskMutation.isPending}
-              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition disabled:opacity-50"
+              className="p-2 text-red-600 hover:bg-red-50 active:bg-red-100 rounded-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Delete task"
             >
               <Trash2 className="h-4 w-4" />
@@ -341,8 +342,8 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
     <Page title={agent.name}>
       <div className="space-y-6">
         <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition"
+          href="/dashboard/agents"
+          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 active:bg-gray-200 px-3 py-1.5 rounded-lg transition"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Agents
@@ -407,12 +408,9 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Services</h3>
             {!showCreateTask && isAdminOrOwner && (
-              <button
-                onClick={() => setShowCreateTask(true)}
-                className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition text-sm font-medium"
-              >
+              <Button onClick={() => setShowCreateTask(true)}>
                 Create Service
-              </button>
+              </Button>
             )}
           </div>
 
