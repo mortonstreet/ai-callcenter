@@ -2,36 +2,31 @@
 
 import { useState } from "react";
 import { Page } from "@/components/dashboard/Page";
-import Card, { cardStyles } from "@/components/ui/Card";
-import Input from "@/components/ui/Input";
+import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
+import Badge from "@/components/ui/Badge";
 import {
-  useAdminStats,
   useAdminUsers,
   useAdminOrganizations,
-  useAdminCreateOrganization,
 } from "@/hooks/api/useAdmin";
 import { Users, Building2, Eye, Plus, Copy } from "lucide-react";
-import StatsCard from "@/components/ui/StatsCard";
 import { toast } from "sonner";
 import { useAdminStore } from "@/lib/admin-store";
 import { useRouter } from "next/navigation";
 import CreateAgentModal from "@/components/admin/CreateAgentModal";
+import CreateOrganizationModal from "@/components/admin/CreateOrganizationModal";
 
 type Tab = "users" | "organizations";
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>("users");
-  const [orgName, setOrgName] = useState("");
-  const [ownerEmail, setOwnerEmail] = useState("");
   const [agentModalOrg, setAgentModalOrg] = useState<{ id: string; name: string } | null>(null);
+  const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
   const router = useRouter();
   const setImpersonatedOrg = useAdminStore((s) => s.setImpersonatedOrg);
-  
-  const { data: stats, isLoading: statsLoading } = useAdminStats();
+
   const { data: usersData, isLoading: usersLoading } = useAdminUsers();
   const { data: orgsData, isLoading: orgsLoading } = useAdminOrganizations();
-  const createOrgMutation = useAdminCreateOrganization();
 
   const handleViewAsOrg = (org: { id: string; name: string }) => {
     setImpersonatedOrg({ id: org.id, name: org.name });
@@ -44,50 +39,16 @@ export default function AdminPage() {
     toast.success("Add as x-organization-id header value");
   };
 
-  const handleCreateOrg = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!orgName || !ownerEmail) {
-      toast.error("Please fill in all fields");
-      return;
-    }
-    createOrgMutation.mutate(
-      { name: orgName, ownerEmail },
-      {
-        onSuccess: () => {
-          toast.success("Organization created successfully");
-          setOrgName("");
-          setOwnerEmail("");
-        },
-        onError: () => {
-          toast.error("Failed to create organization");
-        },
-      }
-    );
-  };
+  const userCount = usersData?.data?.length ?? 0;
+  const orgCount = orgsData?.data?.length ?? 0;
 
-  const tabs: { id: Tab; label: string; icon: typeof Users }[] = [
-    { id: "users", label: "Users", icon: Users },
-    { id: "organizations", label: "Organizations", icon: Building2 },
+  const tabs: { id: Tab; label: string; icon: typeof Users; count: number }[] = [
+    { id: "users", label: "Users", icon: Users, count: userCount },
+    { id: "organizations", label: "Organizations", icon: Building2, count: orgCount },
   ];
 
   return (
     <Page title="Admin" subtitle="Manage users and organizations">
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <StatsCard
-          icon={Users}
-          label="Total Users"
-          value={stats?.users ?? 0}
-          isLoading={statsLoading}
-        />
-        <StatsCard
-          icon={Building2}
-          label="Organizations"
-          value={stats?.organizations ?? 0}
-          isLoading={statsLoading}
-        />
-      </div>
-
       {/* Tabs */}
       <div className="border-b border-gray-200 mb-6">
         <div className="flex gap-6">
@@ -105,6 +66,9 @@ export default function AdminPage() {
             >
               <tab.icon className="h-4 w-4" />
               {tab.label}
+              <Badge variant={activeTab === tab.id ? "primary" : "gray"} className="ml-1">
+                {tab.count}
+              </Badge>
             </button>
           ))}
         </div>
@@ -112,7 +76,7 @@ export default function AdminPage() {
 
       {/* Tab Content */}
       {activeTab === "users" && (
-        <Card title="Users">
+        <Card title={`Users (${userCount})`}>
           {usersLoading ? (
             <div className="text-center py-8 text-gray-500">Loading users...</div>
           ) : (
@@ -133,22 +97,14 @@ export default function AdminPage() {
                       <td className="py-3 px-4 text-gray-900">{user.email}</td>
                       <td className="py-3 px-4 text-gray-600">{user.name || "-"}</td>
                       <td className="py-3 px-4">
-                        <span className={`inline-flex px-2 py-0.5 text-xs rounded-full ${
-                          user.emailVerified 
-                            ? "bg-green-100 text-green-700" 
-                            : "bg-yellow-100 text-yellow-700"
-                        }`}>
+                        <Badge variant={user.emailVerified ? "green" : "yellow"}>
                           {user.emailVerified ? "Yes" : "No"}
-                        </span>
+                        </Badge>
                       </td>
                       <td className="py-3 px-4">
-                        <span className={`inline-flex px-2 py-0.5 text-xs rounded-full ${
-                          user.isAdmin 
-                            ? "bg-purple-100 text-purple-700" 
-                            : "bg-gray-100 text-gray-600"
-                        }`}>
+                        <Badge variant={user.isAdmin ? "purple" : "gray"}>
                           {user.isAdmin ? "Admin" : "User"}
-                        </span>
+                        </Badge>
                       </td>
                       <td className="py-3 px-4 text-gray-500">
                         {new Date(user.createdAt).toLocaleDateString()}
@@ -164,38 +120,17 @@ export default function AdminPage() {
 
       {activeTab === "organizations" && (
         <>
-          <Card title="Create Organization" className="mb-6">
-            <form onSubmit={handleCreateOrg} className="flex gap-3 items-end">
-              <div className="flex-1">
-                <Input
-                  label="Organization Name"
-                  placeholder="Acme Corp"
-                  value={orgName}
-                  onChange={(e) => setOrgName(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="flex-1">
-                <Input
-                  label="Owner Email"
-                  type="email"
-                  placeholder="owner@example.com"
-                  value={ownerEmail}
-                  onChange={(e) => setOwnerEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <Button
-                type="submit"
-                loading={createOrgMutation.isPending}
-                disabled={createOrgMutation.isPending}
-                className="min-w-[120px]"
-              >
-                Create
+          <Card
+            title={`Organizations (${orgCount})`}
+            headerAction={
+              <Button variant="outline" onClick={() => setShowCreateOrgModal(true)}>
+                <span className="flex items-center whitespace-nowrap">
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Create Organization
+                </span>
               </Button>
-            </form>
-          </Card>
-        <Card title="Organizations">
+            }
+          >
           {orgsLoading ? (
             <div className="text-center py-8 text-gray-500">Loading organizations...</div>
           ) : (
@@ -262,6 +197,12 @@ export default function AdminPage() {
           organizationName={agentModalOrg.name}
         />
       )}
+
+      {/* Create Organization Modal */}
+      <CreateOrganizationModal
+        isOpen={showCreateOrgModal}
+        onClose={() => setShowCreateOrgModal(false)}
+      />
     </Page>
   );
 }

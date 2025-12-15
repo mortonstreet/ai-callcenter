@@ -16,11 +16,13 @@ export const cardStyles = "bg-white rounded-xl border-[0.5px] border-gray-300 sh
 
 export default function Card({
   title,
+  headerAction,
   children,
   size,
   className = "",
 }: {
   title?: string;
+  headerAction?: React.ReactNode;
   children: React.ReactNode;
   size?: Size;
   className?: string;
@@ -29,10 +31,15 @@ export default function Card({
     <div
       className={`w-full ${size ? sizeClass[size] : ''} ${cardStyles} p-6 md:p-8 overflow-hidden ${className}`}
     >
-      {title && (
-        <h2 className="mb-6 text-xl font-semibold text-gray-900">
-          {title}
-        </h2>
+      {(title || headerAction) && (
+        <div className="mb-6 flex items-center justify-between gap-4">
+          {title && (
+            <h2 className="text-xl font-semibold text-gray-900">
+              {title}
+            </h2>
+          )}
+          {headerAction && <div className="shrink-0">{headerAction}</div>}
+        </div>
       )}
       {children}
     </div>

@@ -9,6 +9,7 @@ import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import Badge from "@/components/ui/Badge";
 import Dropdown, { DropdownItem } from "@/components/ui/Dropdown";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
@@ -375,8 +376,6 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Divider */}
-              <div className="border-t border-gray-200" />
 
               {/* Members Section */}
               <div className="space-y-4">
@@ -431,7 +430,6 @@ export default function SettingsPage() {
                       </form>
                       )}
                     </div>
-                    <div className="border-t border-gray-200" />
                   </>
                 )}
 
@@ -455,7 +453,7 @@ export default function SettingsPage() {
                         return (
                           <div
                             key={member.id}
-                            className="flex items-center justify-between p-4 bg-white border-[0.5px] border-gray-300 rounded-xl"
+                            className="flex items-center justify-between p-4 bg-white border-[0.5px] border-gray-300 rounded-xl shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]"
                           >
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-full bg-[var(--color-primary)] flex items-center justify-center overflow-hidden">
@@ -479,15 +477,9 @@ export default function SettingsPage() {
                               </div>
                             </div>
                             <div className="flex items-center gap-3">
-                              <span
-                                className={`px-3 py-1 text-xs font-medium rounded-full ${
-                                  member.role === "admin" || member.role === "owner"
-                                    ? "bg-[var(--color-primary)]/10 text-[var(--color-primary)]"
-                                    : "bg-gray-100 text-gray-600"
-                                }`}
-                              >
+                              <Badge variant={member.role === "admin" || member.role === "owner" ? "primary" : "gray"}>
                                 {member.role}
-                              </span>
+                              </Badge>
                               {(isAdmin || isOwner) && (
                                 <button
                                   onClick={() => handleRemoveMember(member)}
@@ -508,8 +500,6 @@ export default function SettingsPage() {
 
                 {/* Pending Invitations */}
                 {invitations.length > 0 && (
-                  <>
-                    <div className="border-t border-gray-200" />
                     <div className="space-y-3">
                       <h3 className="text-sm font-semibold text-gray-900">
                         Pending Invitations ({invitations.length})
@@ -525,7 +515,7 @@ export default function SettingsPage() {
                             return (
                               <div
                                 key={invitation.id}
-                                className="flex items-center justify-between p-4 bg-white border-[0.5px] border-gray-300 rounded-xl"
+                                className="flex items-center justify-between p-4 bg-white border-[0.5px] border-gray-300 rounded-xl shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]"
                               >
                                 <div className="flex items-center gap-3">
                                   <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
@@ -539,9 +529,9 @@ export default function SettingsPage() {
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                  <span className="px-3 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">
+                                  <Badge variant="yellow">
                                     {invitation.role}
-                                  </span>
+                                  </Badge>
                                   {(isAdmin || isOwner) && (
                                     <button
                                       onClick={() => handleCancelInvitation(invitation.id)}
@@ -558,7 +548,6 @@ export default function SettingsPage() {
                         </div>
                       )}
                     </div>
-                  </>
                 )}
               </div>
             </div>

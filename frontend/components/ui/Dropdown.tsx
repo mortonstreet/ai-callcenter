@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, ReactNode } from "react";
 import { cardStyles } from "./Card";
 
 interface DropdownProps {
-  trigger: ReactNode;
+  trigger: ReactNode | ((isOpen: boolean) => ReactNode);
   children: ReactNode;
   position?: "top" | "bottom";
   align?: "left" | "right";
@@ -42,7 +42,9 @@ export default function Dropdown({
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef} data-dropdown>
-      <div onClick={() => setIsOpen(!isOpen)}>{trigger}</div>
+      <div onClick={() => setIsOpen(!isOpen)}>
+        {typeof trigger === "function" ? trigger(isOpen) : trigger}
+      </div>
       {isOpen && (
         <div
           className={`absolute ${positionClasses[position]} ${alignClasses[align]} z-50 min-w-full ${cardStyles} p-1.5 flex flex-col gap-0.5`}

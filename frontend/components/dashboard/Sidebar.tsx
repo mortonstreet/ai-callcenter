@@ -331,14 +331,14 @@ export default function Sidebar({
           {/* Profile Menu */}
           <Dropdown
             position="top"
-            trigger={
-              <DropdownTrigger icon={<ChevronDown className="h-4 w-4" />}>
+            trigger={(isOpen) => (
+              <DropdownTrigger icon={<ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />}>
                 <div className="w-5 h-5 rounded-full bg-neutral-200 flex items-center justify-center shrink-0">
                   <User className="h-3 w-3 text-neutral-600" />
                 </div>
                 <span className="truncate">{session?.user?.name || "Profile"}</span>
               </DropdownTrigger>
-            }
+            )}
           >
             <div className="space-y-0.5">
               <DropdownLink href="/dashboard/settings">
