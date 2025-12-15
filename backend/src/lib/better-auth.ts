@@ -48,19 +48,22 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (user) => {
-          // Enforce invite-only signup: check if a valid invitation exists for this email
-          const invitation = await db
-            .selectFrom('invitation')
-            .where('email', '=', user.email)
-            .where('status', '=', 'pending')
-            .where('expiresAt', '>', new Date())
-            .selectAll()
-            .executeTakeFirst()
+          // In production, enforce invite-only signup by requiring a valid invitation.
+          // In development, allow open signups so local testing is easier.
+          if (config.nodeEnv === 'production') {
+            const invitation = await db
+              .selectFrom('invitation')
+              .where('email', '=', user.email)
+              .where('status', '=', 'pending')
+              .where('expiresAt', '>', new Date())
+              .selectAll()
+              .executeTakeFirst()
 
-          if (!invitation) {
-            throw new Error(
-              'Signup requires a valid invitation. Please contact an administrator.',
-            )
+            if (!invitation) {
+              throw new Error(
+                'Signup requires a valid invitation. Please contact an administrator.',
+              )
+            }
           }
 
           return { data: user }
@@ -122,16 +125,28 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true,
+    // In production, require email verification; in development, allow immediate login
+    requireEmailVerification: config.nodeEnv === 'production',
     sendResetPassword: async ({ user, url }) => {
       await sendResetPasswordEmail(user.email, url)
     },
   },
   emailVerification: {
     sendVerificationEmail: async ({ user, url }) => {
-      await sendVerificationEmail(user.email, url)
+      // In development, best-effort send so missing Resend config doesn't break signup
+      if (config.nodeEnv !== 'production') {
+        try {
+          await sendVerificationEmail(user.email, url)
+        } catch (err) {
+          logger.warn({ err }, 'Failed to send verification email in development')
+          return
+        }
+      } else {
+        await sendVerificationEmail(user.email, url)
+      }
     },
-    sendOnSignUp: true,
+    // Only send verification automatically on sign-up in production
+    sendOnSignUp: config.nodeEnv === 'production',
     autoSignInAfterVerification: true,
   },
   socialProviders: {

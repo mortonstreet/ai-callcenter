@@ -11,7 +11,7 @@ const asciiArt = `
 ║    ╚████╔╝ ██║  ██║╚██████╗██║                        ║
 ║     ╚═══╝  ╚═╝  ╚═╝ ╚═════╝╚═╝                        ║
 ║                                                       ║
-║       🤖 AI Call Center - Port ${config.port} 🤖            ║
+║       🤖 AI Call Center - Port ${config.port} 🤖       ║
 ║                                                       ║
 ╚═══════════════════════════════════════════════════════╝
 `

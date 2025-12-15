@@ -65,8 +65,9 @@ export default function SignupPage() {
     );
   }
 
-  // If no invite, show invite-only message
-  if (!inviteId) {
+  // In production, enforce invite-only UI unless an invite is present.
+  // In development, always show the signup form so local testing is easy.
+  if (process.env.NODE_ENV === "production" && !inviteId) {
     return (
       <div className="min-h-screen grid place-items-center p-6">
         <AuthCard title="Invite Only">

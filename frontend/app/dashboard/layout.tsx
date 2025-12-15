@@ -79,8 +79,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const hasNoOrganizations = !isLoadingOrgs && organizations?.data?.length === 0;
 
-  // Show invite-required screen for non-admin users without organizations
-  if (hasNoOrganizations && !isAdmin) {
+  // In production, show invite-required screen for non-admin users without organizations.
+  // In development, allow access so local testing is easier.
+  if (process.env.NODE_ENV === "production" && hasNoOrganizations && !isAdmin) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
         <div className={`max-w-md w-full ${cardStyles} p-8 text-center`}>
