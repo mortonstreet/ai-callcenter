@@ -238,6 +238,7 @@ export default function Sidebar({
           fixed inset-y-0 left-0 z-20
           w-56 md:w-64
           bg-white
+          border-r border-gray-200
           px-3 py-4 md:px-4 md:py-6
           hidden sm:flex
           flex-col
