@@ -6,6 +6,8 @@ import { useTaskInstancesForAnalytics } from "@/hooks/api/useTask";
 import { useRecordingsForAnalytics } from "@/hooks/api/useRecording";
 import { useAgents } from "@/hooks/api/useAgent";
 import { ListTodo, Video, Bot, TrendingUp, Calendar, Gauge } from "lucide-react";
+import { cardStyles } from "@/components/ui/Card";
+import StatsCard from "@/components/ui/StatsCard";
 
 type DateRange = "24h" | "7d" | "30d" | "custom";
 
@@ -111,15 +113,15 @@ export default function DashboardPage() {
     <Page title="Dashboard" subtitle="Overview of your organization's activity">
       {/* Date Range Filter */}
       <div className="flex flex-wrap items-center gap-3 mb-8">
-        <div className="flex bg-white rounded-xl border border-gray-200 p-1">
+        <div className={`flex gap-0.5 items-center ${cardStyles} p-1`}>
           {DATE_RANGES.map((range) => (
             <button
               key={range.id}
               onClick={() => setSelectedRange(range.id)}
               className={`
-                px-4 py-2 text-sm font-medium rounded-lg transition
+                px-4 py-2 text-sm font-medium rounded-lg cursor-pointer active:bg-gray-100
                 ${selectedRange === range.id
-                  ? "bg-[var(--color-primary)] text-white"
+                  ? "bg-gray-100 text-gray-900"
                   : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
                 }
               `}
@@ -127,99 +129,59 @@ export default function DashboardPage() {
               {range.label}
             </button>
           ))}
+          {selectedRange === "custom" && (
+            <div className="flex items-center gap-2 ml-2">
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                aria-label="Start date"
+                className="px-3 py-1.5 text-sm text-gray-900 bg-gray-50 border-[0.5px] border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+              />
+              <span className="text-gray-400">to</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                aria-label="End date"
+                className="px-3 py-1.5 text-sm text-gray-900 bg-gray-50 border-[0.5px] border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+              />
+            </div>
+          )}
         </div>
-
-        {selectedRange === "custom" && (
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              value={customStartDate}
-              onChange={(e) => setCustomStartDate(e.target.value)}
-              aria-label="Start date"
-              className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
-            />
-            <span className="text-gray-400">to</span>
-            <input
-              type="date"
-              value={customEndDate}
-              onChange={(e) => setCustomEndDate(e.target.value)}
-              aria-label="End date"
-              className="px-3 py-2 text-sm text-gray-900 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
-            />
-          </div>
-        )}
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Total Tasks</p>
-              <p className="text-3xl font-semibold text-gray-900 mt-1">
-                {isLoading ? "..." : tasks.length}
-              </p>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-              <ListTodo className="h-6 w-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Total Recordings</p>
-              <p className="text-3xl font-semibold text-gray-900 mt-1">
-                {isLoading ? "..." : recordings.length}
-              </p>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
-              <Video className="h-6 w-6 text-purple-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Efficiency</p>
-              <p className="text-3xl font-semibold text-gray-900 mt-1">
-                {isLoading ? "..." : recordings.length === 0 ? "N/A" : `${Math.round((tasks.length / recordings.length) * 100)}%`}
-              </p>
-              <p className="text-xs text-gray-400 mt-1">Task to recording ratio</p>
-            </div>
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-              recordings.length === 0 ? "bg-gray-100" :
-              (tasks.length / recordings.length) >= 0.8 ? "bg-green-100" :
-              (tasks.length / recordings.length) >= 0.5 ? "bg-yellow-100" : "bg-red-100"
-            }`}>
-              <Gauge className={`h-6 w-6 ${
-                recordings.length === 0 ? "text-gray-600" :
-                (tasks.length / recordings.length) >= 0.8 ? "text-green-600" :
-                (tasks.length / recordings.length) >= 0.5 ? "text-yellow-600" : "text-red-600"
-              }`} />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">Active Agents</p>
-              <p className="text-3xl font-semibold text-gray-900 mt-1">
-                {isLoading ? "..." : agents?.length || 0}
-              </p>
-            </div>
-            <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center">
-              <Bot className="h-6 w-6 text-green-600" />
-            </div>
-          </div>
-        </div>
+        <StatsCard
+          icon={ListTodo}
+          label="Total Tasks"
+          value={tasks.length}
+          isLoading={isLoading}
+        />
+        <StatsCard
+          icon={Video}
+          label="Total Recordings"
+          value={recordings.length}
+          isLoading={isLoading}
+        />
+        <StatsCard
+          icon={Gauge}
+          label="Efficiency"
+          value={recordings.length === 0 ? "N/A" : `${Math.round((tasks.length / recordings.length) * 100)}%`}
+          subtitle="Task to recording ratio"
+          isLoading={isLoading}
+        />
+        <StatsCard
+          icon={Bot}
+          label="Active Agents"
+          value={agents?.length || 0}
+          isLoading={isLoading}
+        />
       </div>
 
       {/* Chart */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className={`${cardStyles} p-6`}>
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">Activity Overview</h3>
@@ -283,7 +245,7 @@ export default function DashboardPage() {
       {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         {/* Recent Tasks */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className={`${cardStyles} p-6`}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Recent Tasks</h3>
             <TrendingUp className="h-5 w-5 text-gray-400" />
@@ -323,7 +285,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Recent Recordings */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className={`${cardStyles} p-6`}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Recent Recordings</h3>
             <Calendar className="h-5 w-5 text-gray-400" />

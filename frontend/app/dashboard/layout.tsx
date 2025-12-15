@@ -13,6 +13,7 @@ import { useActiveOrganization } from "@/lib/auth-client";
 import { useAdminStore } from "@/lib/admin-store";
 import { XCircle, Clock } from "lucide-react";
 import Button from "@/components/ui/Button";
+import { cardStyles } from "@/components/ui/Card";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = useSession();
@@ -82,7 +83,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (hasNoOrganizations && !isAdmin) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-lg border border-gray-200 p-8 text-center">
+        <div className={`max-w-md w-full ${cardStyles} p-8 text-center`}>
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <Clock className="w-8 h-8 text-blue-600" />
           </div>
@@ -106,7 +107,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-white">
         <Sidebar
           onLogout={handleLogout}
           onOpenCreateOrg={isAdmin ? handleOpenCreateOrg : undefined}
@@ -115,7 +116,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Admin Impersonation Banner */}
         {impersonatedOrg && (
           <div className="fixed top-0 left-0 right-0 z-50 bg-purple-600 text-white">
-            <div className="sm:pl-60 md:pl-64">
+            <div className="sm:pl-56 md:pl-64">
               <div className="flex items-center justify-between px-4 py-2 text-sm">
                 <span>
                   <strong>Admin View:</strong> Viewing as member of <strong>{impersonatedOrg.name}</strong>
@@ -132,7 +133,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         )}
         
-        <main className={`pt-16 sm:pt-0 sm:pl-60 md:pl-64 px-4 md:px-6 py-6 md:py-8 ${impersonatedOrg ? 'mt-10' : ''}`}>
+        <main className={`pt-16 sm:pt-0 sm:pl-56 md:pl-64 px-4 md:px-6 py-6 md:py-8 ${impersonatedOrg ? 'mt-10' : ''}`}>
           <div className="mx-auto max-w-[96rem]">
             {children}
           </div>

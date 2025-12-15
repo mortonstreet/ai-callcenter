@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { cardStyles } from "@/components/ui/Card";
 
 type Size = "md" | "lg" | "xl" | "2xl" | "3xl" | "4xl";
 
@@ -25,7 +26,7 @@ export default function AuthCard({
 }) {
   return (
     <div
-      className={`mx-auto w-full ${sizeClass[size]} rounded-2xl border border-gray-200 bg-white/90 p-6 md:p-8 shadow-sm overflow-hidden ${className}`}
+      className={`mx-auto w-full ${sizeClass[size]} ${cardStyles} p-6 md:p-8 overflow-hidden ${className}`}
     >
       <h1 className="mb-6 text-center text-2xl md:text-3xl font-semibold text-gray-900">
         {title}

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect } from "react";
+import { cardStyles } from "./Card";
 
 interface ModalProps {
   isOpen: boolean;
@@ -30,7 +31,7 @@ export default function Modal({ isOpen, onClose, title, subtitle, children, show
       onClick={showCloseButton ? onClose : undefined}
     >
       <div
-        className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+        className={`${cardStyles} max-w-md w-full max-h-[90vh] overflow-y-auto`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6">
@@ -39,7 +40,7 @@ export default function Modal({ isOpen, onClose, title, subtitle, children, show
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
                 aria-label="Close modal"
                 title="Close"
               >

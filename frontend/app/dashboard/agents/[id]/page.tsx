@@ -13,6 +13,8 @@ import { useState } from "react";
 import { useIsAdminOrOwner, useListOrganizationMembers } from "@/hooks/api/useOrganization";
 import { toast } from "sonner";
 import { DBTask } from "@shared/types/src";
+import { cardStyles } from "@/components/ui/Card";
+import Button from "@/components/ui/Button";
 
 interface TaskCardProps {
   task: DBTask;
@@ -117,7 +119,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
 
   if (isEditing) {
     return (
-      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+      <div className="border-[0.5px] border-gray-300 rounded-xl p-4 bg-gray-50">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -127,7 +129,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black placeholder:text-gray-400"
+              className="w-full px-3 py-2 border-[0.5px] border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black placeholder:text-gray-400"
               placeholder="Service name"
               required
             />
@@ -140,7 +142,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black placeholder:text-gray-400"
+              className="w-full px-3 py-2 border-[0.5px] border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black placeholder:text-gray-400"
               placeholder="Give your agent more context about this service, such as pricing current discounts, etc."
             />
           </div>
@@ -151,7 +153,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
             <select
               value={dispatcherUserId}
               onChange={(e) => setDispatcherUserId(e.target.value)}
-              className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black"
+              className="w-full px-3 py-2 pr-8 border-[0.5px] border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black"
               aria-label="Assign to user"
             >
               <option value="">No assignment (optional)</option>
@@ -178,7 +180,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
             </div>
             <div className="space-y-3">
               {taskFields.map((field, index) => (
-                <div key={index} className="flex gap-3 items-start p-3 bg-white rounded-lg border border-gray-200">
+                <div key={index} className="flex gap-3 items-start p-3 bg-white rounded-lg border-[0.5px] border-gray-300">
                   <div className="flex-1 space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -187,14 +189,14 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
                           value={field.name}
                           onChange={(e) => updateField(index, { name: e.target.value })}
                           placeholder="Field name"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black placeholder:text-gray-400"
+                          className="w-full px-3 py-2 border-[0.5px] border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black placeholder:text-gray-400"
                         />
                       </div>
                       <div>
                         <select
                           value={field.type}
                           onChange={(e) => updateField(index, { type: e.target.value as TaskFieldType })}
-                          className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black"
+                          className="w-full px-3 py-2 pr-8 border-[0.5px] border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black"
                           aria-label="Field type"
                         >
                           {FIELD_TYPE_OPTIONS.map((option) => (
@@ -211,7 +213,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
                         value={field.description || ""}
                         onChange={(e) => updateField(index, { description: e.target.value })}
                         placeholder="Field description (optional)"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black placeholder:text-gray-400"
+                        className="w-full px-3 py-2 border-[0.5px] border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black placeholder:text-gray-400"
                       />
                     </div>
                   </div>
@@ -251,7 +253,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
   }
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition">
+    <div className="bg-white border-[0.5px] border-gray-300 rounded-xl p-4 shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)] hover:border-gray-300 transition">
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <h4 className="font-semibold text-gray-900 mb-1">{task.name}</h4>
@@ -283,7 +285,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
           <div className="flex gap-1">
             <button
               onClick={onEdit}
-              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+              className="p-2 text-neutral-600 hover:bg-gray-50 active:bg-gray-100 active:text-black rounded-lg cursor-pointer"
               aria-label="Edit task"
             >
               <Edit2 className="h-4 w-4" />
@@ -291,7 +293,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
             <button
               onClick={handleDelete}
               disabled={deleteTaskMutation.isPending}
-              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition disabled:opacity-50"
+              className="p-2 text-red-600 hover:bg-red-50 active:bg-red-100 rounded-lg cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label="Delete task"
             >
               <Trash2 className="h-4 w-4" />
@@ -340,14 +342,14 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
     <Page title={agent.name}>
       <div className="space-y-6">
         <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition"
+          href="/dashboard/agents"
+          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 active:bg-gray-200 px-3 py-1.5 rounded-lg transition"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Agents
         </Link>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className={`${cardStyles} p-6`}>
           <div className="flex items-start justify-between mb-6">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center">
@@ -380,7 +382,7 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className={`${cardStyles} p-6`}>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -395,23 +397,20 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
           </div>
 
           {isElevenLabs && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className={`${cardStyles} p-6`}>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Test Your Agent</h3>
               <ElevenLabsConversation agentId={agent.externalId} />
             </div>
           )}
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className={`${cardStyles} p-6`}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Services</h3>
             {!showCreateTask && isAdminOrOwner && (
-              <button
-                onClick={() => setShowCreateTask(true)}
-                className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition text-sm font-medium"
-              >
+              <Button onClick={() => setShowCreateTask(true)}>
                 Create Service
-              </button>
+              </Button>
             )}
           </div>
 
