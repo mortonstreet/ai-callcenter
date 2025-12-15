@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect, ReactNode } from "react";
+import Link from "next/link";
 import { cardStyles } from "./Card";
 
 interface DropdownProps {
@@ -144,7 +145,6 @@ interface DropdownLinkProps {
 
 export function DropdownLink({ href, children, onClick, className = "" }: DropdownLinkProps) {
   const { close } = useDropdown();
-  const Link = require("next/link").default;
 
   const handleClick = () => {
     onClick?.();
