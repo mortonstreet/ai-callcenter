@@ -9,6 +9,9 @@ import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import Badge from "@/components/ui/Badge";
+import Dropdown, { DropdownItem } from "@/components/ui/Dropdown";
+import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { useSession } from "@/lib/auth-client";
 import { useInviteMember, useListOrganizationMembers, useListOrganizationInvitations, useCancelOrganizationInvitation, useRemoveOrganizationMember } from "@/hooks/api/useOrganization";
@@ -314,7 +317,7 @@ export default function SettingsPage() {
                     <div className="text-sm text-gray-500">Loading subscription...</div>
                   ) : subscription ? (
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[var(--color-primary)]/5 to-[var(--color-primary)]/10 rounded-lg border border-[var(--color-primary)]/20">
+                      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[var(--color-primary)]/5 to-[var(--color-primary)]/10 rounded-xl border border-[var(--color-primary)]/20">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-[var(--color-primary)] rounded-lg flex items-center justify-center">
                             <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -340,7 +343,7 @@ export default function SettingsPage() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      <div className="p-4 bg-[var(--color-primary)]/5 rounded-lg border border-[var(--color-primary)]/20">
+                      <div className="p-4 bg-[var(--color-primary)]/5 rounded-xl border border-[var(--color-primary)]/20">
                         <div className="space-y-1">
                             <p className="text-sm font-medium text-gray-900">Currently on: Free Plan</p>
                           <p className="text-sm text-[var(--color-primary)]">
@@ -373,8 +376,6 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Divider */}
-              <div className="border-t border-gray-200" />
 
               {/* Members Section */}
               <div className="space-y-4">
@@ -384,46 +385,58 @@ export default function SettingsPage() {
                     <div className="space-y-4">
                       <h3 className="text-sm font-semibold text-gray-900">Invite New Member</h3>
                       {impersonatedOrg ? (
-                        <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                        <div className="p-4 bg-purple-50 border border-purple-200 rounded-xl shadow-sm">
                           <p className="text-sm text-purple-700">
                             To invite members to <strong>{impersonatedOrg.name}</strong>, use the Admin Dashboard.
                           </p>
                         </div>
                       ) : (
                       <form onSubmit={handleInviteMember} className="space-y-4">
-                        <div className="flex gap-3">
+                        <div className="flex items-center gap-3">
                           <div className="flex-1">
-                            <Input
+                            <input
                               placeholder="Enter email address"
                               type="email"
                               value={inviteEmail}
                               onChange={(e) => setInviteEmail(e.target.value)}
                               required
+                              className="w-full h-[38px] rounded-xl border border-gray-300 px-3 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)] text-black placeholder:text-gray-400"
                             />
                           </div>
-                          <select
-                            value={inviteRole}
-                            onChange={(e) => setInviteRole(e.target.value as "member")}
-                            className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
-                            aria-label="Member role"
+                          <Dropdown
+                            trigger={
+                              <button
+                                type="button"
+                                className="flex items-center justify-between w-[120px] h-[38px] px-4 border-[0.5px] border-gray-300 rounded-xl text-sm font-medium text-neutral-600 hover:bg-gray-50 active:bg-gray-100 active:text-black cursor-pointer shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]"
+                              >
+                                <span>
+                                  {inviteRole.charAt(0).toUpperCase() + inviteRole.slice(1)}
+                                </span>
+                                <ChevronDown className="h-4 w-4" />
+                              </button>
+                            }
                           >
-                            <option value="member">Member</option>
-                          </select>
-                          <Button type="submit" loading={inviteMemberMutation.isPending} disabled={inviteMemberMutation.isPending}>
+                            <DropdownItem
+                              onClick={() => setInviteRole("member")}
+                              active={inviteRole === "member"}
+                            >
+                              Member
+                            </DropdownItem>
+                          </Dropdown>
+                          <Button type="submit" className="h-[38px] px-8" loading={inviteMemberMutation.isPending} disabled={inviteMemberMutation.isPending}>
                             Invite
                           </Button>
                         </div>
                       </form>
                       )}
                     </div>
-                    <div className="border-t border-gray-200" />
                   </>
                 )}
 
                 {/* Members List */}
                 <div className="space-y-3">
                   <h3 className="text-sm font-semibold text-gray-900">
-                    Team Members ({members.length})
+                    Members ({members.length})
                   </h3>
                   {membersLoading ? (
                     <div className="text-center py-8 text-gray-500">Loading members...</div>
@@ -440,7 +453,7 @@ export default function SettingsPage() {
                         return (
                           <div
                             key={member.id}
-                            className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+                            className="flex items-center justify-between p-4 bg-white border-[0.5px] border-gray-300 rounded-xl shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]"
                           >
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 rounded-full bg-[var(--color-primary)] flex items-center justify-center overflow-hidden">
@@ -464,38 +477,17 @@ export default function SettingsPage() {
                               </div>
                             </div>
                             <div className="flex items-center gap-3">
-                              <span
-                                className={`px-3 py-1 text-xs font-medium rounded-full ${
-                                  member.role === "admin" || member.role === "owner"
-                                    ? "bg-[var(--color-primary)]/10 text-[var(--color-primary)]"
-                                    : "bg-gray-100 text-gray-600"
-                                }`}
-                              >
+                              <Badge variant={member.role === "admin" || member.role === "owner" ? "primary" : "gray"}>
                                 {member.role}
-                              </span>
-                              {(isAdmin || isOwner) && 
-                               member.userId !== user?.id && 
-                               member.role !== "admin" && 
-                               member.role !== "owner" && (
+                              </Badge>
+                              {(isAdmin || isOwner) && (
                                 <button
                                   onClick={() => handleRemoveMember(member)}
-                                  className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition"
+                                  disabled={member.role === "admin" || member.role === "owner" || member.userId === user?.id}
+                                  className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 active:bg-red-100 rounded-xl cursor-pointer disabled:text-gray-400 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                                   aria-label="Remove member"
                                 >
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    className="h-5 w-5"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                    strokeWidth={2}
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                    />
-                                  </svg>
+                                  Remove
                                 </button>
                               )}
                             </div>
@@ -508,8 +500,6 @@ export default function SettingsPage() {
 
                 {/* Pending Invitations */}
                 {invitations.length > 0 && (
-                  <>
-                    <div className="border-t border-gray-200" />
                     <div className="space-y-3">
                       <h3 className="text-sm font-semibold text-gray-900">
                         Pending Invitations ({invitations.length})
@@ -525,7 +515,7 @@ export default function SettingsPage() {
                             return (
                               <div
                                 key={invitation.id}
-                                className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+                                className="flex items-center justify-between p-4 bg-white border-[0.5px] border-gray-300 rounded-xl shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]"
                               >
                                 <div className="flex items-center gap-3">
                                   <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
@@ -539,13 +529,14 @@ export default function SettingsPage() {
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                  <span className="px-3 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">
+                                  <Badge variant="yellow">
                                     {invitation.role}
-                                  </span>
+                                  </Badge>
                                   {(isAdmin || isOwner) && (
                                     <button
                                       onClick={() => handleCancelInvitation(invitation.id)}
-                                      className="text-sm text-red-600 hover:text-red-700"
+                                      className="px-4 py-2 text-sm text-red-600 hover:bg-red-50 active:bg-red-100 rounded-xl cursor-pointer"
+                                      aria-label="Cancel invitation"
                                     >
                                       Cancel
                                     </button>
@@ -557,7 +548,6 @@ export default function SettingsPage() {
                         </div>
                       )}
                     </div>
-                  </>
                 )}
               </div>
             </div>

@@ -6,9 +6,11 @@ import { useTaskInstances, useUpdateTaskInstanceStatus, TaskInstanceWithRelation
 import { TaskStatus } from "@shared/types/src";
 import { useListOrganizationMembers } from "@/hooks/api/useOrganization";
 import { useSession } from "@/lib/auth-client";
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, ChevronDown } from "lucide-react";
 import { Page } from "@/components/dashboard/Page";
 import { useRouter } from "next/navigation";
+import { cardStyles } from "@/components/ui/Card";
+import Dropdown, { DropdownItem } from "@/components/ui/Dropdown";
 
 const STATUS_OPTIONS = Object.values(TaskStatus);
 
@@ -26,7 +28,7 @@ export default function TasksPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>(TaskStatus.PENDING);
+  const [statusFilter, setStatusFilter] = useState<string>("");
   const [dispatcherFilter, setDispatcherFilter] = useState<string>("");
   const [hasSetDefaultDispatcher, setHasSetDefaultDispatcher] = useState(false);
   
@@ -71,10 +73,10 @@ export default function TasksPage() {
 
   const handleRowClick = (taskInstance: TaskInstanceWithRelations, e: React.MouseEvent) => {
     // Don't navigate if clicking on dropdowns/selects
-    if ((e.target as HTMLElement).closest('select')) {
+    if ((e.target as HTMLElement).closest('select') || (e.target as HTMLElement).closest('[data-dropdown]')) {
       return;
     }
-    
+
     router.push(`/dashboard/tasks/${taskInstance.id}`);
   };
 
@@ -101,54 +103,104 @@ export default function TasksPage() {
               placeholder="Search by task name..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-black"
+              className="w-full pl-10 pr-4 py-2 border-[0.5px] border-gray-300 rounded-xl text-sm font-medium text-neutral-600 focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent placeholder:text-neutral-400"
             />
           </div>
         </div>
 
-        <select
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value);
-            setPage(1);
-          }}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-black"
-          aria-label="Filter by status"
+        <Dropdown
+          trigger={
+            <button className="flex items-center justify-between w-[160px] px-4 py-2 border-[0.5px] border-gray-300 rounded-xl text-sm font-medium text-neutral-600 hover:bg-gray-50 active:bg-gray-100 active:text-black cursor-pointer shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
+              <span>
+                {statusFilter
+                  ? statusFilter.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+                  : "All Statuses"}
+              </span>
+              <ChevronDown className="h-4 w-4" />
+            </button>
+          }
         >
-          <option value="">All Statuses</option>
+          <DropdownItem
+            onClick={() => {
+              setStatusFilter("");
+              setPage(1);
+            }}
+            active={statusFilter === ""}
+          >
+            All Statuses
+          </DropdownItem>
           {STATUS_OPTIONS.map((status) => (
-            <option key={status} value={status}>
+            <DropdownItem
+              key={status}
+              onClick={() => {
+                setStatusFilter(status);
+                setPage(1);
+              }}
+              active={statusFilter === status}
+            >
               {status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-            </option>
+            </DropdownItem>
           ))}
-        </select>
+        </Dropdown>
 
-        <select
-          value={dispatcherFilter}
-          onChange={(e) => {
-            setDispatcherFilter(e.target.value);
-            setHasSetDefaultDispatcher(true); // Mark as manually changed
-            setPage(1);
-          }}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-black"
-          aria-label="Filter by assignee"
+        <Dropdown
+          trigger={
+            <button className="flex items-center justify-between w-[160px] px-4 py-2 border-[0.5px] border-gray-300 rounded-xl text-sm font-medium text-neutral-600 hover:bg-gray-50 active:bg-gray-100 active:text-black cursor-pointer shadow-[0_4px_6px_-1px_rgba(0,0,0,0.05),0_2px_4px_-2px_rgba(0,0,0,0.05)]">
+              <span className="truncate">
+                {dispatcherFilter === ""
+                  ? "All Assignees"
+                  : dispatcherFilter === session?.user?.id
+                    ? "Me"
+                    : members.find((m: any) => m.userId === dispatcherFilter)?.user?.name ||
+                      members.find((m: any) => m.userId === dispatcherFilter)?.user?.email ||
+                      "Assignee"}
+              </span>
+              <ChevronDown className="h-4 w-4 shrink-0" />
+            </button>
+          }
         >
-          <option value="">All Assignees</option>
+          <DropdownItem
+            onClick={() => {
+              setDispatcherFilter("");
+              setHasSetDefaultDispatcher(true);
+              setPage(1);
+            }}
+            active={dispatcherFilter === ""}
+          >
+            All Assignees
+          </DropdownItem>
           {session?.user?.id && (
-            <option value={session.user.id}>Me</option>
+            <DropdownItem
+              onClick={() => {
+                setDispatcherFilter(session.user.id);
+                setHasSetDefaultDispatcher(true);
+                setPage(1);
+              }}
+              active={dispatcherFilter === session.user.id}
+            >
+              Me
+            </DropdownItem>
           )}
           {members
             .filter((member: any) => member.userId !== session?.user?.id)
             .map((member: any) => (
-              <option key={member.userId} value={member.userId}>
+              <DropdownItem
+                key={member.userId}
+                onClick={() => {
+                  setDispatcherFilter(member.userId);
+                  setHasSetDefaultDispatcher(true);
+                  setPage(1);
+                }}
+                active={dispatcherFilter === member.userId}
+              >
                 {member.user?.name || member.user?.email}
-              </option>
+              </DropdownItem>
             ))}
-        </select>
+        </Dropdown>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className={`${cardStyles} overflow-hidden`}>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -193,21 +245,33 @@ export default function TasksPage() {
                       {instance.dispatcherName || instance.dispatcherEmail || "Unassigned"}
                     </td>
                     <td className="px-6 py-4">
-                      <select
-                        value={instance.status}
-                        onChange={(e) => handleStatusChange(instance.id, e.target.value)}
-                        className={`px-3 py-1 text-xs font-medium rounded-full border-0 focus:ring-2 focus:ring-[var(--color-primary)] ${
-                          STATUS_COLORS[instance.status] || "bg-gray-100 text-gray-800"
-                        }`}
-                        disabled={updateStatus.isPending}
-                        aria-label="Change task status"
+                      <Dropdown
+                        trigger={
+                          <button
+                            className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full cursor-pointer ${
+                              STATUS_COLORS[instance.status] || "bg-gray-100 text-gray-800"
+                            }`}
+                            disabled={updateStatus.isPending}
+                          >
+                            {instance.status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                            <ChevronDown className="h-3 w-3" />
+                          </button>
+                        }
                       >
                         {STATUS_OPTIONS.map((status) => (
-                          <option key={status} value={status}>
-                            {status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-                          </option>
+                          <DropdownItem
+                            key={status}
+                            onClick={() => handleStatusChange(instance.id, status)}
+                            active={instance.status === status}
+                          >
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-xs ${STATUS_COLORS[status]}`}
+                            >
+                              {status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                            </span>
+                          </DropdownItem>
                         ))}
-                      </select>
+                      </Dropdown>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {new Date(instance.createdAt).toLocaleDateString()}
@@ -231,7 +295,7 @@ export default function TasksPage() {
               <button
                 onClick={() => setPage(page - 1)}
                 disabled={!pagination.hasPrevPage}
-                className="px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                className="px-3 py-1 border-[0.5px] border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
               >
                 <ChevronLeft className="h-4 w-4" />
                 Previous
@@ -239,7 +303,7 @@ export default function TasksPage() {
               <button
                 onClick={() => setPage(page + 1)}
                 disabled={!pagination.hasNextPage}
-                className="px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                className="px-3 py-1 border-[0.5px] border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
               >
                 Next
                 <ChevronRight className="h-4 w-4" />

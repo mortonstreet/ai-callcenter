@@ -7,7 +7,7 @@ export default function Home() {
       <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
         <div className="max-w-6xl mx-auto px-5">
           <div className="flex justify-between items-center h-16">
-            <div className="text-xl font-bold tracking-tight text-[#1b191a]">
+            <div className="text-2xl font-black tracking-tighter text-[#1b191a] uppercase">
               RevCenter
             </div>
             <Link

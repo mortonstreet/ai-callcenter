@@ -2,6 +2,7 @@
 
 import { useConversation } from '@elevenlabs/react';
 import { useCallback } from 'react';
+import Button from '@/components/ui/Button';
 
 interface ElevenLabsConversationProps {
   agentId: string;
@@ -33,24 +34,19 @@ export function ElevenLabsConversation({ agentId }: ElevenLabsConversationProps)
     await conversation.endSession();
   }, [conversation]);
 
+  const isConnected = conversation.status === 'connected';
+  const isConnecting = conversation.status === 'connecting';
+
   return (
-    <div className="flex flex-col items-center gap-4">
-      <div className="flex gap-2">
-        <button
-          onClick={startConversation}
-          disabled={conversation.status === 'connected'}
-          className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition disabled:bg-gray-300 disabled:cursor-not-allowed"
-        >
-          Start Conversation
-        </button>
-        <button
-          onClick={stopConversation}
-          disabled={conversation.status !== 'connected'}
-          className="px-4 py-2 bg-red-500 text-white rounded-lg hover:opacity-90 transition disabled:bg-gray-300 disabled:cursor-not-allowed"
-        >
-          Stop Conversation
-        </button>
-      </div>
+    <div className="flex flex-col items-center gap-4 w-full">
+      <Button
+        onClick={isConnected ? stopConversation : startConversation}
+        variant={isConnected ? 'outline' : 'primary'}
+        className="w-full"
+        disabled={isConnecting}
+      >
+        {isConnecting ? '...' : isConnected ? 'Stop Conversation' : 'Start Conversation'}
+      </Button>
       <div className="flex flex-col items-center gap-2">
         <p className="text-sm text-gray-600">Status: <span className="font-medium text-gray-900">{conversation.status}</span></p>
         <p className="text-sm text-gray-600">Agent is <span className="font-medium text-gray-900">{conversation.isSpeaking ? 'speaking' : 'listening'}</span></p>
