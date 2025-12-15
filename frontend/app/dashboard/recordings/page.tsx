@@ -176,7 +176,7 @@ export default function RecordingsPage() {
                       ) : (
                         <button
                           onClick={() => handlePlayAudio(recording)}
-                          className="p-2 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 rounded-lg transition"
+                          className="p-2 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 active:bg-[var(--color-primary)]/20 rounded-lg transition cursor-pointer"
                           aria-label="Play recording"
                         >
                           <Play className="h-5 w-5" />
