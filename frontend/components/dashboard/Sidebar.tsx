@@ -4,7 +4,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, Users, Video, Settings, LogOut, ChevronDown, Shield, LayoutDashboard, Calendar, Kanban } from "lucide-react";
+import { Bot, Users, Video, Settings, LogOut, ChevronDown, Shield, LayoutDashboard, Calendar, Kanban, Headphones } from "lucide-react";
 import { useOrganizations, useSetActiveOrganizationMutation } from "@/hooks/api/useOrganization";
 import { useAdminOrganizations } from "@/hooks/api/useAdmin";
 import { toast } from "sonner";
@@ -15,6 +15,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 const nav = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
+  { href: "/dashboard/admin/call-center", label: "Call Center", icon: Headphones },
   { href: "/dashboard/agents", label: "Agents", icon: Bot },
   { href: "/dashboard/tasks", label: "Leads", icon: Users },
   { href: "/dashboard/schedule", label: "Schedule", icon: Calendar },

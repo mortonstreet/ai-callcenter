@@ -50,15 +50,17 @@ export enum TaskFieldType {
   BOOLEAN = "BOOLEAN",
 }
 
-export enum PipelineStage {
-  NEW = "NEW",
-  CONTACTED = "CONTACTED",
-  QUALIFIED = "QUALIFIED",
-  PROPOSAL = "PROPOSAL",
-  NEGOTIATION = "NEGOTIATION",
-  CLOSED_WON = "CLOSED_WON",
-  CLOSED_LOST = "CLOSED_LOST",
-}
+// Pipeline Stages for Kanban view
+// Flow: New Leads → Follow Up → Booked → Dispatched → Closed Won/Lost
+export const PipelineStage = {
+  NEW: "new",
+  FOLLOW_UP: "follow_up",
+  BOOKED: "booked",
+  DISPATCHED: "dispatched",
+  CLOSED_WON: "closed_won",
+  CLOSED_LOST: "closed_lost",
+} as const;
+export type PipelineStage = (typeof PipelineStage)[keyof typeof PipelineStage];
 
 export enum AgentExternalType {
   ELEVENLABS = "ELEVENLABS",

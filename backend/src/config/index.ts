@@ -82,6 +82,13 @@ const envSchema = z.object({
   // Legacy single provider - now optional
   ELEVEN_LABS_API_KEY: z.string().optional(),
   ELEVEN_LABS_WEBHOOK_KEY: z.string().optional(),
+  // Twilio integration for outbound calls
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_PHONE_NUMBER: z.string().optional(), // E.164 format: +17752789755
+  TWILIO_API_KEY_SID: z.string().optional(),  // For Access Tokens (SK...)
+  TWILIO_API_KEY_SECRET: z.string().optional(), // API Key Secret
+  TWILIO_TWIML_APP_SID: z.string().optional(), // TwiML App SID (AP...)
 })
 
 const env = envSchema.parse(process.env)
@@ -159,6 +166,15 @@ export const config = {
   // Cal.com integration
   calcom: {
     apiKey: env.CALCOM_API_KEY || '',
+  },
+  // Twilio integration for outbound calls
+  twilio: {
+    accountSid: env.TWILIO_ACCOUNT_SID || '',
+    authToken: env.TWILIO_AUTH_TOKEN || '',
+    phoneNumber: env.TWILIO_PHONE_NUMBER || '',
+    apiKeySid: env.TWILIO_API_KEY_SID || '',
+    apiKeySecret: env.TWILIO_API_KEY_SECRET || '',
+    twimlAppSid: env.TWILIO_TWIML_APP_SID || '',
   },
 }
 

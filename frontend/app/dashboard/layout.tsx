@@ -17,10 +17,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [modalAllowClose, setModalAllowClose] = useState(false);
-  const { isLoading: isLoadingOrgs } = useOrganizations();
-  const { data: organizations } = useOrganizations();
+  const { isLoading: isLoadingOrgs, data: organizations } = useOrganizations();
   const activeOrganization = useActiveOrganization();
   const isAdmin = (session?.user as DBUser)?.isAdmin === true;
+  
+  // Consider loading if either orgs are loading or active org is being determined
+  const isLoadingOrgData = isLoadingOrgs || activeOrganization?.isPending;
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -31,10 +33,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Handle organization setup
   useEffect(() => {
-    if (isPending || !session || isLoadingOrgs) return;
+    if (isPending || !session || isLoadingOrgData) return;
 
     // Admin users don't need to create an organization - they can view all orgs
     if (isAdmin) {
+      setShowCreateModal(false);
+      return;
+    }
+
+    // If user already has an active organization, don't show modal
+    if (activeOrganization?.data?.id) {
       setShowCreateModal(false);
       return;
     }
@@ -47,7 +55,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setShowCreateModal(false);
       setModalAllowClose(false);
     }
-  }, [isPending, session, isLoadingOrgs, organizations?.data?.length, activeOrganization, isAdmin]);
+  }, [isPending, session, isLoadingOrgData, organizations?.data?.length, activeOrganization?.data?.id, isAdmin]);
 
   if (isPending) {
     return (
@@ -76,7 +84,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setShowCreateModal(true);
   };
 
-  const hasNoOrganizations = !isAdmin && !isLoadingOrgs && organizations?.data?.length === 0;
+  const hasNoOrganizations = !isAdmin && !isLoadingOrgData && !activeOrganization?.data?.id && organizations?.data?.length === 0;
 
   return (
     <>

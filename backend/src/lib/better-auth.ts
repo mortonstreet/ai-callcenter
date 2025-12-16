@@ -78,6 +78,10 @@ export const auth = betterAuth({
     sendResetPassword: async ({ user, url }) => {
       await sendResetPasswordEmail(user.email, url)
     },
+    // Uncomment to enable invite-only signups:
+    // signUp: {
+    //   enabled: false, // Disables direct signup - users must be invited
+    // },
   },
   emailVerification: {
     sendVerificationEmail: async ({ user, url }) => {

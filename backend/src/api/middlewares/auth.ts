@@ -90,6 +90,18 @@ export const withBetterAuth = async (
   next()
 }
 
+export const validateIsAdmin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const authReq = req as AuthRequest<unknown>
+  if (!authReq.user?.isAdmin) {
+    return res.status(403).json({ error: 'Admin access required' })
+  }
+  next()
+}
+
 export const validateMemberOfOrganization = async (
   req: Request,
   res: Response,
