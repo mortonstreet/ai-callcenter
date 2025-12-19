@@ -3,7 +3,7 @@
   "framework": "nextjs",
   "installCommand": "pnpm install",
   "buildCommand": "pnpm --filter @shared/db db:generate && pnpm --filter frontend build",
-  "outputDirectory": "frontend/.next",
+  "outputDirectory": "app/.next",
   "ignoreCommand": ""
 }
 
