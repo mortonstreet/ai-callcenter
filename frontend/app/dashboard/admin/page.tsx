@@ -270,19 +270,25 @@ export default function AdminPage() {
                 </thead>
                 <tbody>
                   {orgsData?.data?.map((org) => {
-                  // Type assertion: logo field exists in API response but not in DBOrganization type
-                  const orgWithLogo = org as typeof org & { logo?: string | null };
+                  // Type assertion: API returns more fields than DBOrganization type defines
+                  const extendedOrg = org as typeof org & { 
+                    id: string;
+                    logo?: string | null;
+                    slug?: string;
+                    name: string;
+                    createdAt: string | Date;
+                  };
                   return (
-                    <tr key={org.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr key={extendedOrg.id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-3 px-4">
                         <button
-                          onClick={() => openLogoModal(orgWithLogo)}
+                          onClick={() => openLogoModal(extendedOrg)}
                           className="group relative w-10 h-10 rounded-lg border-2 border-dashed border-gray-300 hover:border-[var(--color-primary)] transition overflow-hidden flex items-center justify-center bg-gray-50"
                         >
-                          {orgWithLogo.logo ? (
+                          {extendedOrg.logo ? (
                             <img 
-                              src={orgWithLogo.logo} 
-                              alt={`${org.name} logo`}
+                              src={extendedOrg.logo} 
+                              alt={`${extendedOrg.name} logo`}
                               className="w-full h-full object-cover"
                             />
                           ) : (
@@ -293,15 +299,15 @@ export default function AdminPage() {
                           </div>
                         </button>
                       </td>
-                      <td className="py-3 px-4 text-gray-900 font-medium">{org.name}</td>
-                      <td className="py-3 px-4 text-gray-600">{org.slug}</td>
+                      <td className="py-3 px-4 text-gray-900 font-medium">{extendedOrg.name}</td>
+                      <td className="py-3 px-4 text-gray-600">{extendedOrg.slug}</td>
                       <td className="py-3 px-4 text-gray-500">
-                        {new Date(org.createdAt).toLocaleDateString()}
+                        {new Date(extendedOrg.createdAt).toLocaleDateString()}
                       </td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => handleCopyOrgId(org.id)}
+                            onClick={() => handleCopyOrgId(extendedOrg.id)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
                             title="Copy Organization ID"
                           >
@@ -309,21 +315,21 @@ export default function AdminPage() {
                             ID
                           </button>
                           <button
-                            onClick={() => setAgentModalOrg({ id: org.id, name: org.name })}
+                            onClick={() => setAgentModalOrg({ id: extendedOrg.id, name: extendedOrg.name })}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-100 rounded-lg hover:bg-green-200 transition"
                           >
                             <Plus className="h-3.5 w-3.5" />
                             Agent
                           </button>
                           <button
-                            onClick={() => handleViewAsOrg(org)}
+                            onClick={() => handleViewAsOrg(extendedOrg)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] bg-[var(--color-primary)]/10 rounded-lg hover:bg-[var(--color-primary)]/20 transition"
                           >
                             <Eye className="h-3.5 w-3.5" />
                             View as
                           </button>
                           <button
-                            onClick={() => setDeleteModalOrg({ id: org.id, name: org.name })}
+                            onClick={() => setDeleteModalOrg({ id: extendedOrg.id, name: extendedOrg.name })}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-100 rounded-lg hover:bg-red-200 transition"
                             title="Delete Organization"
                           >
