@@ -97,7 +97,8 @@ export interface TaskField {
 export interface TaskFieldRequest {
   name: string;
   type: TaskFieldType;
-  required: boolean;
+  required?: boolean;
+  description?: string;
   options?: string[];
 }
 
