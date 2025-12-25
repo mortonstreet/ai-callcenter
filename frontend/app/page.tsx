@@ -88,6 +88,18 @@ export default function Home() {
           box-sizing: border-box;
         }
 
+        /* SVG Rendering Optimization for Mobile */
+        img[src$=".svg"] {
+          shape-rendering: geometricPrecision;
+          -webkit-backface-visibility: hidden;
+          backface-visibility: hidden;
+          image-rendering: -webkit-optimize-contrast;
+        }
+
+        svg {
+          shape-rendering: geometricPrecision;
+        }
+
         /* Scroll animations */
         .animate-on-scroll {
           opacity: 0;
@@ -239,6 +251,7 @@ export default function Home() {
                   className="h-[70px] sm:h-[90px] md:h-[110px] w-auto transition-all duration-300"
                   loading="eager"
                   fetchPriority="high"
+                  style={{ shapeRendering: 'geometricPrecision' }}
                   onError={() => setImageError(true)}
                 />
               ) : (
@@ -414,7 +427,12 @@ export default function Home() {
                 {/* ServiceTitan Integration Badge */}
                 <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-center gap-2">
                   <span className="text-xs text-gray-500">Integrates with</span>
-                  <img src="/st-logo.svg" alt="ServiceTitan" className="h-4 w-auto" />
+                  <img 
+                    src="/st-logo.svg" 
+                    alt="ServiceTitan" 
+                    className="h-4 w-auto"
+                    style={{ shapeRendering: 'geometricPrecision' }}
+                  />
                 </div>
               </div>
             </div>
@@ -697,6 +715,7 @@ export default function Home() {
                     alt="RevCenter Logo" 
                     className="h-[70px] sm:h-[90px] md:h-[110px] w-auto"
                     loading="lazy"
+                    style={{ shapeRendering: 'geometricPrecision' }}
                   />
                 ) : (
                   <div className={`text-3xl font-black tracking-tighter text-[#1b191a]`}>
