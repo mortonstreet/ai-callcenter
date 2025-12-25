@@ -269,16 +269,19 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {orgsData?.data?.map((org) => (
+                  {orgsData?.data?.map((org) => {
+                  // Type assertion: logo field exists in API response but not in DBOrganization type
+                  const orgWithLogo = org as typeof org & { logo?: string | null };
+                  return (
                     <tr key={org.id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-3 px-4">
                         <button
-                          onClick={() => openLogoModal(org)}
+                          onClick={() => openLogoModal(orgWithLogo)}
                           className="group relative w-10 h-10 rounded-lg border-2 border-dashed border-gray-300 hover:border-[var(--color-primary)] transition overflow-hidden flex items-center justify-center bg-gray-50"
                         >
-                          {org.logo ? (
+                          {orgWithLogo.logo ? (
                             <img 
-                              src={org.logo} 
+                              src={orgWithLogo.logo} 
                               alt={`${org.name} logo`}
                               className="w-full h-full object-cover"
                             />
@@ -329,7 +332,8 @@ export default function AdminPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  );
+                })}
                 </tbody>
               </table>
             </div>
