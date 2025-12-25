@@ -169,7 +169,7 @@ export default function JobDetailPage() {
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-semibold text-[#1b191a] mb-4">Position Not Found</h1>
-          <p className="text-[#373e4d] mb-6">The job you're looking for doesn't exist or has been filled.</p>
+          <p className="text-[#373e4d] mb-6">The job you&apos;re looking for doesn&apos;t exist or has been filled.</p>
           <Link 
             href="/careers"
             className="inline-flex items-center gap-2 text-[#1b191a] font-medium hover:underline"
@@ -390,7 +390,7 @@ export default function JobDetailPage() {
                     </div>
                     <h2 className="text-2xl font-semibold text-[#1b191a] mb-4">Application Submitted!</h2>
                     <p className="text-[#373e4d] mb-8">
-                      Thank you for your interest in joining RevCenter. We'll review your application and get back to you soon.
+                      Thank you for your interest in joining RevCenter. We&apos;ll review your application and get back to you soon.
                     </p>
                     <Link 
                       href="/careers"
