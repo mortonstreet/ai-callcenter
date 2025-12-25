@@ -222,6 +222,7 @@ export interface CreateTaskRequest {
 }
 
 export interface UpdateTaskRequest {
+  id?: string;
   name?: string;
   title?: string;
   description?: string;
