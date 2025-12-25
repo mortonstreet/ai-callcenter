@@ -14,6 +14,8 @@ export interface DBUser {
 export interface DBOrganization {
   id: string;
   name: string;
+  slug?: string;
+  logo?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -21,9 +23,13 @@ export interface DBOrganization {
 export interface DBTask {
   id: string;
   title: string;
+  name: string;
   description?: string;
   status: TaskStatus;
   priority?: string;
+  dispatcherUserId?: string;
+  agentId?: string;
+  organizationId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -44,10 +50,16 @@ export enum TaskStatus {
 
 export enum TaskFieldType {
   TEXT = "TEXT",
+  STRING = "STRING",
   NUMBER = "NUMBER",
   DATE = "DATE",
   SELECT = "SELECT",
   BOOLEAN = "BOOLEAN",
+  ADDRESS = "ADDRESS",
+  PHONE_NUMBER = "PHONE_NUMBER",
+  EMAIL_ADDRESS = "EMAIL_ADDRESS",
+  TIME = "TIME",
+  DATE_TIME = "DATE_TIME",
 }
 
 // Pipeline Stages for Kanban view
