@@ -120,7 +120,7 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
   const recording = data?.recording;
 
   const handleStatusChange = async (newStatus: string) => {
-    await updateStatus.mutateAsync({ id, status: newStatus });
+    await updateStatus.mutateAsync({ id, status: newStatus as TaskStatus });
   };
 
   const handlePlayAudio = async () => {
