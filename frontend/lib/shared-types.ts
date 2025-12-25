@@ -1,17 +1,19 @@
-// Shared types for standalone frontend deployment
-// Based on @shared/types and @shared/db packages
+// =============================================================================
+// SHARED TYPES - Standalone version for frontend deployment
+// Generated from @shared/db and @shared/types packages
+// =============================================================================
 
-// ============================================
-// Agent Types (from shared/types/src/agent.ts)
-// ============================================
+// =============================================================================
+// AGENT TYPES
+// =============================================================================
 export const AgentExternalType = {
   ELEVEN_LABS: 'eleven_labs',
 } as const;
 export type AgentExternalType = (typeof AgentExternalType)[keyof typeof AgentExternalType];
 
-// ============================================
-// Organization Types (from shared/types/src/organization.ts)
-// ============================================
+// =============================================================================
+// ORGANIZATION TYPES
+// =============================================================================
 export const OrganizationRole = {
   ADMIN: 'admin',
   OWNER: 'owner',
@@ -19,9 +21,9 @@ export const OrganizationRole = {
 } as const;
 export type OrganizationRole = (typeof OrganizationRole)[keyof typeof OrganizationRole];
 
-// ============================================
-// Task Types (from shared/types/src/task.ts)
-// ============================================
+// =============================================================================
+// TASK TYPES
+// =============================================================================
 export const TaskFieldType = {
   STRING: 'string',
   NUMBER: 'number',
@@ -103,185 +105,321 @@ export const CallQuality = {
 } as const;
 export type CallQuality = (typeof CallQuality)[keyof typeof CallQuality];
 
-// ============================================
-// DB Types (based on Prisma schema)
-// ============================================
+// =============================================================================
+// DATABASE TYPES (from Prisma generated types)
+// =============================================================================
+type Timestamp = Date | string;
+
 export interface DBUser {
   id: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
   email: string;
-  name: string | null;
-  role: string;
   emailVerified: boolean;
-  image?: string | null;
-  createdAt: Date | string;
-  updatedAt: Date | string;
+  name: string | null;
+  image: string | null;
+  permission: string;
+  stripeCustomerId: string | null;
+  lastActiveOrganizationId: string | null;
+  isAdmin: boolean;
+}
+
+export interface DBAccount {
+  id: string;
+  accountId: string;
+  providerId: string;
+  userId: string;
+  accessToken: string | null;
+  refreshToken: string | null;
+  idToken: string | null;
+  accessTokenExpiresAt: Timestamp | null;
+  refreshTokenExpiresAt: Timestamp | null;
+  scope: string | null;
+  password: string | null;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface DBSession {
+  id: string;
+  expiresAt: Timestamp;
+  token: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  ipAddress: string | null;
+  userAgent: string | null;
+  userId: string;
+  activeOrganizationId: string | null;
 }
 
 export interface DBOrganization {
   id: string;
   name: string;
   slug: string;
-  logo?: string | null;
-  createdAt: Date | string;
-  updatedAt: Date | string;
+  logo: string | null;
+  createdAt: Timestamp;
+  metadata: string | null;
 }
 
 export interface DBAgent {
   id: string;
   name: string;
-  description?: string | null;
-  externalType: AgentExternalType;
-  externalId?: string | null;
+  slug: string;
   organizationId: string;
-  createdAt: Date | string;
-  updatedAt: Date | string;
+  phoneNumber: string;
+  redirectNumber: string;
+  externalId: string;
+  externalType: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  mcpApiKey: string | null;
+  webhookSecret: string | null;
+  mcpEndpointUrl: string | null;
 }
 
 export interface DBTask {
   id: string;
   name: string;
-  title?: string;
-  description?: string | null;
-  status?: TaskStatus;
-  priority?: string | null;
+  description: string | null;
   agentId: string;
   organizationId: string;
-  dispatcherUserId?: string | null;
-  fields?: TaskField[] | string;
-  createdAt: Date | string;
-  updatedAt: Date | string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  requiredInfo: unknown;
+  dispatcherUserId: string | null;
 }
 
 export interface DBTaskInstance {
   id: string;
   taskId: string;
-  status: TaskStatus;
-  fields: Record<string, unknown>;
-  recordingId?: string | null;
-  createdAt: Date | string;
-  updatedAt: Date | string;
+  status: string;
+  requiredInfo: unknown;
+  info: unknown;
+  conversationId: string;
+  callSid: string | null;
+  dispatcherId: string | null;
+  organizationId: string | null;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  leadType: string | null;
+  resolutionType: string | null;
+  customerType: string | null;
+  leadScore: number | null;
+  estimatedValue: number | null;
+  calcomBookingId: string | null;
+  calcomEventId: number | null;
+  appointmentTime: Timestamp | null;
+  bookingStatus: string | null;
+  bookingCancelledAt: Timestamp | null;
+  bookingCancelReason: string | null;
+  tags: unknown | null;
+  pipelineStage: string | null;
 }
 
 export interface DBRecording {
   id: string;
-  url?: string | null;
-  duration?: number | null;
-  agentId?: string | null;
+  conversationId: string;
+  callSid: string;
+  taskInstanceId: string | null;
   organizationId: string;
-  taskInstanceId?: string | null;
-  callQuality?: CallQuality | null;
-  leadType?: LeadType | null;
-  pipelineStage?: PipelineStage | null;
-  tags?: string[];
-  createdAt: Date | string;
-  updatedAt: Date | string;
+  callDurationSeconds: number;
+  cost: number;
+  transcriptSummary: string | null;
+  payload: unknown;
+  callQuality: string | null;
+  callQualityReason: string | null;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
 }
 
 export interface DBInvitation {
   id: string;
-  email: string;
   organizationId: string;
-  role: OrganizationRole;
+  email: string;
+  role: string | null;
   status: string;
-  expiresAt: Date | string;
-  createdAt: Date | string;
+  expiresAt: Timestamp;
+  createdAt: Timestamp;
+  inviterId: string;
 }
 
-export interface DBSession {
+export interface DBMember {
   id: string;
+  organizationId: string;
   userId: string;
-  expiresAt: Date | string;
-  createdAt: Date | string;
+  role: string;
+  createdAt: Timestamp;
 }
 
-export interface DBAccount {
+export interface DBSubscription {
   id: string;
-  userId: string;
-  provider: string;
-  providerAccountId: string;
-  createdAt: Date | string;
+  plan: string;
+  referenceId: string;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  status: string | null;
+  periodStart: Timestamp | null;
+  periodEnd: Timestamp | null;
+  trialStart: Timestamp | null;
+  trialEnd: Timestamp | null;
+  cancelAtPeriodEnd: boolean | null;
+  seats: number | null;
 }
 
-// ============================================
-// Request/Response Types
-// ============================================
+// =============================================================================
+// REQUEST TYPES
+// =============================================================================
+
+// Task Field Request
 export interface TaskFieldRequest {
   name: string;
   type: TaskFieldType;
-  required?: boolean;
   description?: string;
-  options?: string[];
 }
 
+// Create Task Request
 export interface CreateTaskRequest {
   name: string;
-  title?: string;
   description?: string;
+  organizationId: string;
   agentId: string;
-  fields?: TaskFieldRequest[];
+  fields: TaskFieldRequest[];
+  dispatcherUserId?: string;
 }
 
+// Update Task Request (extends CreateTaskRequest + id)
 export interface UpdateTaskRequest {
-  id?: string;
-  name?: string;
-  title?: string;
-  description?: string;
-  dispatcherUserId?: string | null;
-  fields?: TaskFieldRequest[];
-}
-
-export interface GetRecordingsRequest {
-  page?: number;
-  limit?: number;
-  agentId?: string;
-}
-
-export interface GetTaskInstancesRequest {
-  page?: number;
-  limit?: number;
-  taskId?: string;
-  status?: TaskStatus;
-}
-
-export interface UpdateTaskInstanceStatusRequest {
-  status: TaskStatus;
-}
-
-export interface TaskInstanceDetailsResponse {
   id: string;
-  taskId: string;
-  status: TaskStatus;
-  fields: Record<string, unknown>;
-  createdAt: Date | string;
-  updatedAt: Date | string;
+  name: string;
+  description?: string;
+  organizationId: string;
+  agentId: string;
+  fields: TaskFieldRequest[];
+  dispatcherUserId?: string;
 }
 
+// Get Tasks Request
+export interface GetTasksRequest {
+  agentId: string;
+  organizationId: string;
+}
+
+// Delete Task Request
+export interface DeleteTaskRequest {
+  id: string;
+  organizationId: string;
+}
+
+// Pagination Request
+export interface PaginationRequest {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
+// Get Task Instances Request
+export interface GetTaskInstancesRequest extends PaginationRequest {
+  organizationId: string;
+  taskId?: string;
+  dispatcherId?: string;
+  status?: TaskStatus;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+// Get Single Task Instance Request
+export interface GetTaskInstanceRequest {
+  id: string;
+  organizationId: string;
+}
+
+// Update Task Instance Status Request
+export interface UpdateTaskInstanceStatusRequest {
+  id: string;
+  organizationId: string;
+  status: TaskStatus;
+}
+
+// Get Recordings Request
+export interface GetRecordingsRequest extends PaginationRequest {
+  organizationId: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+// Get Agents Request
+export interface GetAgentsRequest {
+  organizationId: string;
+}
+
+// Get Agent Request
+export interface GetAgentRequest {
+  id: string;
+  organizationId: string;
+}
+
+// Admin Create Organization Request
+export interface AdminCreateOrganizationRequest {
+  name: string;
+  ownerEmail: string;
+}
+
+// Admin Create Agent Request
+export interface AdminCreateAgentRequest {
+  organizationId: string;
+  name: string;
+  phoneNumber: string;
+  redirectNumber: string;
+  externalId: string;
+}
+
+// =============================================================================
+// RESPONSE TYPES
+// =============================================================================
+
+// Task Instance with Dispatcher info
+export interface TaskInstanceWithDispatcher extends DBTaskInstance {
+  dispatcherName: string | null;
+  dispatcherEmail: string | null;
+}
+
+// Task Instance Details Response
+export interface TaskInstanceDetailsResponse {
+  taskInstance: TaskInstanceWithDispatcher;
+  task: DBTask;
+  recording: DBRecording | null;
+}
+
+// Paginated Response
 export interface PaginatedResponse<T> {
   data: T[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
 }
 
-export interface AccountResponse {
-  user: DBUser;
-  organizations: DBOrganization[];
-}
+// Account Response
+export type AccountResponse = DBAccount;
+export type UserResponse = DBUser;
 
-// ============================================
-// Stripe Types
-// ============================================
-export const STRIPE_PLANS = {
-  FREE: "free",
-  PRO: "pro",
-  ENTERPRISE: "enterprise",
-} as const;
-export type StripePlan = (typeof STRIPE_PLANS)[keyof typeof STRIPE_PLANS];
+// =============================================================================
+// STRIPE TYPES
+// =============================================================================
+export const STRIPE_PLANS = [{
+  name: 'Pro',
+  priceId: 'price_1SWSjDH9VDQhL7wwFDYh8DhY',
+}];
 
-// ============================================
-// Pagination Types
-// ============================================
+// =============================================================================
+// PAGINATION TYPES
+// =============================================================================
 export type DBPagination = {
   page: number;
   limit: number;
