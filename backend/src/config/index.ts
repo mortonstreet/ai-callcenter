@@ -86,7 +86,7 @@ const envSchema = z.object({
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_PHONE_NUMBER: z.string().optional(), // E.164 format: +17752789755
-  TWILIO_API_KEY_SID: z.string().optional(),  // For Access Tokens (SK...)
+  TWILIO_API_KEY_SID: z.string().optional(), // For Access Tokens (SK...)
   TWILIO_API_KEY_SECRET: z.string().optional(), // API Key Secret
   TWILIO_TWIML_APP_SID: z.string().optional(), // TwiML App SID (AP...)
 })

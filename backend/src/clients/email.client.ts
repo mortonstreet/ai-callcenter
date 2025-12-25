@@ -200,6 +200,132 @@ export const sendOrganizationInvitation = async ({
   })
 }
 
+// Send job application notification to hiring team
+export const sendJobApplicationEmail = async ({
+  jobId,
+  jobTitle,
+  firstName,
+  lastName,
+  email,
+  phone,
+  linkedin,
+  coverLetter,
+  resumeFileName,
+  resumeBase64,
+}: {
+  jobId: string
+  jobTitle: string
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  linkedin: string
+  coverLetter: string
+  resumeFileName?: string
+  resumeBase64?: string
+}) => {
+  const attachments =
+    resumeFileName && resumeBase64
+      ? [
+          {
+            filename: resumeFileName,
+            content: resumeBase64,
+            encoding: 'base64' as const,
+          },
+        ]
+      : []
+
+  await transporter.sendMail({
+    from: 'RevCenter Careers <noreply@revcenter.ai>',
+    to: 'fox@revcenter.ai',
+    subject: `New Job Application: ${jobTitle} - ${firstName} ${lastName}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f7f7f8;">
+        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 40px 20px;">
+              <table role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+                <tr>
+                  <td style="padding: 48px 40px;">
+                    <h1 style="margin: 0 0 24px 0; font-size: 24px; font-weight: 600; color: #171717; letter-spacing: -0.5px;">
+                      New Application for ${jobTitle}
+                    </h1>
+                    
+                    <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
+                      <tr>
+                        <td style="padding: 12px 0; border-bottom: 1px solid #e5e5e5;">
+                          <strong style="color: #666; display: block; font-size: 12px; text-transform: uppercase; margin-bottom: 4px;">Name</strong>
+                          <span style="color: #171717; font-size: 16px;">${firstName} ${lastName}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 12px 0; border-bottom: 1px solid #e5e5e5;">
+                          <strong style="color: #666; display: block; font-size: 12px; text-transform: uppercase; margin-bottom: 4px;">Email</strong>
+                          <a href="mailto:${email}" style="color: #1b191a; font-size: 16px;">${email}</a>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 12px 0; border-bottom: 1px solid #e5e5e5;">
+                          <strong style="color: #666; display: block; font-size: 12px; text-transform: uppercase; margin-bottom: 4px;">Phone</strong>
+                          <span style="color: #171717; font-size: 16px;">${phone}</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 12px 0; border-bottom: 1px solid #e5e5e5;">
+                          <strong style="color: #666; display: block; font-size: 12px; text-transform: uppercase; margin-bottom: 4px;">LinkedIn</strong>
+                          <a href="${linkedin}" style="color: #1b191a; font-size: 16px;" target="_blank">${linkedin}</a>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 12px 0; border-bottom: 1px solid #e5e5e5;">
+                          <strong style="color: #666; display: block; font-size: 12px; text-transform: uppercase; margin-bottom: 4px;">Position</strong>
+                          <span style="color: #171717; font-size: 16px;">${jobTitle}</span>
+                        </td>
+                      </tr>
+                    </table>
+                    
+                    <div style="margin-bottom: 24px;">
+                      <strong style="color: #666; display: block; font-size: 12px; text-transform: uppercase; margin-bottom: 8px;">Why they want to join RevCenter</strong>
+                      <p style="margin: 0; color: #171717; font-size: 14px; line-height: 1.6; background-color: #f9f9fa; padding: 16px; border-radius: 8px;">
+                        ${coverLetter || 'No cover letter provided'}
+                      </p>
+                    </div>
+                    
+                    ${
+                      resumeFileName
+                        ? `
+                    <p style="margin: 0; font-size: 14px; color: #666;">
+                      📎 Resume attached: <strong>${resumeFileName}</strong>
+                    </p>
+                    `
+                        : '<p style="margin: 0; font-size: 14px; color: #999;">No resume attached</p>'
+                    }
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 24px 40px; background-color: #f9f9fa; border-radius: 0 0 12px 12px; border-top: 1px solid #e5e5e5;">
+                    <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #999; text-align: center;">
+                      This application was submitted through the RevCenter careers page.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `,
+    attachments,
+  })
+}
+
 // Just say you have a new task instance and give them a link to visit it
 export const sendTaskInstanceToDispatcher = async (
   taskInstance: DBTaskInstance & { task: { name: string } },

@@ -25,7 +25,14 @@ const EndCallSchema = z.object({
 
 const CallOutcomeSchema = z.object({
   callSid: z.string(),
-  outcome: z.enum(['booked', 'follow_up', 'not_interested', 'no_answer', 'voicemail', 'wrong_number']),
+  outcome: z.enum([
+    'booked',
+    'follow_up',
+    'not_interested',
+    'no_answer',
+    'voicemail',
+    'wrong_number',
+  ]),
   notes: z.string().optional(),
 })
 
@@ -44,7 +51,7 @@ router.get(
   async (_req: Request, res: Response) => {
     const isConfigured = twilioClient.isConfigured()
     const isVoiceConfigured = twilioClient.isVoiceConfigured()
-    
+
     res.json({
       configured: isConfigured,
       voiceConfigured: isVoiceConfigured,
@@ -64,17 +71,18 @@ router.get(
   async (req: Request, res: Response) => {
     try {
       if (!twilioClient.isVoiceConfigured()) {
-        return res.status(400).json({ 
-          error: 'Voice calling not configured. Need TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET, and TWILIO_TWIML_APP_SID.' 
+        return res.status(400).json({
+          error:
+            'Voice calling not configured. Need TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET, and TWILIO_TWIML_APP_SID.',
         })
       }
 
       // Use user ID as identity for the token
       const user = (req as any).user
       const identity = `agent_${user.id}`
-      
+
       const token = twilioClient.generateAccessToken(identity)
-      
+
       res.json({ token, identity })
     } catch (error: any) {
       logger.error('Failed to generate access token:', error)
@@ -100,7 +108,7 @@ router.get(
 
     // Try to list numbers from Twilio account
     const result = await twilioClient.listPhoneNumbers()
-    
+
     if (result.success && result.numbers) {
       return res.json({
         numbers: result.numbers,
@@ -237,7 +245,9 @@ router.post(
 
     // For now, just log the outcome
     // In the future, this will update the database
-    logger.info(`📝 Call ${callSid} outcome: ${outcome}${notes ? ` - ${notes}` : ''}`)
+    logger.info(
+      `📝 Call ${callSid} outcome: ${outcome}${notes ? ` - ${notes}` : ''}`,
+    )
 
     res.json({
       success: true,
@@ -258,7 +268,7 @@ router.post(
  */
 router.post('/voice', async (req: Request, res: Response) => {
   const { To, From, Caller } = req.body
-  
+
   logger.info(`🎤 Voice webhook - To: ${To}, From: ${From}, Caller: ${Caller}`)
 
   const voiceResponse = new TwiML.VoiceResponse()
@@ -271,7 +281,7 @@ router.post('/voice', async (req: Request, res: Response) => {
       recordingStatusCallback: `${config.backendUrl}/api/call-center/webhook/recording`,
       recordingStatusCallbackEvent: ['completed'],
     })
-    
+
     // Check if it's a phone number or a client
     if (To.startsWith('client:')) {
       dial.client(To.replace('client:', ''))
@@ -294,7 +304,9 @@ router.post('/voice', async (req: Request, res: Response) => {
 router.post('/webhook', async (req: Request, res: Response) => {
   const { CallSid, CallStatus, CallDuration } = req.body
 
-  logger.info(`📲 Twilio webhook: ${CallSid} - ${CallStatus}${CallDuration ? ` (${CallDuration}s)` : ''}`)
+  logger.info(
+    `📲 Twilio webhook: ${CallSid} - ${CallStatus}${CallDuration ? ` (${CallDuration}s)` : ''}`,
+  )
 
   // TODO: Update call record in database
   // TODO: Emit WebSocket event to frontend for real-time updates
@@ -310,7 +322,9 @@ router.post('/webhook', async (req: Request, res: Response) => {
 router.post('/webhook/recording', async (req: Request, res: Response) => {
   const { CallSid, RecordingSid, RecordingUrl, RecordingDuration } = req.body
 
-  logger.info(`🎙️ Recording ready for ${CallSid}: ${RecordingSid} (${RecordingDuration}s)`)
+  logger.info(
+    `🎙️ Recording ready for ${CallSid}: ${RecordingSid} (${RecordingDuration}s)`,
+  )
 
   // TODO: Save recording URL to database
 
@@ -318,4 +332,3 @@ router.post('/webhook/recording', async (req: Request, res: Response) => {
 })
 
 export default router
-

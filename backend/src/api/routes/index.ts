@@ -6,6 +6,7 @@ import taskRoutes from './task'
 import userRoutes from './user'
 import adminRoutes from './admin'
 import callCenterRoutes from './call-center'
+import careersRoutes from './careers'
 
 const router = Router()
 
@@ -19,6 +20,7 @@ router.use('/task', taskRoutes)
 router.use('/user', userRoutes)
 router.use('/admin', adminRoutes)
 router.use('/call-center', callCenterRoutes)
+router.use('/careers', careersRoutes)
 router.use('/sentry', (req, res) => {
   throw new Error('Testing sentry error')
 })

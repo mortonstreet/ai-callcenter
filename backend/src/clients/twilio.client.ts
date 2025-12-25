@@ -36,7 +36,11 @@ class TwilioClient {
   }
 
   isConfigured(): boolean {
-    return !!(config.twilio.accountSid && config.twilio.authToken && config.twilio.phoneNumber)
+    return !!(
+      config.twilio.accountSid &&
+      config.twilio.authToken &&
+      config.twilio.phoneNumber
+    )
   }
 
   /**
@@ -58,7 +62,9 @@ class TwilioClient {
    */
   generateAccessToken(identity: string): string {
     if (!this.isVoiceConfigured()) {
-      throw new Error('Twilio Voice SDK not configured. Need API Key and TwiML App.')
+      throw new Error(
+        'Twilio Voice SDK not configured. Need API Key and TwiML App.',
+      )
     }
 
     // Create an access token
@@ -66,7 +72,7 @@ class TwilioClient {
       config.twilio.accountSid,
       config.twilio.apiKeySid,
       config.twilio.apiKeySecret,
-      { identity }
+      { identity },
     )
 
     // Create a Voice grant and add it to the token
@@ -85,17 +91,16 @@ class TwilioClient {
   /**
    * Make an outbound call with recording enabled
    */
-  async makeCall(
-    to: string,
-    statusCallbackUrl?: string,
-  ): Promise<CallResult> {
+  async makeCall(to: string, statusCallbackUrl?: string): Promise<CallResult> {
     try {
       const client = this.getClient()
-      
+
       // Normalize phone number to E.164 format
       const toNormalized = this.normalizePhoneNumber(to)
-      
-      logger.info(`📞 Initiating call from ${config.twilio.phoneNumber} to ${toNormalized}`)
+
+      logger.info(
+        `📞 Initiating call from ${config.twilio.phoneNumber} to ${toNormalized}`,
+      )
 
       const callParams = {
         to: toNormalized,
@@ -104,7 +109,9 @@ class TwilioClient {
         twiml: `<Response><Say voice="alice">Hello! This is a test call from RevCenter. Your callback request has been received. Goodbye!</Say></Response>`,
         // Enable recording
         record: true,
-        recordingStatusCallback: statusCallbackUrl ? `${statusCallbackUrl}/recording` : undefined,
+        recordingStatusCallback: statusCallbackUrl
+          ? `${statusCallbackUrl}/recording`
+          : undefined,
         recordingStatusCallbackEvent: ['completed'],
         // Status callbacks
         statusCallback: statusCallbackUrl,
@@ -137,7 +144,7 @@ class TwilioClient {
   async endCall(callSid: string): Promise<CallResult> {
     try {
       const client = this.getClient()
-      
+
       const call = await client.calls(callSid).update({
         status: 'completed',
       })
@@ -193,7 +200,7 @@ class TwilioClient {
     try {
       const client = this.getClient()
       const recordings = await client.recordings.list({ callSid })
-      
+
       return {
         success: true,
         recordings: recordings.map((r) => ({
@@ -218,7 +225,7 @@ class TwilioClient {
     try {
       const client = this.getClient()
       const numbers = await client.incomingPhoneNumbers.list()
-      
+
       return {
         success: true,
         numbers: numbers.map((n) => ({
@@ -247,21 +254,24 @@ class TwilioClient {
   private normalizePhoneNumber(phone: string): string {
     // Remove all non-digit characters except leading +
     let cleaned = phone.replace(/[^\d+]/g, '')
-    
+
     // If no + prefix and 10 digits, assume US number
     if (!cleaned.startsWith('+') && cleaned.length === 10) {
       cleaned = '+1' + cleaned
     }
-    
+
     // If no + prefix and 11 digits starting with 1, add +
-    if (!cleaned.startsWith('+') && cleaned.length === 11 && cleaned.startsWith('1')) {
+    if (
+      !cleaned.startsWith('+') &&
+      cleaned.length === 11 &&
+      cleaned.startsWith('1')
+    ) {
       cleaned = '+' + cleaned
     }
-    
+
     return cleaned
   }
 }
 
 // Export singleton instance
 export const twilioClient = new TwilioClient()
-
