@@ -241,14 +241,14 @@ export default function Home() {
           : 'bg-white/70 backdrop-blur-lg'
       }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-20 md:h-24">
+          <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <Link href="/" className="flex items-center flex-shrink-0">
               {!imageError ? (
                 <img 
                   src="/revcenter-logo.svg" 
                   alt="RevCenter Logo" 
-                  className="h-[70px] sm:h-[90px] md:h-[110px] w-auto transition-all duration-300"
+                  className="h-6 sm:h-7 md:h-8 w-auto transition-all duration-300"
                   loading="eager"
                   fetchPriority="high"
                   style={{ shapeRendering: 'geometricPrecision' }}
@@ -713,7 +713,7 @@ export default function Home() {
                   <img 
                     src="/revcenter-logo.svg" 
                     alt="RevCenter Logo" 
-                    className="h-[70px] sm:h-[90px] md:h-[110px] w-auto"
+                    className="h-8 sm:h-10 md:h-12 w-auto"
                     loading="lazy"
                     style={{ shapeRendering: 'geometricPrecision' }}
                   />
