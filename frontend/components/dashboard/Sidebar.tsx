@@ -131,8 +131,10 @@ export default function Sidebar({
       {/* Mobile Top Nav */}
       <div className="sm:hidden fixed top-0 left-0 right-0 z-30 bg-white/90 backdrop-blur border-b border-gray-200">
         <div className="flex items-center justify-between px-4 py-3">
-          <Link href="/dashboard" className="text-lg font-bold tracking-tight text-[#1b191a] hover:opacity-80 transition">
-            RevCenter
+          <Link href="/dashboard" className="hover:opacity-80 transition">
+            <img 
+              src="/revcenter-logo.svg" alt="REVCENTER" loading="eager" fetchPriority="high" className="jsx-bd372fbcc3531114 h-6 sm:h-7 md:h-8 w-auto transition-all duration-300"
+            />
           </Link>
           
           <button
@@ -275,8 +277,10 @@ export default function Sidebar({
       >
         {/* Top: logo / app name */}
         <div className="mb-5 px-2">
-          <Link href="/dashboard" className="text-xl font-bold tracking-tight text-[#1b191a] hover:opacity-80 transition">
-            RevCenter
+          <Link href="/dashboard" className="hover:opacity-80 transition">
+            <img 
+              src="/revcenter-logo.svg" alt="REVCENTER" loading="eager" fetchPriority="high" className="h-[40px] sm:h-[40px] md:h-[20px] w-auto"
+            />
           </Link>
         </div>
         

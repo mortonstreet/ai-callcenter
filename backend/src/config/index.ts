@@ -1,7 +1,15 @@
 import dotenv from 'dotenv'
 import { z } from 'zod'
+import { existsSync } from 'fs'
+import { resolve } from 'path'
 
-dotenv.config()
+// Load .env.local first if it exists (for local development), then .env
+const envLocalPath = resolve(process.cwd(), '.env.local')
+if (existsSync(envLocalPath)) {
+  dotenv.config({ path: envLocalPath })
+} else {
+  dotenv.config()
+}
 
 // Schema for individual MCP provider configuration
 const McpProviderSchema = z.object({

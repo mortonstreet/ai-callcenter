@@ -16,8 +16,17 @@ const asciiArt = `
 ╚════════════════════════════════════════════════════════════════╝
 `
 
-app.listen(config.port, () => {
+const server = app.listen(config.port, () => {
   console.log(asciiArt)
+})
+
+server.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${config.port} is already in use`)
+  } else {
+    console.error('Server error:', err)
+  }
+  process.exit(1)
 })
 
 export default app

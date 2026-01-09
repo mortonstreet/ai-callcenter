@@ -247,8 +247,8 @@ export default function Home() {
               {!imageError ? (
                 <img 
                   src="/revcenter-logo.svg" 
-                  alt="RevCenter Logo" 
-                  className="h-6 sm:h-7 md:h-8 w-auto transition-all duration-300"
+                  alt="REVCENTER" 
+                  className="h-[40px] sm:h-[40px] md:h-[20px] w-auto"
                   loading="eager"
                   fetchPriority="high"
                   style={{ shapeRendering: 'geometricPrecision' }}
@@ -713,7 +713,7 @@ export default function Home() {
                   <img 
                     src="/revcenter-logo.svg" 
                     alt="RevCenter Logo" 
-                    className="h-8 sm:h-10 md:h-12 w-auto"
+                    className="h-[40px] sm:h-[40px] md:h-[20px] w-auto"
                     loading="lazy"
                     style={{ shapeRendering: 'geometricPrecision' }}
                   />

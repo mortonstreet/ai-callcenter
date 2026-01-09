@@ -18,6 +18,74 @@ import {
 import { stripeClient } from '@/lib/stripe'
 import { STRIPE_PLANS } from '@shared/types/src/stripe'
 import { config } from '@/config'
+import { scrypt, randomBytes, timingSafeEqual, ScryptOptions } from 'crypto'
+
+// Supabase scrypt parameters
+const SCRYPT_N = 16384
+const SCRYPT_R = 8
+const SCRYPT_P = 1
+const SCRYPT_KEYLEN = 64
+
+// Promisified scrypt with options support
+function scryptAsync(
+  password: string,
+  salt: Buffer,
+  keylen: number,
+  options: ScryptOptions,
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    scrypt(password, salt, keylen, options, (err, derivedKey) => {
+      if (err) reject(err)
+      else resolve(derivedKey)
+    })
+  })
+}
+
+// Hash password using scrypt (Supabase-compatible format)
+async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(16)
+  const derivedKey = await scryptAsync(password, salt, SCRYPT_KEYLEN, {
+    N: SCRYPT_N,
+    r: SCRYPT_R,
+    p: SCRYPT_P,
+  })
+  return `$scrypt$N=${SCRYPT_N},r=${SCRYPT_R},p=${SCRYPT_P}$${salt.toString('base64')}$${derivedKey.toString('base64')}`
+}
+
+// Verify password against Supabase scrypt hash
+async function verifyPassword(data: {
+  password: string
+  hash: string
+}): Promise<boolean> {
+  const { password, hash } = data
+
+  // Parse Supabase scrypt format: $scrypt$N=16384,r=8,p=1$<salt>$<hash>
+  const parts = hash.split('$')
+  if (parts.length !== 5 || parts[1] !== 'scrypt') {
+    logger.error('Invalid scrypt hash format')
+    return false
+  }
+
+  const params = parts[2].split(',').reduce(
+    (acc, param) => {
+      const [key, value] = param.split('=')
+      acc[key] = parseInt(value, 10)
+      return acc
+    },
+    {} as Record<string, number>,
+  )
+
+  const salt = Buffer.from(parts[3], 'base64')
+  const storedKey = Buffer.from(parts[4], 'base64')
+
+  const derivedKey = await scryptAsync(password, salt, storedKey.length, {
+    N: params.N,
+    r: params.r,
+    p: params.p,
+  })
+
+  return timingSafeEqual(storedKey, derivedKey)
+}
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma_OnlyForBetterAuth, {
@@ -75,6 +143,10 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
+    password: {
+      hash: hashPassword,
+      verify: verifyPassword,
+    },
     sendResetPassword: async ({ user, url }) => {
       await sendResetPasswordEmail(user.email, url)
     },

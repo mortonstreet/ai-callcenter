@@ -103,13 +103,13 @@ export default function CareersPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="border-b border-gray-100">
-        <div className="max-w-4xl mx-auto px-6 pt-1 pb-1 flex justify-center">
+      <header>
+        <div className="max-w-4xl mx-auto px-6 pt-10 pb-1 flex justify-center">
           <Link href="/">
             <img 
               src="/revcenter-logo.svg" 
               alt="RevCenter" 
-              className="h-[140px] sm:h-[180px] md:h-[220px] w-auto"
+              className="h-[80px] sm:h-[80px] md:h-[40px] w-auto"
             />
           </Link>
         </div>
