@@ -248,7 +248,7 @@ export default function Home() {
                 <img 
                   src="/revcenter-logo.svg" 
                   alt="REVCENTER" 
-                  className="h-[40px] sm:h-[40px] md:h-[20px] w-auto"
+                  className="h-5 sm:h-5 md:h-[20px] w-auto"
                   loading="eager"
                   fetchPriority="high"
                   style={{ shapeRendering: 'geometricPrecision' }}
