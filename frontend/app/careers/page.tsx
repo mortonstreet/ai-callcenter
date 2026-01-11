@@ -109,7 +109,7 @@ export default function CareersPage() {
             <img 
               src="/revcenter-logo.svg" 
               alt="RevCenter" 
-              className="h-[80px] sm:h-[80px] md:h-[40px] w-auto"
+              className="h-5 sm:h-5 md:h-[20px] w-auto"
             />
           </Link>
         </div>
