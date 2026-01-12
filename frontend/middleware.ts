@@ -105,8 +105,9 @@ export function middleware(request: NextRequest) {
     // Main domain (revcenter.ai) - marketing site
     // If someone tries to access /dashboard on main domain, redirect to app subdomain
     if (pathname.startsWith('/dashboard') || pathname.startsWith('/login') || pathname.startsWith('/signup')) {
-      // Construct the app subdomain URL
-      const appHost = 'app.' + host;
+      // Construct the app subdomain URL (strip www. if present)
+      const baseHost = host.replace('www.', '');
+      const appHost = 'app.' + baseHost;
       // Handle localhost specially
       if (host.includes('localhost') || host.includes('127.0.0.1')) {
         // In local dev, just let it through since we can't easily switch subdomains
