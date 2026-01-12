@@ -1,5 +1,6 @@
 import Twilio from 'twilio'
-import { jwt } from 'twilio'
+
+const { jwt } = Twilio
 import { config } from '@/config'
 import logger from '@/lib/logger'
 

@@ -6,7 +6,9 @@ import { twilioClient } from '@/clients/twilio.client'
 import { config } from '@/config'
 import logger from '@/lib/logger'
 import type { Request, Response } from 'express'
-import { twiml as TwiML } from 'twilio'
+import Twilio from 'twilio'
+
+const { twiml: TwiML } = Twilio
 
 const router = Router()
 
