@@ -79,9 +79,6 @@ const envSchema = z.object({
   SENTRY_DSN: z.string(),
   JWT_SECRET: z.string(),
   WEBHOOK_API_KEY: z.string(),
-  STRIPE_PUBLISHABLE_KEY: z.string(),
-  STRIPE_SECRET_KEY: z.string(),
-  STRIPE_WEBHOOK_SECRET: z.string(),
   GOOGLE_CLIENT_ID: z.string(),
   GOOGLE_CLIENT_SECRET: z.string(),
   RESEND_API_KEY: z.string(),
@@ -143,11 +140,6 @@ export const config = {
   },
   sentry: {
     dsn: env.SENTRY_DSN,
-  },
-  stripe: {
-    secretKey: env.STRIPE_SECRET_KEY,
-    webhookSecret: env.STRIPE_WEBHOOK_SECRET,
-    publishableKey: env.STRIPE_PUBLISHABLE_KEY,
   },
   providers: {
     google: {

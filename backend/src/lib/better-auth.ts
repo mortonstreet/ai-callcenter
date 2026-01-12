@@ -8,15 +8,11 @@ import {
   sendVerificationEmail,
   sendOrganizationInvitation,
 } from '@/clients/email.client'
-import { stripe } from '@better-auth/stripe'
 import logger from '@/lib/logger'
 import {
   getLastActiveOrganization,
-  getOrganizationMember,
   updateUserLastActiveOrganizationId,
 } from '@/repositories/auth.repository'
-import { stripeClient } from '@/lib/stripe'
-import { STRIPE_PLANS } from '@shared/types/src/stripe'
 import { config } from '@/config'
 import { scrypt, randomBytes, timingSafeEqual, ScryptOptions } from 'crypto'
 
@@ -179,29 +175,6 @@ export const auth = betterAuth({
           teamName: data.organization.name,
           inviteLink,
         })
-      },
-    }),
-    stripe({
-      stripeClient,
-      stripeWebhookSecret: config.stripe.webhookSecret,
-      createCustomerOnSignUp: true,
-      subscription: {
-        enabled: true,
-        authorizeReference: async ({ user, referenceId, action }) => {
-          const member = await getOrganizationMember(referenceId, user.id)
-          return member?.role === 'owner' || member?.role === 'admin'
-        },
-        getCheckoutSessionParams: async () => {
-          return {
-            params: {
-              allow_promotion_codes: true,
-            },
-          }
-        },
-        organization: {
-          enabled: true,
-        },
-        plans: STRIPE_PLANS,
       },
     }),
   ],

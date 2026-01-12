@@ -410,14 +410,6 @@ export type AccountResponse = DBAccount;
 export type UserResponse = DBUser;
 
 // =============================================================================
-// STRIPE TYPES
-// =============================================================================
-export const STRIPE_PLANS = [{
-  name: 'Pro',
-  priceId: 'price_1SWSjDH9VDQhL7wwFDYh8DhY',
-}];
-
-// =============================================================================
 // PAGINATION TYPES
 // =============================================================================
 export type DBPagination = {

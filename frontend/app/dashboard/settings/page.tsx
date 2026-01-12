@@ -15,8 +15,6 @@ import { useInviteMember, useListOrganizationMembers, useListOrganizationInvitat
 import { useHasPasswordAuth } from "@/hooks/api/useUser";
 import { useChangePassword } from "@/hooks/api/useAuth";
 import { useEffectiveOrganization, useAdminStore } from "@/lib/admin-store";
-import { useCreateCheckoutSession, useOrganizationSubscription, useCreatePortalSession } from "@/hooks/api/useStripe";
-import { STRIPE_PLANS } from "@/lib/shared-types";
 
 export default function SettingsPage() {
   const { data: session } = useSession();
@@ -39,11 +37,6 @@ export default function SettingsPage() {
   const inviteMemberMutation = useInviteMember();
   const cancelInvitationMutation = useCancelOrganizationInvitation();
   const removeMemberMutation = useRemoveOrganizationMember();
-  
-  // Stripe
-  const createCheckoutSession = useCreateCheckoutSession();
-  const createPortalSession = useCreatePortalSession();
-  const { data: subscription, isLoading: subscriptionLoading } = useOrganizationSubscription(effectiveOrganization?.id);
 
   // Password change state
   const [oldPassword, setOldPassword] = useState("");
@@ -192,53 +185,6 @@ export default function SettingsPage() {
     );
   };
 
-  const handleUpgrade = async () => {
-    if (!effectiveOrganization) {
-      toast.error("No active organization");
-      return;
-    }
-
-    const proPlan = STRIPE_PLANS[0];
-    createCheckoutSession.mutate(
-      { planName: proPlan.name, organizationId: effectiveOrganization.id },
-      {
-        onSuccess: (data: any) => {
-          if (data?.error) {
-            toast.error(data.error.message || "Failed to create checkout session");
-          } else if (data?.data?.url) {
-            window.location.href = data.data.url;
-          }
-        },
-        onError: () => {
-          toast.error("Failed to start checkout");
-        },
-      }
-    );
-  };
-
-  const handleManageBilling = async () => {
-    if (!effectiveOrganization) {
-      toast.error("No active organization");
-      return;
-    }
-
-    createPortalSession.mutate(
-      { organizationId: effectiveOrganization.id },
-      {
-        onSuccess: (data: any) => {
-          if (data?.error) {
-            toast.error(data.error.message || "Failed to open billing portal");
-          } else if (data?.data?.url) {
-            window.location.href = data.data.url;
-          }
-        },
-        onError: () => {
-          toast.error("Failed to open billing portal");
-        },
-      }
-    );
-  };
-
   return (
     <Page title="Settings" subtitle="Manage your account and organization settings">
       <div className="space-y-6">
@@ -304,55 +250,6 @@ export default function SettingsPage() {
               </>
             )}
 
-            {/* Billing - Only for admin/owner */}
-            {(isAdmin || isOwner) && (
-              <>
-                <div className="border-t border-gray-200" />
-                <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-gray-900">Billing</h3>
-                  {subscriptionLoading ? (
-                    <div className="text-sm text-gray-500">Loading subscription...</div>
-                  ) : subscription ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[var(--color-primary)]/5 to-[var(--color-primary)]/10 rounded-lg border border-[var(--color-primary)]/20">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-[var(--color-primary)] rounded-lg flex items-center justify-center">
-                            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                            </svg>
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-900">You are subscribed to Pro</p>
-                            <p className="text-sm text-gray-600">
-                              {subscription.status === "active" ? "Active" : subscription.status}
-                            </p>
-                          </div>
-                        </div>
-                        <Button 
-                          variant="outline" 
-                          onClick={handleManageBilling}
-                          loading={createPortalSession.isPending}
-                          disabled={createPortalSession.isPending}
-                        >
-                          Manage Billing
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="p-4 bg-[var(--color-primary)]/5 rounded-lg border border-[var(--color-primary)]/20">
-                        <div className="space-y-1">
-                            <p className="text-sm font-medium text-gray-900">Currently on: Free Plan</p>
-                          <p className="text-sm text-[var(--color-primary)]">
-                            Contact your sales rep to upgrade to Pro
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
           </div>
         </Card>
 

@@ -33,9 +33,6 @@ importers:
       '@better-auth/cli':
         specifier: ^1.4.1
         version: 1.4.1(@better-fetch/fetch@1.1.18)(@opentelemetry/api@1.9.0)(@types/react@19.2.7)(better-call@1.1.0)(jose@6.1.2)(kysely@0.28.8)(nanostores@1.1.0)(react@19.1.0)(typescript@5.9.3)
-      '@better-auth/stripe':
-        specifier: ^1.4.1
-        version: 1.4.1(@better-auth/core@1.4.1(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.18)(better-call@1.1.0)(jose@6.1.2)(kysely@0.28.8)(nanostores@1.1.0))(better-auth@1.4.1(react@19.1.0))(stripe@20.0.0(@types/node@22.19.1))
       '@logtail/node':
         specifier: ^0.5.6
         version: 0.5.6
@@ -62,7 +59,7 @@ importers:
         version: link:../shared/types
       better-auth:
         specifier: ^1.4.1
-        version: 1.4.1(react@19.1.0)
+        version: 1.4.1(next@16.1.1(@opentelemetry/api@1.9.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       body-parser:
         specifier: ^2.2.0
         version: 2.2.1
@@ -111,9 +108,6 @@ importers:
       slugify:
         specifier: ^1.6.6
         version: 1.6.6
-      stripe:
-        specifier: ^20.0.0
-        version: 20.0.0(@types/node@22.19.1)
       twilio:
         specifier: ^5.5.0
         version: 5.10.7
@@ -166,9 +160,6 @@ importers:
 
   frontend:
     dependencies:
-      '@better-auth/stripe':
-        specifier: ^1.4.1
-        version: 1.4.1(@better-auth/core@1.4.1(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.18)(better-call@1.1.0)(jose@6.1.2)(kysely@0.28.8)(nanostores@1.1.0))(better-auth@1.4.1(next@16.1.1(@opentelemetry/api@1.9.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(stripe@20.0.0(@types/node@20.19.25))
       '@elevenlabs/react':
         specifier: ^0.11.2
         version: 0.11.3(@types/dom-mediacapture-record@1.0.22)(react@19.1.0)
@@ -572,13 +563,6 @@ packages:
       jose: ^6.1.0
       kysely: ^0.28.5
       nanostores: ^1.0.1
-
-  '@better-auth/stripe@1.4.1':
-    resolution: {integrity: sha512-0DbvSgongTwBgB5rnNHaBe5BJTtztbgx48Vq+ryBRm/qM35k1mTbzquCBTW29QRWpwiqq9X4ne23QL+fwCOLqA==}
-    peerDependencies:
-      '@better-auth/core': 1.4.1
-      better-auth: 1.4.1
-      stripe: ^18 || ^19 || ^20
 
   '@better-auth/telemetry@1.4.1':
     resolution: {integrity: sha512-yNeazXYvMbyuCe1AA6tYWsJEKgcS7gF9PmmACmrPVhVBe1ncDhVfWMZ++YCmA2h8hjkR9755ZyofiYRPbj+kXQ==}
@@ -4691,15 +4675,6 @@ packages:
     resolution: {integrity: sha512-1tB5mhVo7U+ETBKNf92xT4hrQa3pm0MZ0PQvuDnWgAAGHDsfp4lPSpiS6psrSiet87wyGPh9ft6wmhOMQ0hDiw==}
     engines: {node: '>=14.16'}
 
-  stripe@20.0.0:
-    resolution: {integrity: sha512-EaZeWpbJOCcDytdjKSwdrL5BxzbDGNueiCfHjHXlPdBQvLqoxl6AAivC35SPzTmVXJb5duXQlXFGS45H0+e6Gg==}
-    engines: {node: '>=16'}
-    peerDependencies:
-      '@types/node': '>=16'
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-
   strnum@2.1.1:
     resolution: {integrity: sha512-7ZvoFTiCnGxBtDqJ//Cu6fWtZtc7Y3x+QOirG15wztbdngGSkht27o2pyGWrVy0b4WAy3jbKmnoK6g5VlVNUUw==}
 
@@ -5700,7 +5675,7 @@ snapshots:
       '@mrleebo/prisma-ast': 0.13.1
       '@prisma/client': 6.17.1(prisma@6.19.0(typescript@5.9.3))(typescript@5.9.3)
       '@types/pg': 8.15.6
-      better-auth: 1.4.1(react@19.1.0)
+      better-auth: 1.4.1(next@16.1.1(@opentelemetry/api@1.9.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       better-sqlite3: 12.4.6
       c12: 3.3.2
       chalk: 5.6.2
@@ -5767,22 +5742,6 @@ snapshots:
       jose: 6.1.2
       kysely: 0.28.8
       nanostores: 1.1.0
-      zod: 4.1.13
-
-  '@better-auth/stripe@1.4.1(@better-auth/core@1.4.1(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.18)(better-call@1.1.0)(jose@6.1.2)(kysely@0.28.8)(nanostores@1.1.0))(better-auth@1.4.1(next@16.1.1(@opentelemetry/api@1.9.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(stripe@20.0.0(@types/node@20.19.25))':
-    dependencies:
-      '@better-auth/core': 1.4.1(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.18)(better-call@1.1.0)(jose@6.1.2)(kysely@0.28.8)(nanostores@1.1.0)
-      better-auth: 1.4.1(next@16.1.1(@opentelemetry/api@1.9.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      defu: 6.1.4
-      stripe: 20.0.0(@types/node@20.19.25)
-      zod: 4.1.13
-
-  '@better-auth/stripe@1.4.1(@better-auth/core@1.4.1(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.18)(better-call@1.1.0)(jose@6.1.2)(kysely@0.28.8)(nanostores@1.1.0))(better-auth@1.4.1(react@19.1.0))(stripe@20.0.0(@types/node@22.19.1))':
-    dependencies:
-      '@better-auth/core': 1.4.1(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.18)(better-call@1.1.0)(jose@6.1.2)(kysely@0.28.8)(nanostores@1.1.0)
-      better-auth: 1.4.1(react@19.1.0)
-      defu: 6.1.4
-      stripe: 20.0.0(@types/node@22.19.1)
       zod: 4.1.13
 
   '@better-auth/telemetry@1.4.1(@better-auth/core@1.4.1(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.18)(better-call@1.1.0)(jose@6.1.2)(kysely@0.28.8)(nanostores@1.1.0))':
@@ -7648,24 +7607,6 @@ snapshots:
       next: 16.1.1(@opentelemetry/api@1.9.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
-
-  better-auth@1.4.1(react@19.1.0):
-    dependencies:
-      '@better-auth/core': 1.4.1(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.18)(better-call@1.1.0)(jose@6.1.2)(kysely@0.28.8)(nanostores@1.1.0)
-      '@better-auth/telemetry': 1.4.1(@better-auth/core@1.4.1(@better-auth/utils@0.3.0)(@better-fetch/fetch@1.1.18)(better-call@1.1.0)(jose@6.1.2)(kysely@0.28.8)(nanostores@1.1.0))
-      '@better-auth/utils': 0.3.0
-      '@better-fetch/fetch': 1.1.18
-      '@noble/ciphers': 2.0.1
-      '@noble/hashes': 2.0.1
-      '@standard-schema/spec': 1.0.0
-      better-call: 1.1.0
-      defu: 6.1.4
-      jose: 6.1.2
-      kysely: 0.28.8
-      nanostores: 1.1.0
-      zod: 4.1.13
-    optionalDependencies:
-      react: 19.1.0
 
   better-call@1.1.0:
     dependencies:
@@ -10181,18 +10122,6 @@ snapshots:
   strip-json-comments@3.1.1: {}
 
   strip-json-comments@5.0.3: {}
-
-  stripe@20.0.0(@types/node@20.19.25):
-    dependencies:
-      qs: 6.14.0
-    optionalDependencies:
-      '@types/node': 20.19.25
-
-  stripe@20.0.0(@types/node@22.19.1):
-    dependencies:
-      qs: 6.14.0
-    optionalDependencies:
-      '@types/node': 22.19.1
 
   strnum@2.1.1: {}
 
