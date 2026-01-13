@@ -41,11 +41,18 @@ function isAppSubdomain(host: string): boolean {
 
 function hasSessionCookie(request: NextRequest): boolean {
   // Check for better-auth session cookies
-  // better-auth uses these cookie names
-  const sessionToken = request.cookies.get('better-auth.session_token');
-  const sessionData = request.cookies.get('better-auth.session');
+  // In production with secure: true, cookies are prefixed with __Secure-
+  const cookieNames = [
+    'better-auth.session_token',
+    'better-auth.session',
+    '__Secure-better-auth.session_token',
+    '__Secure-better-auth.session',
+  ];
 
-  return !!(sessionToken?.value || sessionData?.value);
+  return cookieNames.some(name => {
+    const cookie = request.cookies.get(name);
+    return !!cookie?.value;
+  });
 }
 
 export function middleware(request: NextRequest) {
