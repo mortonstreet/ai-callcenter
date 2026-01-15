@@ -2,13 +2,24 @@ import { Router } from 'express'
 import { withBetterAuth } from '../middlewares/auth'
 import { validateAndMerge } from '@/api/middlewares/validationMiddleware'
 import { z } from 'zod'
-import { deleteOrganizationDev } from '@/api/controllers/organization.controller'
+import {
+  deleteOrganizationDev,
+  onboardOrganization,
+  OrganizationOnboardingSchema,
+} from '@/api/controllers/organization.controller'
 
 const router = Router()
 
 const DeleteOrganizationSchema = z.object({
   organizationId: z.string(),
 })
+
+router.post(
+  '/onboarding',
+  withBetterAuth,
+  validateAndMerge(OrganizationOnboardingSchema),
+  onboardOrganization,
+)
 
 router.delete(
   '/:organizationId',
@@ -18,4 +29,3 @@ router.delete(
 )
 
 export default router
-
