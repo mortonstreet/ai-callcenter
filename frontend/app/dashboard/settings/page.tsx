@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import { Page } from "@/components/dashboard/Page";
 import Card from "@/components/ui/Card";
@@ -62,6 +62,17 @@ export default function SettingsPage() {
   const isOwner = currentUserMember?.role === "owner";
 
   const queryClient = useQueryClient();
+
+  // Parse organization metadata (domain/industry/services) from onboarding
+  const orgMeta = useMemo(() => {
+    const raw = (effectiveOrganization as any)?.metadata;
+    if (!raw) return {};
+    try {
+      return typeof raw === "string" ? JSON.parse(raw) : raw;
+    } catch (e) {
+      return {};
+    }
+  }, [effectiveOrganization]);
 
   // Dev-only organization delete (for local/testing)
   const deleteOrgMutation = useMutation({
@@ -298,6 +309,37 @@ export default function SettingsPage() {
                       Organization Name
                     </label>
                     <p className="text-gray-900">{effectiveOrganization.name}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Domain
+                    </label>
+                    <p className="text-gray-900">{(orgMeta as any)?.domain || "—"}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Industry
+                    </label>
+                    <p className="text-gray-900 capitalize">{(orgMeta as any)?.industry || "—"}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Services
+                    </label>
+                    {(orgMeta as any)?.services?.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {(orgMeta as any).services.map((svc: string) => (
+                          <span
+                            key={svc}
+                            className="px-2.5 py-1 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)] text-xs font-medium"
+                          >
+                            {svc}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 text-sm">—</p>
+                    )}
                   </div>
                 </div>
               </div>

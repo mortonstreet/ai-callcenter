@@ -24,10 +24,9 @@ export const OrganizationOnboardingSchema = z.object({
 
 type OrgOnboardingRequest = z.infer<typeof OrganizationOnboardingSchema>
 
-export const onboardOrganization: AuthRequestHandler<OrgOnboardingRequest> = async (
-  req,
-  res,
-) => {
+export const onboardOrganization: AuthRequestHandler<
+  OrgOnboardingRequest
+> = async (req, res) => {
   if (config.nodeEnv === 'production') {
     return res.status(403).json({ error: 'Not available in production' })
   }
@@ -67,16 +66,16 @@ export const onboardOrganization: AuthRequestHandler<OrgOnboardingRequest> = asy
   await updateUserLastActiveOrganizationId(req.user.id, organization.id)
 
   // Create agent with provided name and stash onboarding details in metadata-compatible fields
-    const createdAgent = await createAgentRepo({
-      name: agent.name,
-      slug: formatToSlug(agent.name),
-      organizationId: organization.id,
-      // Placeholder numbers; can be edited later in settings
-      phoneNumber: '+15555550123',
-      redirectNumber: '+15555550123',
-      externalId: organization.id,
-      externalType: AgentExternalType.ELEVEN_LABS,
-    })
+  const createdAgent = await createAgentRepo({
+    name: agent.name,
+    slug: formatToSlug(agent.name),
+    organizationId: organization.id,
+    // Placeholder numbers; can be edited later in settings
+    phoneNumber: '+15555550123',
+    redirectNumber: '+15555550123',
+    externalId: organization.id,
+    externalType: AgentExternalType.ELEVEN_LABS,
+  })
 
   res.json({
     data: {

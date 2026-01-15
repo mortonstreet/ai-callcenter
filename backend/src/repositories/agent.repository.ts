@@ -9,7 +9,15 @@ import {
 import { withIdAndTimestamps, withTimestamps } from './utils'
 
 export const createAgent = async (
-  agent: Omit<Agent, 'id' | 'createdAt' | 'updatedAt' | 'mcpApiKey' | 'webhookSecret' | 'mcpEndpointUrl'> &
+  agent: Omit<
+    Agent,
+    | 'id'
+    | 'createdAt'
+    | 'updatedAt'
+    | 'mcpApiKey'
+    | 'webhookSecret'
+    | 'mcpEndpointUrl'
+  > &
     Partial<Pick<Agent, 'mcpApiKey' | 'webhookSecret' | 'mcpEndpointUrl'>>,
 ) => {
   const newAgent = await db
