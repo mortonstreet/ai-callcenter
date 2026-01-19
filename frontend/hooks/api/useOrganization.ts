@@ -3,6 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { organization, useActiveOrganization, useSession } from '@/lib/auth-client';
 import { QUERY_KEYS } from '@/lib/config';
+import { post } from '@/lib/api';
+import { toast } from 'sonner';
 
 export { useActiveOrganization };
 
@@ -34,6 +36,32 @@ export function useCreateOrganization() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.organizations() });
+    },
+  });
+}
+
+export function useOnboardOrganization() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: {
+      name: string;
+      domain?: string;
+      industry: string;
+      services: string[];
+      agent: {
+        name: string;
+        openingLine?: string;
+        serviceQuestions?: string[];
+      };
+    }) => {
+      return await post<{ data: any }>('/organization/onboarding', params);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.organizations() });
+      toast.success('Organization onboarded');
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to onboard organization');
     },
   });
 }

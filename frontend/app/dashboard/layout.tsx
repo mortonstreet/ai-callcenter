@@ -8,15 +8,12 @@ import { toast } from "sonner";
 import { 
   useOrganizations,
 } from "@/hooks/api/useOrganization";
-import CreateOrganizationModal from "@/components/organization/CreateOrganizationModal";
 import { useActiveOrganization } from "@/lib/auth-client";
 import { DBUser } from "@/lib/shared-types";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = useSession();
   const router = useRouter();
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [modalAllowClose, setModalAllowClose] = useState(false);
   const { isLoading: isLoadingOrgs, data: organizations } = useOrganizations();
   const activeOrganization = useActiveOrganization();
   const isAdmin = (session?.user as DBUser)?.isAdmin === true;
@@ -36,26 +33,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (isPending || !session || isLoadingOrgData) return;
 
     // Admin users don't need to create an organization - they can view all orgs
-    if (isAdmin) {
-      setShowCreateModal(false);
-      return;
-    }
+    if (isAdmin) return;
 
     // If user already has an active organization, don't show modal
-    if (activeOrganization?.data?.id) {
-      setShowCreateModal(false);
-      return;
-    }
+    if (activeOrganization?.data?.id) return;
 
-    // No orgs - show create modal for non-admin users
+    // No orgs - send to onboarding
     if (organizations?.data?.length === 0) {
-      setShowCreateModal(true);
-      setModalAllowClose(false);
-    } else {
-      setShowCreateModal(false);
-      setModalAllowClose(false);
+      router.push("/onboarding");
     }
-  }, [isPending, session, isLoadingOrgData, organizations?.data?.length, activeOrganization?.data?.id, isAdmin]);
+  }, [isPending, session, isLoadingOrgData, organizations?.data?.length, activeOrganization?.data?.id, isAdmin, router]);
 
   if (isPending) {
     return (
@@ -74,36 +61,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push("/login");
   };
 
-  const handleCreateSuccess = () => {
-    // No need to invalidate - the store is already updated by the mutation
-    setShowCreateModal(false);
-  };
-
   const handleOpenCreateOrg = () => {
-    setModalAllowClose(true); // Allow closing when creating additional orgs
-    setShowCreateModal(true);
+    router.push("/onboarding");
   };
-
-  const hasNoOrganizations = !isAdmin && !isLoadingOrgData && !activeOrganization?.data?.id && organizations?.data?.length === 0;
 
   return (
-    <>
-      <div className="min-h-screen bg-gray-50">
-        <Sidebar onLogout={handleLogout} onOpenCreateOrg={handleOpenCreateOrg} />
-        
-        <main className="pt-16 sm:pt-0 sm:pl-60 md:pl-64 px-4 md:px-6 py-6 md:py-8">
-          <div className="mx-auto max-w-[96rem]">
-            {children}
-          </div>
-        </main>
-      </div>
-
-      <CreateOrganizationModal
-        isOpen={showCreateModal}
-        onClose={hasNoOrganizations ? () => {} : () => setShowCreateModal(false)}
-        onSuccess={handleCreateSuccess}
-        allowClose={modalAllowClose}
-      />
-    </>
+    <div className="min-h-screen bg-gray-50">
+      <Sidebar onLogout={handleLogout} onOpenCreateOrg={handleOpenCreateOrg} />
+      
+      <main className="pt-16 sm:pt-0 sm:pl-60 md:pl-64 px-4 md:px-6 py-6 md:py-8">
+        <div className="mx-auto max-w-[96rem]">
+          {children}
+        </div>
+      </main>
+    </div>
   );
 }

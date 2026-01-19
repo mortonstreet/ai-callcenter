@@ -4,7 +4,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, Users, Video, Settings, LogOut, ChevronDown, Shield, LayoutDashboard, Calendar, Kanban, Headphones } from "lucide-react";
+import { Bot, Users, Video, Settings, LogOut, ChevronDown, Shield, LayoutDashboard, Calendar, Kanban, Headphones, Plus } from "lucide-react";
 import { useOrganizations, useSetActiveOrganizationMutation } from "@/hooks/api/useOrganization";
 import { useAdminOrganizations } from "@/hooks/api/useAdmin";
 import { toast } from "sonner";
@@ -244,6 +244,18 @@ export default function Sidebar({
                     )}
                   </button>
                 ))}
+                {onOpenCreateOrg && (
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onOpenCreateOrg();
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 rounded-lg transition"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Add organization</span>
+                  </button>
+                )}
               </div>
               
               <button
@@ -384,6 +396,20 @@ export default function Sidebar({
                     </button>
                   ))}
                 </div>
+                {onOpenCreateOrg && (
+                  <div className="border-t border-gray-200 bg-gray-50 px-3 py-2">
+                    <button
+                      onClick={() => {
+                        setOrgDropdownOpen(false);
+                        onOpenCreateOrg();
+                      }}
+                      className="w-full flex items-center justify-center gap-2 text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary)]"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>Add organization</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

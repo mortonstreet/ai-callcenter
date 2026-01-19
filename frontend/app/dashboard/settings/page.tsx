@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import { Page } from "@/components/dashboard/Page";
 import Card from "@/components/ui/Card";
@@ -15,6 +15,8 @@ import { useInviteMember, useListOrganizationMembers, useListOrganizationInvitat
 import { useHasPasswordAuth } from "@/hooks/api/useUser";
 import { useChangePassword } from "@/hooks/api/useAuth";
 import { useEffectiveOrganization, useAdminStore } from "@/lib/admin-store";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { env, QUERY_KEYS } from "@/lib/config";
 
 export default function SettingsPage() {
   const { data: session } = useSession();
@@ -52,11 +54,52 @@ export default function SettingsPage() {
   const [invitationToCancel, setInvitationToCancel] = useState<string | null>(null);
   const [isRemoveMemberModalOpen, setIsRemoveMemberModalOpen] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<{ id: string; name: string; email: string } | null>(null);
+  const [isDeleteOrgModalOpen, setIsDeleteOrgModalOpen] = useState(false);
 
   // Check if current user is admin
   const currentUserMember = members.find((m: any) => m.userId === user?.id);
   const isAdmin = currentUserMember?.role === "admin";
   const isOwner = currentUserMember?.role === "owner";
+
+  const queryClient = useQueryClient();
+
+  // Parse organization metadata (domain/industry/services) from onboarding
+  const orgMeta = useMemo(() => {
+    const raw = (effectiveOrganization as any)?.metadata;
+    if (!raw) return {};
+    try {
+      return typeof raw === "string" ? JSON.parse(raw) : raw;
+    } catch (e) {
+      return {};
+    }
+  }, [effectiveOrganization]);
+
+  // Dev-only organization delete (for local/testing)
+  const deleteOrgMutation = useMutation({
+    mutationFn: async () => {
+      if (!effectiveOrganization?.id) {
+        throw new Error("No active organization to delete");
+      }
+      const res = await fetch(`${env.API_URL}/organization/${effectiveOrganization.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete organization");
+      }
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Organization deleted (dev only).");
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.organizations() });
+      setIsDeleteOrgModalOpen(false);
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || "Failed to delete organization");
+      setIsDeleteOrgModalOpen(false);
+    },
+  });
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -267,6 +310,37 @@ export default function SettingsPage() {
                     </label>
                     <p className="text-gray-900">{effectiveOrganization.name}</p>
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Domain
+                    </label>
+                    <p className="text-gray-900">{(orgMeta as any)?.domain || "—"}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Industry
+                    </label>
+                    <p className="text-gray-900 capitalize">{(orgMeta as any)?.industry || "—"}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Services
+                    </label>
+                    {(orgMeta as any)?.services?.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {(orgMeta as any).services.map((svc: string) => (
+                          <span
+                            key={svc}
+                            className="px-2.5 py-1 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)] text-xs font-medium"
+                          >
+                            {svc}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 text-sm">—</p>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -460,6 +534,24 @@ export default function SettingsPage() {
             </div>
           </Card>
         )}
+
+        {process.env.NODE_ENV !== "production" && effectiveOrganization?.id && !impersonatedOrg && (
+          <Card title="Danger Zone">
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600">
+                Delete the current organization and all related data. This is only enabled in development.
+              </p>
+              <Button
+                variant="outline"
+                className="border-red-300 text-red-600 hover:bg-red-50"
+                onClick={() => setIsDeleteOrgModalOpen(true)}
+                disabled={deleteOrgMutation.isPending}
+              >
+                Delete Organization
+              </Button>
+            </div>
+          </Card>
+        )}
       </div>
 
       {/* Cancel Invitation Modal */}
@@ -532,6 +624,36 @@ export default function SettingsPage() {
               disabled={removeMemberMutation.isPending}
             >
               Yes, Remove Member
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Dev-only Delete Organization Modal */}
+      <Modal
+        isOpen={isDeleteOrgModalOpen}
+        onClose={() => setIsDeleteOrgModalOpen(false)}
+        title="Delete Organization"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Are you sure? This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteOrgModalOpen(false)}
+              disabled={deleteOrgMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => deleteOrgMutation.mutate()}
+              loading={deleteOrgMutation.isPending}
+              disabled={deleteOrgMutation.isPending}
+            >
+              Yes, Delete
             </Button>
           </div>
         </div>
