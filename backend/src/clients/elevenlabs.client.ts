@@ -64,6 +64,41 @@ interface ListConversationsResponse {
   last_history_id?: string
 }
 
+interface ElevenLabsVoice {
+  voice_id: string
+  name: string
+  category?: string
+}
+
+interface ListVoicesResponse {
+  voices: ElevenLabsVoice[]
+}
+
+type CreateVoiceAgentRequest = Record<string, any>
+
+interface CreateVoiceAgentResponse {
+  agent_id: string
+}
+
+interface CreatePhoneNumberRequest {
+  phone_number: string
+  label: string
+  sid: string
+  token: string
+  supports_inbound?: boolean
+  supports_outbound?: boolean
+  provider?: 'twilio'
+  region_config?: {
+    region_id: 'us1' | 'ie1' | 'au1'
+    token: string
+    edge_location: string
+  } | null
+}
+
+interface CreatePhoneNumberResponse {
+  phone_number_id: string
+}
+
 export class ElevenLabsClient {
   private apiKey: string
 
@@ -194,6 +229,37 @@ export class ElevenLabsClient {
     }
 
     return newConversations
+  }
+
+  /**
+   * List available voices
+   */
+  async listVoices(): Promise<ListVoicesResponse> {
+    return this.request<ListVoicesResponse>('/voices')
+  }
+
+  /**
+   * Create a voice agent
+   */
+  async createVoiceAgent(
+    payload: CreateVoiceAgentRequest,
+  ): Promise<CreateVoiceAgentResponse> {
+    return this.request<CreateVoiceAgentResponse>('/convai/agents/create', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  /**
+   * Import/associate a Twilio phone number to ElevenLabs
+   */
+  async createPhoneNumber(
+    payload: CreatePhoneNumberRequest,
+  ): Promise<CreatePhoneNumberResponse> {
+    return this.request<CreatePhoneNumberResponse>('/convai/phone_numbers/create', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
   }
 }
 

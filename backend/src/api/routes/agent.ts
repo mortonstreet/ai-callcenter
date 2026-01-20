@@ -24,6 +24,7 @@ import {
   deleteTask,
   updateAgentMcpConfig,
   getAgentMcpConfig,
+  createAgentWithDefaultVoice,
 } from '@/api/controllers/agent.controller'
 import {
   validateMemberOfOrganizationOrAdmin,
@@ -52,6 +53,23 @@ const GetAgentMcpConfigSchema = z.object({
 const router = Router()
 
 router.use(withBetterAuth)
+
+const CreateAgentSchema = z.object({
+  organizationId: z.string(),
+  name: z.string(),
+  phoneNumber: z.string().optional(),
+  redirectNumber: z.string().optional(),
+})
+
+router.post(
+  '/:organizationId',
+  validateAndMerge(CreateAgentSchema),
+  validateMemberOfOrganizationIsOrAdmin([
+    OrganizationRole.ADMIN,
+    OrganizationRole.OWNER,
+  ]),
+  authenticatedRoute(createAgentWithDefaultVoice),
+)
 
 router.get(
   '/:organizationId',

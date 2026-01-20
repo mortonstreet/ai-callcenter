@@ -21,6 +21,7 @@ import {
   updateAgentMcpCredentials,
   findTaskInstanceByBookingId,
   updateTaskInstanceBookingStatus,
+  createAgent as createAgentRepository,
 } from '@/repositories/agent.repository'
 import { formatTaskFields } from '@/utils/task'
 import logger from '@/lib/logger'
@@ -31,6 +32,9 @@ import {
 } from '@shared/types/src'
 import { randomBytes } from 'crypto'
 import { Request, Response } from 'express'
+import { formatToSlug } from '@/utils'
+import { getElevenLabsClient, initElevenLabsClient } from '@/clients/elevenlabs.client'
+import { config } from '@/config'
 
 // Call quality classification thresholds
 const MIN_PRODUCTIVE_DURATION_SECS = 15
@@ -106,6 +110,102 @@ export const getAgents: AuthRequestHandler<GetAgentsRequest> = async (
   const { organizationId } = req.validated
   const agents = await findAllByOrganizationId(organizationId)
   res.json(agents)
+}
+
+const DEFAULT_AGENT_PHONE = process.env.AGENT_DEFAULT_PHONE || '+18566444365'
+
+export const createAgentWithDefaultVoice: AuthRequestHandler<{
+  organizationId: string
+  name: string
+  phoneNumber?: string
+  redirectNumber?: string
+}> = async (req, res) => {
+  const { organizationId, name, phoneNumber, redirectNumber } = req.validated
+  const defaultVoice =
+    process.env.ELEVEN_LABS_DEFAULT_VOICE_ID || config.elevenLabs?.defaultVoiceId || ''
+  const elevenApiKey = config.elevenLabs?.apiKey || process.env.ELEVEN_LABS_API_KEY
+  const twilioSid = process.env.TWILIO_ACCOUNT_SID || config.twilio.accountSid
+  const twilioToken = process.env.TWILIO_AUTH_TOKEN || config.twilio.authToken
+
+  let elevenAgentId = 'elevenlabs-agent-pending'
+  let elevenPhoneNumberId = null
+
+  if (defaultVoice && elevenApiKey) {
+    try {
+      const client = (() => {
+        try {
+          return getElevenLabsClient()
+        } catch {
+          return initElevenLabsClient(elevenApiKey)
+        }
+      })()
+
+      const created = await client.createVoiceAgent({
+        name,
+        tags: ['home-services'],
+        conversation_config: {
+          default_voice_id: defaultVoice,
+          agent_name: name,
+          first_message: 'Thanks for calling, how can I help you today?',
+          language: 'en',
+        },
+      })
+      elevenAgentId = created.agent_id
+      logger.info('[elevenlabs] created agent', { elevenAgentId, voice: defaultVoice })
+    } catch (err: any) {
+      logger.error('[elevenlabs] failed to create agent', { error: err?.message || String(err) })
+    }
+  } else {
+    logger.warn('[elevenlabs] skipping agent creation: missing voice or api key')
+  }
+
+  // Attempt to attach Twilio number to ElevenLabs
+  if (elevenApiKey && twilioSid && twilioToken) {
+    try {
+      const client = (() => {
+        try {
+          return getElevenLabsClient()
+        } catch {
+          return initElevenLabsClient(elevenApiKey)
+        }
+      })()
+
+      const phonePayload = {
+        phone_number: phoneNumber || DEFAULT_AGENT_PHONE,
+        label: name,
+        sid: twilioSid,
+        token: twilioToken,
+        supports_inbound: true,
+        supports_outbound: true,
+        provider: 'twilio' as const,
+      }
+      const phoneRes = await client.createPhoneNumber(phonePayload)
+      elevenPhoneNumberId = phoneRes.phone_number_id
+      logger.info('[elevenlabs] attached phone number', {
+        phone_number_id: elevenPhoneNumberId,
+        phone: phonePayload.phone_number,
+      })
+    } catch (err: any) {
+      logger.error('[elevenlabs] failed to attach phone', { error: err?.message || String(err) })
+    }
+  } else {
+    logger.warn('[elevenlabs] skipping phone attach: missing api key or twilio creds')
+  }
+
+  const agent = await createAgentRepository({
+    name,
+    slug: formatToSlug(name),
+    organizationId,
+    phoneNumber: phoneNumber || DEFAULT_AGENT_PHONE,
+    redirectNumber: redirectNumber || DEFAULT_AGENT_PHONE,
+    externalId: elevenAgentId,
+    externalType: AgentExternalType.ELEVEN_LABS,
+    mcpApiKey: null,
+    webhookSecret: null,
+    mcpEndpointUrl: elevenPhoneNumberId,
+  })
+
+  res.json(agent)
 }
 
 export const getAgent: AuthRequestHandler<GetAgentRequest> = async (

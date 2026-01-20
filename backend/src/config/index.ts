@@ -87,6 +87,7 @@ const envSchema = z.object({
   // Legacy single provider - now optional
   ELEVEN_LABS_API_KEY: z.string().optional(),
   ELEVEN_LABS_WEBHOOK_KEY: z.string().optional(),
+  ELEVEN_LABS_DEFAULT_VOICE_ID: z.string().optional(),
   // Twilio integration for outbound calls
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
@@ -162,6 +163,7 @@ export const config = {
       env.ELEVEN_LABS_WEBHOOK_KEY ||
       mcpProviders.find((p) => p.slug === 'elevenlabs')?.webhookKey ||
       '',
+    defaultVoiceId: env.ELEVEN_LABS_DEFAULT_VOICE_ID || '',
   },
   // Cal.com integration
   calcom: {

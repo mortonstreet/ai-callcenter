@@ -7,6 +7,7 @@ import userRoutes from './user'
 import adminRoutes from './admin'
 import callCenterRoutes from './call-center'
 import careersRoutes from './careers'
+import elevenLabsRoutes from './elevenlabs'
 import organizationRoutes from './organization'
 
 const router = Router()
@@ -22,6 +23,7 @@ router.use('/user', userRoutes)
 router.use('/admin', adminRoutes)
 router.use('/call-center', callCenterRoutes)
 router.use('/careers', careersRoutes)
+router.use('/elevenlabs', elevenLabsRoutes)
 router.use('/organization', organizationRoutes)
 router.use('/sentry', (req, res) => {
   throw new Error('Testing sentry error')

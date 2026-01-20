@@ -66,14 +66,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Sidebar onLogout={handleLogout} onOpenCreateOrg={handleOpenCreateOrg} />
-      
-      <main className="pt-16 sm:pt-0 sm:pl-60 md:pl-64 px-4 md:px-6 py-6 md:py-8">
-        <div className="mx-auto max-w-[96rem]">
-          {children}
-        </div>
-      </main>
-    </div>
+      <div className="min-h-screen bg-gray-50">
+        <Sidebar onLogout={handleLogout} onOpenCreateOrg={handleOpenCreateOrg} />
+        
+        <main className="pt-16 sm:pt-0 sm:pl-60 md:pl-64 px-4 md:px-6 py-6 md:py-8">
+          <div className="mx-auto max-w-[96rem]">
+            {children}
+          </div>
+        </main>
+      </div>
   );
 }

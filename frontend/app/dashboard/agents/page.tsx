@@ -2,11 +2,44 @@
 
 import { Page } from "@/components/dashboard/Page";
 import Link from "next/link";
-import { Bot, Loader2 } from "lucide-react";
-import { useAgents } from "@/hooks/api/useAgent";
+import { Bot, Loader2, Plus } from "lucide-react";
+import { useAgents, useCreateAgent } from "@/hooks/api/useAgent";
+import { useState } from "react";
+import Modal from "@/components/ui/Modal";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
+import { toast } from "sonner";
 
 export default function AgentsPage() {
   const { data: agents, isLoading, error } = useAgents();
+  const createAgent = useCreateAgent();
+  const [showModal, setShowModal] = useState(false);
+  const [name, setName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("+18566444365");
+  const [redirectNumber, setRedirectNumber] = useState("+18566444365");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      toast.error("Agent name is required");
+      return;
+    }
+    createAgent.mutate(
+      {
+        name: name.trim(),
+        phoneNumber: phoneNumber.trim() || undefined,
+        redirectNumber: redirectNumber.trim() || undefined,
+      },
+      {
+        onSuccess: () => {
+          setShowModal(false);
+          setName("");
+          setPhoneNumber("+18566444365");
+          setRedirectNumber("+18566444365");
+        },
+      }
+    );
+  };
 
   return (
     <Page 
@@ -14,6 +47,13 @@ export default function AgentsPage() {
       subtitle="Your AI agents"
     >
       <div className="space-y-4">
+        <div className="flex justify-end">
+          <Button onClick={() => setShowModal(true)} className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Add agent
+          </Button>
+        </div>
+
         {isLoading && (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
@@ -55,15 +95,46 @@ export default function AgentsPage() {
           <div className="text-center py-12">
             <Bot className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600 mb-4">No agents yet</p>
-            <a 
-              href="mailto:support@revcenter.ai" 
-              className="inline-block px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition text-sm font-medium"
-            >
-              Contact Support to Get Started
-            </a>
           </div>
         )}
       </div>
+
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title="Create AI Agent"
+        subtitle="Provide the details to set up your ElevenLabs-backed agent."
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            label="Agent name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g., Dispatch Assistant"
+            required
+          />
+          <Input
+            label="Phone number (assigned)"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
+            hint="Number that will receive inbound calls for this agent."
+          />
+          <Input
+            label="Redirect number (fallback/CLI)"
+            value={redirectNumber}
+            onChange={(e) => setRedirectNumber(e.target.value)}
+            hint="Used for call identification; update later if needed."
+          />
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" loading={createAgent.isPending}>
+              Create agent
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </Page>
   );
 }

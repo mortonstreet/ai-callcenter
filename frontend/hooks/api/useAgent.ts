@@ -43,6 +43,30 @@ export function useAgent(agentId: string) {
   });
 }
 
+export function useCreateAgent() {
+  const queryClient = useQueryClient();
+  const activeOrganization = useEffectiveOrganization();
+
+  return useMutation({
+    mutationFn: async (data: { name: string; phoneNumber?: string; redirectNumber?: string }) => {
+      if (!activeOrganization?.data?.id) {
+        throw new Error('No active organization');
+      }
+      return await post(`/agent/${activeOrganization.data.id}`, {
+        organizationId: activeOrganization.data.id,
+        ...data,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.agents(activeOrganization?.data?.id) });
+      toast.success('Agent created');
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to create agent');
+    },
+  });
+}
+
 /**
  * Create a new task for an agent
  */
