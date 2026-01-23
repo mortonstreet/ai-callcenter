@@ -30,12 +30,8 @@ function isAppSubdomain(host: string): boolean {
   if (host.startsWith('app.')) {
     return true;
   }
-  // In development, treat localhost as the app subdomain
-  // This allows testing the full auth flow locally
-  // The marketing site would be deployed separately in production
-  if (host.includes('localhost') || host.includes('127.0.0.1')) {
-    return true;
-  }
+  // In local development, localhost shows the marketing site by default
+  // Use app.localhost:3000 to test the app subdomain locally
   return false;
 }
 

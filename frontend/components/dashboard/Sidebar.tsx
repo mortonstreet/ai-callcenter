@@ -115,13 +115,13 @@ export default function Sidebar({
       href={href}
       onClick={onClick}
       className={[
-        "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition",
+        "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors",
         active
           ? "bg-[var(--color-primary)] text-white"
           : "text-gray-800 hover:bg-gray-100",
       ].join(" ")}
     >
-      <Icon className="h-5 w-5 opacity-90" />
+      <Icon className="h-5 w-5 opacity-90" aria-hidden="true" />
       <span className="truncate">{label}</span>
     </Link>
   );
@@ -170,7 +170,7 @@ export default function Sidebar({
             mobileMenuOpen ? "max-h-screen opacity-100" : "max-h-0 opacity-0",
           ].join(" ")}
         >
-          <nav className="px-4 py-4 space-y-2 border-t border-gray-100">
+          <nav className="px-4 py-4 space-y-2 border-t border-gray-100" aria-label="Main navigation">
             {nav.map((n) => (
               <Item
                 key={n.href}
@@ -299,7 +299,7 @@ export default function Sidebar({
         <div className="border-b border-gray-200 mb-6" />
 
         {/* Primary nav */}
-        <nav className="space-y-2">
+        <nav className="space-y-2" aria-label="Main navigation">
           {nav.map((n) => (
             <Item
               key={n.href}
