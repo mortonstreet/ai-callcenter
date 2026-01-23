@@ -7,6 +7,7 @@ import {
   onboardOrganization,
   OrganizationOnboardingSchema,
 } from '@/api/controllers/organization.controller'
+import { authenticatedRoute } from './utils'
 
 const router = Router()
 
@@ -18,14 +19,14 @@ router.post(
   '/onboarding',
   withBetterAuth,
   validateAndMerge(OrganizationOnboardingSchema),
-  onboardOrganization,
+  authenticatedRoute(onboardOrganization),
 )
 
 router.delete(
   '/:organizationId',
   withBetterAuth,
   validateAndMerge(DeleteOrganizationSchema),
-  deleteOrganizationDev,
+  authenticatedRoute(deleteOrganizationDev),
 )
 
 export default router
