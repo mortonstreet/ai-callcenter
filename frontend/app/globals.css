@@ -76,6 +76,14 @@ html, body { height: 100%; }
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
   .scroll-reveal { opacity: 1; transform: none; transition: none; }
+  * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+}
+
+/* Disable heavy animations on mobile and tablet for smoother scrolling */
+@media (max-width: 1023px) {
+  .animate-pulse { animation: none; }
+  /* Reduce transition durations on mobile for snappier feel */
+  .transition-all { transition-duration: 150ms; }
 }
 
 /* Focus-visible styles for better keyboard navigation */

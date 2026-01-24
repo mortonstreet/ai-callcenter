@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Phone, PhoneOff, Mic,
   Play, Pause, CheckCircle2, MessageSquare,
@@ -10,44 +10,122 @@ import {
 } from "lucide-react";
 
 // ============================================
+// ANIMATION CONTROL HOOK FOR MOBILE/TABLET UX
+// ============================================
+
+/**
+ * Hook to control widget animations based on visibility and device type.
+ * - Mobile/Tablet (< 1024px): Animations are disabled entirely for smooth scrolling
+ * - Desktop: Animations only run when widget is visible in viewport
+ */
+function useWidgetAnimation() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
+
+  useEffect(() => {
+    // Check if mobile/tablet on mount and on resize
+    const checkDevice = () => {
+      setIsMobileOrTablet(window.innerWidth < 1024);
+    };
+
+    checkDevice();
+    window.addEventListener("resize", checkDevice);
+
+    return () => window.removeEventListener("resize", checkDevice);
+  }, []);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    // On mobile/tablet, don't bother with visibility tracking since animations are disabled
+    if (isMobileOrTablet) {
+      setIsVisible(false);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting);
+      },
+      { threshold: 0.1, rootMargin: "50px" }
+    );
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [isMobileOrTablet]);
+
+  // Animations should only run on desktop when visible
+  const shouldAnimate = !isMobileOrTablet && isVisible;
+
+  return { ref, shouldAnimate, isMobileOrTablet };
+}
+
+// ============================================
 // AGENTS PREVIEW WIDGET
 // ============================================
 
 // Mini AI Agent handling calls
 function AgentCallPreview() {
+  const { ref, shouldAnimate, isMobileOrTablet } = useWidgetAnimation();
   const [callState, setCallState] = useState<"idle" | "ringing" | "connected" | "booking" | "ended">("idle");
   const [duration, setDuration] = useState(0);
 
   useEffect(() => {
+    // On mobile/tablet, show a static "connected" state
+    if (isMobileOrTablet) {
+      setCallState("connected");
+      setDuration(124); // 2:04
+      return;
+    }
+
+    // Only run animation cycle when shouldAnimate is true
+    if (!shouldAnimate) return;
+
+    let cancelled = false;
+    let timer: NodeJS.Timeout | null = null;
+
     const cycle = async () => {
+      if (cancelled) return;
       setCallState("idle");
       setDuration(0);
       await new Promise(r => setTimeout(r, 1500));
 
+      if (cancelled) return;
       setCallState("ringing");
       await new Promise(r => setTimeout(r, 2000));
 
+      if (cancelled) return;
       setCallState("connected");
       let d = 0;
-      const timer = setInterval(() => {
+      timer = setInterval(() => {
+        if (cancelled) return;
         d++;
         setDuration(d);
       }, 1000);
 
       await new Promise(r => setTimeout(r, 4000));
-      clearInterval(timer);
+      if (timer) clearInterval(timer);
+      timer = null;
 
+      if (cancelled) return;
       setCallState("booking");
       await new Promise(r => setTimeout(r, 2000));
 
+      if (cancelled) return;
       setCallState("ended");
       await new Promise(r => setTimeout(r, 2000));
     };
 
     cycle();
     const interval = setInterval(cycle, 14000);
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      if (timer) clearInterval(timer);
+    };
+  }, [shouldAnimate, isMobileOrTablet]);
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
@@ -56,7 +134,7 @@ function AgentCallPreview() {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4 shadow-sm">
+    <div ref={ref} className="bg-white rounded-xl border border-gray-200 p-4 space-y-4 shadow-sm">
       {/* Header */}
       <div className="flex items-center justify-between text-xs">
         <div className="flex items-center gap-1.5">
@@ -64,7 +142,7 @@ function AgentCallPreview() {
           <span className="text-gray-500 font-medium">AI Agent</span>
         </div>
         <div className="flex items-center gap-1.5 text-green-600">
-          <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+          <span className={`w-1.5 h-1.5 bg-green-500 rounded-full ${shouldAnimate ? 'animate-pulse' : ''}`} />
           Active
         </div>
       </div>
@@ -89,7 +167,7 @@ function AgentCallPreview() {
         }`}>
           {callState === "idle" && "--:--"}
           {callState === "ringing" && (
-            <span className="text-amber-500 animate-pulse text-2xl">Incoming...</span>
+            <span className={`text-amber-500 text-2xl ${shouldAnimate ? 'animate-pulse' : ''}`}>Incoming...</span>
           )}
           {(callState === "connected" || callState === "booking") && formatTime(duration)}
           {callState === "ended" && formatTime(duration)}
@@ -120,7 +198,7 @@ function AgentCallPreview() {
           callState === "connected" || callState === "booking"
             ? "bg-red-500 text-white"
             : callState === "ringing"
-            ? "bg-green-500 text-white animate-pulse"
+            ? `bg-green-500 text-white ${shouldAnimate ? 'animate-pulse' : ''}`
             : "bg-[#1b191a] text-white"
         }`}>
           {callState === "connected" || callState === "booking" ? (
@@ -152,19 +230,31 @@ const TRANSCRIPT_DATA = [
 
 // Conversation transcript preview
 function TranscriptPreview() {
+  const { ref, shouldAnimate, isMobileOrTablet } = useWidgetAnimation();
   const [messages, setMessages] = useState<{speaker: string; text: string; visible: boolean}[]>([]);
 
   useEffect(() => {
+    // On mobile/tablet, show static conversation
+    if (isMobileOrTablet) {
+      setMessages(TRANSCRIPT_DATA.slice(0, 4).map(msg => ({ ...msg, visible: true })));
+      return;
+    }
+
+    if (!shouldAnimate) return;
+
     let currentIndex = 0;
+    let cancelled = false;
     setMessages([]);
 
     const addMessage = () => {
+      if (cancelled) return;
       if (currentIndex < TRANSCRIPT_DATA.length) {
         setMessages(prev => [...prev, { ...TRANSCRIPT_DATA[currentIndex], visible: true }]);
         currentIndex++;
       } else {
         // Reset after delay
         setTimeout(() => {
+          if (cancelled) return;
           currentIndex = 0;
           setMessages([]);
         }, 3000);
@@ -174,15 +264,18 @@ function TranscriptPreview() {
     addMessage();
     const interval = setInterval(addMessage, 2500);
 
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [shouldAnimate, isMobileOrTablet]);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3 shadow-sm">
+    <div ref={ref} className="bg-white rounded-xl border border-gray-200 p-4 space-y-3 shadow-sm">
       <div className="flex items-center justify-between">
         <span className="text-xs text-gray-500 font-medium">Live Transcript</span>
         <div className="flex items-center gap-1.5 text-xs text-green-600">
-          <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+          <span className={`w-1.5 h-1.5 bg-green-500 rounded-full ${shouldAnimate ? 'animate-pulse' : ''}`} />
           Recording
         </div>
       </div>
@@ -214,22 +307,38 @@ function TranscriptPreview() {
 
 // Agent stats preview
 function AgentStatsPreview() {
+  const { ref, shouldAnimate, isMobileOrTablet } = useWidgetAnimation();
   const [showNotif, setShowNotif] = useState(false);
 
   useEffect(() => {
+    // On mobile/tablet, show static state with notification visible
+    if (isMobileOrTablet) {
+      setShowNotif(true);
+      return;
+    }
+
+    if (!shouldAnimate) return;
+
+    let cancelled = false;
+
     const cycle = async () => {
+      if (cancelled) return;
       setShowNotif(false);
       await new Promise(r => setTimeout(r, 5000));
+      if (cancelled) return;
       setShowNotif(true);
       await new Promise(r => setTimeout(r, 3000));
     };
     cycle();
     const interval = setInterval(cycle, 9000);
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [shouldAnimate, isMobileOrTablet]);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3 shadow-sm">
+    <div ref={ref} className="bg-white rounded-xl border border-gray-200 p-4 space-y-3 shadow-sm">
       <div className="flex items-center justify-between">
         <span className="text-xs text-gray-500 font-medium">Today&apos;s Performance</span>
         <BarChart3 className="w-3.5 h-3.5 text-gray-400" />
@@ -255,7 +364,7 @@ function AgentStatsPreview() {
       </div>
 
       {/* ServiceTitan notification */}
-      <div className={`transition-all duration-500 overflow-hidden ${showNotif ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'}`}>
+      <div className={`overflow-hidden ${isMobileOrTablet ? 'max-h-20 opacity-100' : `transition-all duration-500 ${showNotif ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'}`}`}>
         <div className="bg-orange-50 border border-orange-200 rounded-lg p-2 flex items-center gap-2">
           <Zap className="w-4 h-4 text-orange-500" />
           <span className="text-[10px] text-orange-700 font-medium">New job synced to ServiceTitan</span>
@@ -347,18 +456,37 @@ export function AgentsPreviewWidget() {
 // DISPATCH SCHEDULER PREVIEW WIDGET
 // ============================================
 
+// Static slots data for ScheduleGridPreview
+const SCHEDULE_STATIC_SLOTS = [
+  { time: "9:00 AM", tech: "Mike R.", job: "AC Repair", status: "completed", address: "123 Main St" },
+  { time: "11:00 AM", tech: "Mike R.", job: "Maintenance", status: "in-progress", address: "456 Oak Ave" },
+  { time: "2:00 PM", tech: "Mike R.", job: "Installation", status: "scheduled", address: "789 Pine Rd" },
+  { time: "4:00 PM", tech: "Mike R.", job: "Emergency Call", status: "scheduled", address: "321 Elm St" },
+];
+
+const SCHEDULE_INITIAL_SLOTS = [
+  { time: "9:00 AM", tech: "Mike R.", job: "AC Repair", status: "completed", address: "123 Main St" },
+  { time: "11:00 AM", tech: "Mike R.", job: "Maintenance", status: "in-progress", address: "456 Oak Ave" },
+  { time: "2:00 PM", tech: "Mike R.", job: "Installation", status: "scheduled", address: "789 Pine Rd" },
+  { time: "4:00 PM", tech: "Mike R.", job: null, status: "available", address: null },
+];
+
 // Schedule grid preview
 function ScheduleGridPreview() {
-  const [slots, setSlots] = useState([
-    { time: "9:00 AM", tech: "Mike R.", job: "AC Repair", status: "completed", address: "123 Main St" },
-    { time: "11:00 AM", tech: "Mike R.", job: "Maintenance", status: "in-progress", address: "456 Oak Ave" },
-    { time: "2:00 PM", tech: "Mike R.", job: "Installation", status: "scheduled", address: "789 Pine Rd" },
-    { time: "4:00 PM", tech: "Mike R.", job: null, status: "available", address: null },
-  ]);
+  const { ref, shouldAnimate, isMobileOrTablet } = useWidgetAnimation();
 
+  const [slots, setSlots] = useState(SCHEDULE_INITIAL_SLOTS);
   const [animatingSlot, setAnimatingSlot] = useState<number | null>(null);
 
   useEffect(() => {
+    // On mobile/tablet, show static filled state
+    if (isMobileOrTablet) {
+      setSlots(SCHEDULE_STATIC_SLOTS);
+      return;
+    }
+
+    if (!shouldAnimate) return;
+
     const interval = setInterval(() => {
       setSlots(prev => {
         const newSlots = [...prev];
@@ -378,7 +506,7 @@ function ScheduleGridPreview() {
     }, 8000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [shouldAnimate, isMobileOrTablet]);
 
   const getStatusStyle = (status: string) => {
     switch (status) {
@@ -390,7 +518,7 @@ function ScheduleGridPreview() {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3 shadow-sm flex-1">
+    <div ref={ref} className="bg-white rounded-xl border border-gray-200 p-4 space-y-3 shadow-sm flex-1">
       <div className="flex items-center justify-between">
         <span className="text-xs text-gray-500 font-medium">Today&apos;s Schedule</span>
         <span className="text-xs text-gray-400">Mike Rodriguez</span>
@@ -400,8 +528,8 @@ function ScheduleGridPreview() {
         {slots.map((slot, i) => (
           <div
             key={i}
-            className={`p-3 rounded-lg border transition-all duration-500 ${getStatusStyle(slot.status)} ${
-              animatingSlot === i ? "ring-2 ring-green-400 ring-offset-1" : ""
+            className={`p-3 rounded-lg border ${isMobileOrTablet ? '' : 'transition-all duration-500'} ${getStatusStyle(slot.status)} ${
+              animatingSlot === i && shouldAnimate ? "ring-2 ring-green-400 ring-offset-1" : ""
             }`}
           >
             <div className="flex items-center justify-between mb-1">
@@ -436,27 +564,45 @@ function ScheduleGridPreview() {
 
 // Auto-dispatch animation
 function AutoDispatchPreview() {
+  const { ref, shouldAnimate, isMobileOrTablet } = useWidgetAnimation();
   const [step, setStep] = useState<"incoming" | "matching" | "assigned" | "confirmed">("incoming");
 
   useEffect(() => {
+    // On mobile/tablet, show static "confirmed" state
+    if (isMobileOrTablet) {
+      setStep("confirmed");
+      return;
+    }
+
+    if (!shouldAnimate) return;
+
+    let cancelled = false;
+
     const runAnimation = async () => {
+      if (cancelled) return;
       setStep("incoming");
       await new Promise(r => setTimeout(r, 2000));
+      if (cancelled) return;
       setStep("matching");
       await new Promise(r => setTimeout(r, 2000));
+      if (cancelled) return;
       setStep("assigned");
       await new Promise(r => setTimeout(r, 2000));
+      if (cancelled) return;
       setStep("confirmed");
       await new Promise(r => setTimeout(r, 3000));
     };
 
     runAnimation();
     const interval = setInterval(runAnimation, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [shouldAnimate, isMobileOrTablet]);
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4 shadow-sm">
+    <div ref={ref} className="bg-white rounded-xl border border-gray-200 p-4 space-y-4 shadow-sm">
       <div className="flex items-center justify-between text-xs">
         <span className="text-gray-500 font-medium">Auto-Dispatch</span>
         {step === "confirmed" && (
@@ -471,7 +617,7 @@ function AutoDispatchPreview() {
         <div className="space-y-3">
           <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
             <div className="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
-              <Phone className="w-5 h-5 text-amber-600 animate-pulse" />
+              <Phone className={`w-5 h-5 text-amber-600 ${shouldAnimate ? 'animate-pulse' : ''}`} />
             </div>
             <div>
               <div className="text-sm font-medium text-gray-900">New Job Request</div>
@@ -518,7 +664,7 @@ function AutoDispatchPreview() {
             </div>
           </div>
           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full bg-blue-500 rounded-full animate-pulse w-3/4" />
+            <div className={`h-full bg-blue-500 rounded-full w-3/4 ${shouldAnimate ? 'animate-pulse' : ''}`} />
           </div>
         </div>
       )}
@@ -654,18 +800,37 @@ export function DispatchSchedulerPreviewWidget() {
 // PIPELINE MANAGEMENT PREVIEW WIDGET
 // ============================================
 
+// Static leads data for PipelineKanbanPreview
+const PIPELINE_STATIC_LEADS = [
+  { id: 1, name: "Johnson Residence", value: "$2,400", stage: "qualified", service: "AC Repair" },
+  { id: 2, name: "Smith Commercial", value: "$8,500", stage: "qualified", service: "HVAC Install" },
+  { id: 3, name: "Davis Family", value: "$1,200", stage: "quoted", service: "Maintenance" },
+  { id: 4, name: "Wilson Office", value: "$4,800", stage: "won", service: "Ductwork" },
+];
+
+const PIPELINE_INITIAL_LEADS = [
+  { id: 1, name: "Johnson Residence", value: "$2,400", stage: "new", service: "AC Repair" },
+  { id: 2, name: "Smith Commercial", value: "$8,500", stage: "qualified", service: "HVAC Install" },
+  { id: 3, name: "Davis Family", value: "$1,200", stage: "quoted", service: "Maintenance" },
+  { id: 4, name: "Wilson Office", value: "$4,800", stage: "won", service: "Ductwork" },
+];
+
 // Pipeline kanban preview
 function PipelineKanbanPreview() {
-  const [leads, setLeads] = useState([
-    { id: 1, name: "Johnson Residence", value: "$2,400", stage: "new", service: "AC Repair" },
-    { id: 2, name: "Smith Commercial", value: "$8,500", stage: "qualified", service: "HVAC Install" },
-    { id: 3, name: "Davis Family", value: "$1,200", stage: "quoted", service: "Maintenance" },
-    { id: 4, name: "Wilson Office", value: "$4,800", stage: "won", service: "Ductwork" },
-  ]);
+  const { ref, shouldAnimate, isMobileOrTablet } = useWidgetAnimation();
 
+  const [leads, setLeads] = useState(PIPELINE_INITIAL_LEADS);
   const [movingLead, setMovingLead] = useState<number | null>(null);
 
   useEffect(() => {
+    // On mobile/tablet, show static state
+    if (isMobileOrTablet) {
+      setLeads(PIPELINE_STATIC_LEADS);
+      return;
+    }
+
+    if (!shouldAnimate) return;
+
     const interval = setInterval(() => {
       setLeads(prev => {
         const newLead = prev.find(l => l.stage === "new");
@@ -681,7 +846,7 @@ function PipelineKanbanPreview() {
     }, 6000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [shouldAnimate, isMobileOrTablet]);
 
   const stages = [
     { key: "new", label: "New", color: "bg-blue-500" },
@@ -691,7 +856,7 @@ function PipelineKanbanPreview() {
   ];
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 space-y-3 shadow-sm md:col-span-2">
+    <div ref={ref} className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4 space-y-3 shadow-sm md:col-span-2">
       <div className="flex items-center justify-between">
         <span className="text-xs text-gray-500 font-medium">Lead Pipeline</span>
         <span className="text-xs text-gray-400 hidden sm:inline">This Week</span>
@@ -712,8 +877,8 @@ function PipelineKanbanPreview() {
               {leads.filter(l => l.stage === stage.key).map(lead => (
                 <div
                   key={lead.id}
-                  className={`p-2 bg-gray-50 rounded-lg border border-gray-100 transition-all duration-500 ${
-                    movingLead === lead.id ? "ring-2 ring-green-400 scale-105" : ""
+                  className={`p-2 bg-gray-50 rounded-lg border border-gray-100 ${isMobileOrTablet ? '' : 'transition-all duration-500'} ${
+                    movingLead === lead.id && shouldAnimate ? "ring-2 ring-green-400 scale-105" : ""
                   }`}
                 >
                   <div className="text-xs font-medium text-gray-900 truncate">{lead.name}</div>
@@ -839,6 +1004,8 @@ export function PipelineManagementPreviewWidget() {
 
 // Recordings list preview
 function RecordingsListPreview() {
+  const { ref, shouldAnimate, isMobileOrTablet } = useWidgetAnimation();
+
   const recordings = [
     { id: 1, caller: "Michael Johnson", duration: "3:24", score: 92, status: "booked", time: "2:34 PM" },
     { id: 2, caller: "Sarah Williams", duration: "5:12", score: 78, status: "callback", time: "1:15 PM" },
@@ -846,9 +1013,18 @@ function RecordingsListPreview() {
     { id: 4, caller: "Emily Davis", duration: "4:56", score: 88, status: "booked", time: "10:20 AM" },
   ];
 
-  const [playing, setPlaying] = useState<number | null>(null);
+  // On mobile/tablet, show first recording as "playing" (static)
+  const [playing, setPlaying] = useState<number | null>(isMobileOrTablet ? 1 : null);
 
   useEffect(() => {
+    // On mobile/tablet, show static "playing" state
+    if (isMobileOrTablet) {
+      setPlaying(1);
+      return;
+    }
+
+    if (!shouldAnimate) return;
+
     const interval = setInterval(() => {
       setPlaying(prev => {
         if (prev === null) return 1;
@@ -857,7 +1033,7 @@ function RecordingsListPreview() {
       });
     }, 4000);
     return () => clearInterval(interval);
-  }, []);
+  }, [shouldAnimate, isMobileOrTablet]);
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-600 bg-green-50";
@@ -875,7 +1051,7 @@ function RecordingsListPreview() {
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3 shadow-sm flex-1">
+    <div ref={ref} className="bg-white rounded-xl border border-gray-200 p-4 space-y-3 shadow-sm flex-1">
       <div className="flex items-center justify-between">
         <span className="text-xs text-gray-500 font-medium">Recent Calls</span>
         <span className="text-xs text-gray-400">Today</span>
@@ -885,13 +1061,13 @@ function RecordingsListPreview() {
         {recordings.map((rec) => (
           <div
             key={rec.id}
-            className={`p-3 rounded-lg border transition-all ${
+            className={`p-3 rounded-lg border ${isMobileOrTablet ? '' : 'transition-all'} ${
               playing === rec.id ? "bg-blue-50 border-blue-200" : "bg-gray-50 border-gray-100"
             }`}
           >
             <div className="flex items-center gap-3">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                className={`w-8 h-8 rounded-full flex items-center justify-center ${isMobileOrTablet ? '' : 'transition-colors'} ${
                   playing === rec.id ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-600"
                 }`}
                 aria-hidden="true"
@@ -917,7 +1093,7 @@ function RecordingsListPreview() {
             {playing === rec.id && (
               <div className="mt-2 pt-2 border-t border-blue-100">
                 <div className="h-1.5 bg-blue-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-500 rounded-full w-1/3 animate-pulse" />
+                  <div className={`h-full bg-blue-500 rounded-full w-1/3 ${shouldAnimate ? 'animate-pulse' : ''}`} />
                 </div>
               </div>
             )}
