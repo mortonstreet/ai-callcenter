@@ -98,12 +98,17 @@ model Organization {
   logo          String?
   createdAt     DateTime
   metadata      String?
-  members       Member[]
-  invitations   Invitation[]
-  agents        Agent[]
-  tasks         Task[]
-  taskInstances TaskInstance[]
-  Recording     Recording[]
+  members          Member[]
+  invitations      Invitation[]
+  agents           Agent[]
+  tasks            Task[]
+  taskInstances    TaskInstance[]
+  Recording        Recording[]
+  pipelineStages   PipelineStage[]
+  twilioConfig     TwilioConfig?
+  callDispositions CallDisposition[]
+  callLogs         CallLog[]
+  leads            Lead[]
 
   @@unique([slug])
   @@map("organization")
@@ -205,6 +210,22 @@ model Task {
   @@map("task")
 }
 
+model PipelineStage {
+  id             String   @id @default(uuid())
+  organizationId String
+  label          String
+  color          String   @default("#6B7280")
+  sortOrder      Int      @default(0)
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  taskInstances  TaskInstance[]
+  leads          Lead[]
+
+  @@map("pipeline_stage")
+}
+
 model TaskInstance {
   id             String   @id @default(uuid())
   taskId         String
@@ -221,14 +242,14 @@ model TaskInstance {
   // Lead Classification
   leadType       String?  // "booking" | "non_booking"
   resolutionType String?  // "resolved" | "unresolved"
-  
+
   // Customer Classification
   customerType   String?  // "new_customer" | "active_customer"
-  
+
   // Lead Scoring
   leadScore      Int?     // 1-100 quality score
   estimatedValue Float?   // Estimated revenue potential in dollars
-  
+
   // Cal.com Integration
   calcomBookingId  String?   // Cal.com booking UID
   calcomEventId    Int?      // Cal.com event type ID
@@ -236,19 +257,106 @@ model TaskInstance {
   bookingStatus    String?   // "confirmed" | "cancelled" | "rescheduled" | "completed" | "no_show"
   bookingCancelledAt DateTime? // When the booking was cancelled
   bookingCancelReason String?  // Reason for cancellation
-  
+
   // Tags for filtering (JSON array of strings)
   tags           Json?    // ["human_caller", "urgent", "robo_caller", etc.]
-  
-  // Pipeline stage for Kanban view
-  pipelineStage  String?  @default("new") // "new" | "follow_up" | "dispatched" | "closed_won" | "closed_lost"
 
-  task         Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  dispatcher   User?         @relation(fields: [dispatcherId], references: [id], onDelete: SetNull)
-  Organization Organization? @relation(fields: [organizationId], references: [id])
-  Recording    Recording[]
+  // Pipeline stage for Kanban view
+  pipelineStage    String?  @default("new") // Legacy string-based stage
+  pipelineStageId  String?  // FK to dynamic PipelineStage
+
+  task           Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  dispatcher     User?          @relation(fields: [dispatcherId], references: [id], onDelete: SetNull)
+  Organization   Organization?  @relation(fields: [organizationId], references: [id])
+  pipelineStageRef PipelineStage? @relation(fields: [pipelineStageId], references: [id], onDelete: SetNull)
+  Recording      Recording[]
 
   @@map("task_instance")
+}
+
+model TwilioConfig {
+  id               String   @id @default(uuid())
+  organizationId   String   @unique
+  accountSid       String?
+  authToken        String?  // Stored encrypted in production
+  phoneNumber      String?
+  apiKeySid        String?
+  apiKeySecret     String?
+  twimlAppSid      String?
+  autoRecord       Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("twilio_config")
+}
+
+model CallDisposition {
+  id             String   @id @default(uuid())
+  organizationId String
+  label          String
+  color          String?  @default("#6B7280")
+  sortOrder      Int      @default(0)
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  calls        CallLog[]
+
+  @@map("call_disposition")
+}
+
+model CallLog {
+  id            String    @id @default(uuid())
+  organizationId String
+  userId        String?
+  callSid       String?
+  direction     String    // 'inbound' | 'outbound'
+  fromNumber    String
+  toNumber      String
+  status        String    @default("initiated")
+  duration      Int       @default(0)
+  recordingUrl  String?
+  recordingSid  String?
+  outcome       String?
+  notes         String?
+  dispositionId String?
+  leadId        String?
+  startedAt     DateTime  @default(now())
+  endedAt       DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  disposition  CallDisposition? @relation(fields: [dispositionId], references: [id], onDelete: SetNull)
+
+  @@map("call_log")
+}
+
+model Lead {
+  id               String    @id @default(uuid())
+  organizationId   String
+  firstName        String?
+  lastName         String?
+  email            String?
+  phone            String?
+  normalizedPhone  String?
+  company          String?
+  title            String?
+  linkedInUrl      String?
+  website          String?
+  customFields     Json?
+  pipelineStageId  String?
+  dealValue        Decimal?  @db.Decimal(12, 2)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  pipelineStageRef PipelineStage? @relation(fields: [pipelineStageId], references: [id], onDelete: SetNull)
+
+  @@map("lead")
 }
 
 model Recording {

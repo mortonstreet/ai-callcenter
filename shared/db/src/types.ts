@@ -10,6 +10,11 @@ import {
   TaskInstance,
   Recording,
   Invitation,
+  PipelineStage,
+  TwilioConfig,
+  CallDisposition,
+  CallLog,
+  Lead,
 } from "./generated/types";
 
 
@@ -52,6 +57,26 @@ export type InsertDBTaskInstance = Insertable<TaskInstance>;
 export type DBRecording = Selectable<Recording>;
 export type UpdateDBRecording = Updateable<Recording>;
 export type InsertDBRecording = Insertable<Recording>;
+
+export type DBPipelineStage = Selectable<PipelineStage>;
+export type UpdateDBPipelineStage = Updateable<PipelineStage>;
+export type InsertDBPipelineStage = Insertable<PipelineStage>;
+
+export type DBTwilioConfig = Selectable<TwilioConfig>;
+export type InsertDBTwilioConfig = Insertable<TwilioConfig>;
+export type UpdateDBTwilioConfig = Updateable<TwilioConfig>;
+
+export type DBCallDisposition = Selectable<CallDisposition>;
+export type InsertDBCallDisposition = Insertable<CallDisposition>;
+export type UpdateDBCallDisposition = Updateable<CallDisposition>;
+
+export type DBCallLog = Selectable<CallLog>;
+export type InsertDBCallLog = Insertable<CallLog>;
+export type UpdateDBCallLog = Updateable<CallLog>;
+
+export type DBLead = Selectable<Lead>;
+export type InsertDBLead = Insertable<Lead>;
+export type UpdateDBLead = Updateable<Lead>;
 
 export type DBPagination = {
   page: number;

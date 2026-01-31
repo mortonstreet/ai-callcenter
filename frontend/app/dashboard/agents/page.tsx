@@ -16,7 +16,7 @@ export default function AgentsPage() {
       <div className="space-y-4">
         {isLoading && (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+            <Loader2 className="h-8 w-8 text-muted-foreground/70 animate-spin" />
           </div>
         )}
 
@@ -32,17 +32,17 @@ export default function AgentsPage() {
               <Link
                 key={agent.id}
                 href={`/dashboard/agents/${agent.id}`}
-                className="group p-6 bg-white rounded-lg border border-gray-200 hover:border-[var(--color-primary)] hover:shadow-md transition cursor-pointer"
+                className="group card-hover p-6 bg-card rounded-xl border border-border hover:border-primary hover:shadow-md transition cursor-pointer"
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center flex-shrink-0">
-                    <Bot className="h-5 w-5 text-[var(--color-primary)]" />
+                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                    <Bot className="h-5 w-5 text-primary" />
                   </div>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-1 group-hover:text-[var(--color-primary)] transition">
+                <h3 className="text-lg font-semibold text-foreground mb-1 group-hover:text-primary transition">
                   {agent.name}
                 </h3>
-                <div className="text-xs text-gray-500 space-y-1">
+                <div className="text-xs text-muted-foreground space-y-1">
                   <p>Phone: {agent.phoneNumber}</p>
                   <p>Created {new Date(agent.createdAt).toLocaleDateString()}</p>
                 </div>
@@ -53,11 +53,11 @@ export default function AgentsPage() {
 
         {!isLoading && !error && (!agents || agents.length === 0) && (
           <div className="text-center py-12">
-            <Bot className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600 mb-4">No agents yet</p>
+            <Bot className="h-12 w-12 text-muted-foreground/70 mx-auto mb-4" />
+            <p className="text-muted-foreground mb-4">No agents yet</p>
             <a 
               href="mailto:support@revcenter.ai" 
-              className="inline-block px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition text-sm font-medium"
+              className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition text-sm font-medium"
             >
               Contact Support to Get Started
             </a>

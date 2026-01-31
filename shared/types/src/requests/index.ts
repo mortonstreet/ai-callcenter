@@ -4,3 +4,5 @@ export * from './agent';
 export * from './task';
 export * from './pagination';
 export * from './admin';
+export * from './pipeline';
+export * from './lead';

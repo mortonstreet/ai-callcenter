@@ -6,13 +6,13 @@ type PageProps = {
 
 export function Page({ title, subtitle, children }: PageProps) {
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-7xl">
       <header className="mb-4 sm:mb-6">
-        <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-gray-900">
+        <h1 className="font-display font-bold text-3xl sm:text-4xl md:text-5xl tracking-tight text-foreground">
           {title}
         </h1>
         {subtitle && (
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-muted-foreground">
             {subtitle}
           </p>
         )}

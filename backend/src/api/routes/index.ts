@@ -8,6 +8,8 @@ import adminRoutes from './admin'
 import callCenterRoutes from './call-center'
 import careersRoutes from './careers'
 import organizationRoutes from './organization'
+import pipelineRoutes from './pipeline'
+import leadRoutes from './leads'
 
 const router = Router()
 
@@ -23,6 +25,8 @@ router.use('/admin', adminRoutes)
 router.use('/call-center', callCenterRoutes)
 router.use('/careers', careersRoutes)
 router.use('/organization', organizationRoutes)
+router.use('/pipeline', pipelineRoutes)
+router.use('/leads', leadRoutes)
 router.use('/sentry', (req, res) => {
   throw new Error('Testing sentry error')
 })

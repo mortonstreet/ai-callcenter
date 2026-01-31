@@ -2,144 +2,329 @@
 
 import { useState } from "react";
 import { Page } from "@/components/dashboard/Page";
-import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
 import {
   useAdminStats,
   useAdminUsers,
   useAdminOrganizations,
   useAdminCreateOrganization,
-  useAdminUpdateOrganizationLogo,
   useAdminDeleteOrganization,
+  useDeleteUser,
+  useImpersonateUser,
+  useReassignUser,
+  useAdminResetPassword,
+  useAddOrganizationCredits,
+  useOrganizationMembers,
+  useRemoveUserFromOrganization,
 } from "@/hooks/api/useAdmin";
-import { Users, Building2, Eye, Plus, Copy, Image, Upload, X, Trash2 } from "lucide-react";
+import { useSession } from "@/lib/auth-client";
+import ErrorLogsTab from "@/components/admin/ErrorLogsTab";
+import {
+  Users,
+  Building2,
+  AlertTriangle,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Trash2,
+  KeyRound,
+  UserPlus,
+  Plus,
+  Eye,
+  UserMinus,
+  AlertCircle,
+} from "lucide-react";
 import { toast } from "sonner";
-import { useAdminStore } from "@/lib/admin-store";
-import { useRouter } from "next/navigation";
-import CreateAgentModal from "@/components/admin/CreateAgentModal";
+import { AdminUser, AdminOrganization } from "@/lib/shared-types";
 
-type Tab = "users" | "organizations";
+type Tab = "users" | "organizations" | "error-logs";
+
+const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
+  { id: "users", label: "Users", icon: Users },
+  { id: "organizations", label: "Organizations", icon: Building2 },
+  { id: "error-logs", label: "Error Logs", icon: AlertTriangle },
+];
+
+function Pagination({
+  page,
+  totalPages,
+  onPageChange,
+  total,
+  limit,
+}: {
+  page: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  total: number;
+  limit: number;
+}) {
+  const start = (page - 1) * limit + 1;
+  const end = Math.min(page * limit, total);
+
+  return (
+    <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+      <p className="text-sm text-muted-foreground">
+        Showing {start} to {end} of {total}
+      </p>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => onPageChange(page - 1)}
+          disabled={page <= 1}
+          className="p-1.5 rounded border border-border bg-card hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-label="Previous page"
+        >
+          <ChevronLeft className="h-4 w-4 text-foreground" />
+        </button>
+        <span className="text-sm text-foreground px-2">
+          Page {page} of {totalPages}
+        </span>
+        <button
+          onClick={() => onPageChange(page + 1)}
+          disabled={page >= totalPages}
+          className="p-1.5 rounded border border-border bg-card hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-label="Next page"
+        >
+          <ChevronRight className="h-4 w-4 text-foreground" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SearchBar({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <div className="relative mb-4">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full pl-10 pr-4 py-2 text-sm text-foreground placeholder-muted-foreground bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+      />
+    </div>
+  );
+}
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<Tab>("users");
-  const [orgName, setOrgName] = useState("");
-  const [ownerEmail, setOwnerEmail] = useState("");
-  const [agentModalOrg, setAgentModalOrg] = useState<{ id: string; name: string } | null>(null);
-  const [logoModalOrg, setLogoModalOrg] = useState<{ id: string; name: string; logo?: string | null } | null>(null);
-  const [logoUrl, setLogoUrl] = useState("");
-  const [deleteModalOrg, setDeleteModalOrg] = useState<{ id: string; name: string } | null>(null);
-  const router = useRouter();
-  const setImpersonatedOrg = useAdminStore((s) => s.setImpersonatedOrg);
-  
-  const { data: stats, isLoading: statsLoading } = useAdminStats();
-  const { data: usersData, isLoading: usersLoading } = useAdminUsers();
-  const { data: orgsData, isLoading: orgsLoading } = useAdminOrganizations();
-  const createOrgMutation = useAdminCreateOrganization();
-  const updateLogoMutation = useAdminUpdateOrganizationLogo();
-  const deleteOrgMutation = useAdminDeleteOrganization();
+  const { data: session } = useSession();
 
-  const handleUpdateLogo = () => {
-    if (!logoModalOrg || !logoUrl.trim()) {
-      toast.error("Please enter a logo URL");
-      return;
-    }
-    updateLogoMutation.mutate(
-      { organizationId: logoModalOrg.id, logo: logoUrl.trim() },
+  // User tab state
+  const [userPage, setUserPage] = useState(1);
+  const [userSearch, setUserSearch] = useState("");
+
+  // Org tab state
+  const [orgPage, setOrgPage] = useState(1);
+  const [orgSearch, setOrgSearch] = useState("");
+
+  // Modal state
+  const [deleteUserModal, setDeleteUserModal] = useState<AdminUser | null>(null);
+  const [deleteOrgModal, setDeleteOrgModal] = useState<AdminOrganization | null>(null);
+  const [reassignModal, setReassignModal] = useState<AdminUser | null>(null);
+  const [reassignOrgId, setReassignOrgId] = useState("");
+  const [reassignRole, setReassignRole] = useState("member");
+  const [resetPasswordModal, setResetPasswordModal] = useState<AdminUser | null>(null);
+  const [createOrgModal, setCreateOrgModal] = useState(false);
+  const [newOrgName, setNewOrgName] = useState("");
+  const [newOrgSlug, setNewOrgSlug] = useState("");
+  const [viewMembersOrg, setViewMembersOrg] = useState<AdminOrganization | null>(null);
+  const [addCreditsOrg, setAddCreditsOrg] = useState<AdminOrganization | null>(null);
+  const [creditsAmount, setCreditsAmount] = useState("");
+  const [creditsReason, setCreditsReason] = useState("");
+
+  // Reset page when search changes
+  const handleUserSearchChange = (search: string) => {
+    setUserSearch(search);
+    setUserPage(1);
+  };
+
+  const handleOrgSearchChange = (search: string) => {
+    setOrgSearch(search);
+    setOrgPage(1);
+  };
+
+  // Queries
+  const { data: stats, isLoading: statsLoading } = useAdminStats();
+  const { data: usersData, isLoading: usersLoading } = useAdminUsers({
+    page: userPage,
+    limit: 20,
+    search: userSearch || undefined,
+  });
+  const { data: orgsData, isLoading: orgsLoading } = useAdminOrganizations({
+    page: orgPage,
+    limit: 20,
+    search: orgSearch || undefined,
+  });
+  const { data: membersData, isLoading: membersLoading } = useOrganizationMembers(
+    viewMembersOrg?.id || null
+  );
+
+  // Mutations
+  const deleteUserMutation = useDeleteUser();
+  const deleteOrgMutation = useAdminDeleteOrganization();
+  const impersonateMutation = useImpersonateUser();
+  const reassignMutation = useReassignUser();
+  const resetPasswordMutation = useAdminResetPassword();
+  const createOrgMutation = useAdminCreateOrganization();
+  const addCreditsMutation = useAddOrganizationCredits();
+  const removeMemberMutation = useRemoveUserFromOrganization();
+
+  const users = usersData?.data || [];
+  const userPagination = usersData?.pagination;
+  const orgs = orgsData?.data || [];
+  const orgPagination = orgsData?.pagination;
+  const members = membersData?.data || [];
+
+  const handleDeleteUser = () => {
+    if (!deleteUserModal) return;
+    deleteUserMutation.mutate(deleteUserModal.id, {
+      onSuccess: () => {
+        toast.success(`User ${deleteUserModal.email} deleted`);
+        setDeleteUserModal(null);
+      },
+      onError: () => toast.error("Failed to delete user"),
+    });
+  };
+
+  const handleDeleteOrg = () => {
+    if (!deleteOrgModal) return;
+    deleteOrgMutation.mutate(deleteOrgModal.id, {
+      onSuccess: () => {
+        toast.success(`Organization "${deleteOrgModal.name}" deleted`);
+        setDeleteOrgModal(null);
+      },
+      onError: () => toast.error("Failed to delete organization"),
+    });
+  };
+
+  const handleImpersonate = (user: AdminUser) => {
+    impersonateMutation.mutate(user.id, {
+      onSuccess: () => {
+        toast.success(`Impersonating ${user.name || user.email}`);
+        window.location.href = "/dashboard";
+      },
+      onError: () => toast.error("Failed to impersonate user"),
+    });
+  };
+
+  const handleReassign = () => {
+    if (!reassignModal || !reassignOrgId) return;
+    reassignMutation.mutate(
+      { userId: reassignModal.id, organizationId: reassignOrgId },
       {
         onSuccess: () => {
-          toast.success("Logo updated successfully");
-          setLogoModalOrg(null);
-          setLogoUrl("");
+          toast.success(`User ${reassignModal.email} reassigned successfully`);
+          setReassignModal(null);
+          setReassignOrgId("");
+          setReassignRole("member");
         },
-        onError: () => {
-          toast.error("Failed to update logo");
-        },
+        onError: () => toast.error("Failed to reassign user"),
       }
     );
   };
 
-  const openLogoModal = (org: { id: string; name: string; logo?: string | null }) => {
-    setLogoModalOrg(org);
-    setLogoUrl(org.logo || "");
+  const handleResetPassword = () => {
+    if (!resetPasswordModal) return;
+    resetPasswordMutation.mutate(resetPasswordModal.id, {
+      onSuccess: (data) => {
+        if (data.temporaryPassword) {
+          toast.success(`Temporary password: ${data.temporaryPassword}`);
+        } else {
+          toast.success("Password reset email sent");
+        }
+        setResetPasswordModal(null);
+      },
+      onError: () => toast.error("Failed to reset password"),
+    });
   };
 
-  const handleViewAsOrg = (org: { id: string; name: string }) => {
-    setImpersonatedOrg({ id: org.id, name: org.name });
-    toast.success(`Now viewing as ${org.name}`);
-    router.push("/dashboard");
-  };
-
-  const handleCopyOrgId = (orgId: string) => {
-    navigator.clipboard.writeText(orgId);
-    toast.success("Add as x-organization-id header value");
-  };
-
-  const handleCreateOrg = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!orgName || !ownerEmail) {
+  const handleCreateOrg = () => {
+    if (!newOrgName.trim() || !newOrgSlug.trim()) {
       toast.error("Please fill in all fields");
       return;
     }
     createOrgMutation.mutate(
-      { name: orgName, ownerEmail },
+      { name: newOrgName.trim(), slug: newOrgSlug.trim() },
       {
         onSuccess: () => {
-          toast.success("Organization created successfully");
-          setOrgName("");
-          setOwnerEmail("");
+          toast.success(`Organization "${newOrgName}" created`);
+          setCreateOrgModal(false);
+          setNewOrgName("");
+          setNewOrgSlug("");
         },
-        onError: () => {
-          toast.error("Failed to create organization");
-        },
+        onError: () => toast.error("Failed to create organization"),
       }
     );
   };
 
-  const handleDeleteOrg = () => {
-    if (!deleteModalOrg) return;
-    deleteOrgMutation.mutate(deleteModalOrg.id, {
-      onSuccess: () => {
-        toast.success(`Organization "${deleteModalOrg.name}" deleted successfully`);
-        setDeleteModalOrg(null);
-      },
-      onError: () => {
-        toast.error("Failed to delete organization");
-      },
-    });
+  const handleAddCredits = () => {
+    if (!addCreditsOrg || !creditsAmount) return;
+    const amount = parseFloat(creditsAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+    addCreditsMutation.mutate(
+      { organizationId: addCreditsOrg.id, amount },
+      {
+        onSuccess: (data) => {
+          toast.success(`Added ${amount} credits to ${addCreditsOrg.name}. New balance: ${data.newBalance}`);
+          setAddCreditsOrg(null);
+          setCreditsAmount("");
+          setCreditsReason("");
+        },
+        onError: () => toast.error("Failed to add credits"),
+      }
+    );
   };
 
-  const tabs: { id: Tab; label: string; icon: typeof Users }[] = [
-    { id: "users", label: "Users", icon: Users },
-    { id: "organizations", label: "Organizations", icon: Building2 },
-  ];
+  const handleRemoveMember = (userId: string, email?: string) => {
+    if (!viewMembersOrg) return;
+    removeMemberMutation.mutate(
+      { organizationId: viewMembersOrg.id, userId },
+      {
+        onSuccess: () => toast.success(`User ${email || ""} removed from organization`),
+        onError: () => toast.error("Failed to remove member"),
+      }
+    );
+  };
 
   return (
-    <Page title="Admin" subtitle="Manage users and organizations">
+    <Page title="Admin" subtitle="Manage users, organizations, and system health">
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <div className="bg-card rounded-xl border border-border p-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
               <Users className="h-5 w-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Total Users</p>
-              <p className="text-2xl font-semibold text-gray-900">
+              <p className="text-sm text-muted-foreground">Total Users</p>
+              <p className="text-2xl font-semibold text-foreground">
                 {statsLoading ? "..." : stats?.users ?? 0}
               </p>
             </div>
           </div>
         </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-card rounded-xl border border-border p-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
               <Building2 className="h-5 w-5 text-green-600" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Organizations</p>
-              <p className="text-2xl font-semibold text-gray-900">
+              <p className="text-sm text-muted-foreground">Organizations</p>
+              <p className="text-2xl font-semibold text-foreground">
                 {statsLoading ? "..." : stats?.organizations ?? 0}
               </p>
             </div>
@@ -147,20 +332,18 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200 mb-6">
+      {/* Underline Tabs */}
+      <div className="border-b border-border mb-6">
         <div className="flex gap-6">
-          {tabs.map((tab) => (
+          {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`
-                flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition
-                ${activeTab === tab.id
-                  ? "border-[var(--color-primary)] text-[var(--color-primary)]"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-                }
-              `}
+              className={`flex items-center gap-2 pb-3 text-sm font-medium border-b-2 transition ${
+                activeTab === tab.id
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
             >
               <tab.icon className="h-4 w-4" />
               {tab.label}
@@ -169,32 +352,47 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Tab Content */}
+      {/* ===== USERS TAB ===== */}
       {activeTab === "users" && (
-        <Card title="Users">
+        <div>
+          <SearchBar
+            value={userSearch}
+            onChange={handleUserSearchChange}
+            placeholder="Search by email, name, or organization..."
+          />
+
           {usersLoading ? (
-            <div className="text-center py-8 text-gray-500">Loading users...</div>
+            <div className="text-center py-12 text-muted-foreground">Loading users...</div>
+          ) : users.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">No users found</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Email</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Name</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Verified</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Admin</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Created</th>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Email</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Name</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Organizations</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Verified</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Role</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Created</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {usersData?.data?.map((user: { id: string; email: string; name: string | null; createdAt: string; isAdmin: boolean; emailVerified: boolean }) => (
-                    <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 px-4 text-gray-900">{user.email}</td>
-                      <td className="py-3 px-4 text-gray-600">{user.name || "-"}</td>
+                  {users.map((user: AdminUser) => (
+                    <tr key={user.id} className="border-b border-border/50 hover:bg-muted transition">
+                      <td className="py-3 px-4 text-foreground">{user.email}</td>
+                      <td className="py-3 px-4 text-muted-foreground">{user.name || "—"}</td>
+                      <td className="py-3 px-4 text-muted-foreground">
+                        {user.organizations?.length > 0
+                          ? user.organizations.join(", ")
+                          : "—"}
+                      </td>
                       <td className="py-3 px-4">
                         <span className={`inline-flex px-2 py-0.5 text-xs rounded-full ${
-                          user.emailVerified 
-                            ? "bg-green-100 text-green-700" 
+                          user.emailVerified
+                            ? "bg-green-100 text-green-700"
                             : "bg-yellow-100 text-yellow-700"
                         }`}>
                           {user.emailVerified ? "Yes" : "No"}
@@ -202,15 +400,59 @@ export default function AdminPage() {
                       </td>
                       <td className="py-3 px-4">
                         <span className={`inline-flex px-2 py-0.5 text-xs rounded-full ${
-                          user.isAdmin 
-                            ? "bg-purple-100 text-purple-700" 
-                            : "bg-gray-100 text-gray-600"
+                          user.role === "admin"
+                            ? "bg-purple-100 text-purple-700"
+                            : "bg-muted text-muted-foreground"
                         }`}>
-                          {user.isAdmin ? "Admin" : "User"}
+                          {user.role === "admin" ? "Admin" : "User"}
                         </span>
                       </td>
-                      <td className="py-3 px-4 text-gray-500">
+                      <td className="py-3 px-4 text-muted-foreground whitespace-nowrap">
                         {new Date(user.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          {user.id !== session?.user?.id && (
+                            <>
+                              <button
+                                onClick={() => handleImpersonate(user)}
+                                disabled={impersonateMutation.isPending}
+                                className="text-xs text-primary hover:underline disabled:opacity-50"
+                              >
+                                Impersonate
+                              </button>
+                              {user.role !== "admin" && (
+                                <button
+                                  onClick={() => setResetPasswordModal(user)}
+                                  className="text-xs text-amber-600 hover:underline"
+                                  title="Reset password"
+                                >
+                                  <KeyRound className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => {
+                                  setReassignModal(user);
+                                  setReassignOrgId("");
+                                  setReassignRole("member");
+                                }}
+                                className="text-xs text-blue-600 hover:underline"
+                                title="Reassign to organization"
+                              >
+                                <UserPlus className="h-3.5 w-3.5" />
+                              </button>
+                              {user.role !== "admin" && (
+                                <button
+                                  onClick={() => setDeleteUserModal(user)}
+                                  className="text-xs text-red-600 hover:underline"
+                                  title="Delete user"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -218,275 +460,394 @@ export default function AdminPage() {
               </table>
             </div>
           )}
-        </Card>
+
+          {/* Users Pagination */}
+          {userPagination && userPagination.totalPages > 1 && (
+            <Pagination
+              page={userPagination.page}
+              totalPages={userPagination.totalPages}
+              total={userPagination.total}
+              limit={userPagination.limit}
+              onPageChange={setUserPage}
+            />
+          )}
+        </div>
       )}
 
+      {/* ===== ORGANIZATIONS TAB ===== */}
       {activeTab === "organizations" && (
-        <>
-          <Card title="Create Organization" className="mb-6">
-            <form onSubmit={handleCreateOrg} className="flex gap-3 items-end">
-              <div className="flex-1">
-                <Input
-                  label="Organization Name"
-                  placeholder="Acme Corp"
-                  value={orgName}
-                  onChange={(e) => setOrgName(e.target.value)}
-                  required
-                />
-              </div>
-              <div className="flex-1">
-                <Input
-                  label="Owner Email"
-                  type="email"
-                  placeholder="owner@example.com"
-                  value={ownerEmail}
-                  onChange={(e) => setOwnerEmail(e.target.value)}
-                  required
-                />
-              </div>
-              <Button
-                type="submit"
-                loading={createOrgMutation.isPending}
-                disabled={createOrgMutation.isPending}
-              >
-                Create
-              </Button>
-            </form>
-          </Card>
-        <Card title="Organizations">
+        <div>
+          {/* Search + Create */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex-1 mr-4">
+              <SearchBar
+                value={orgSearch}
+                onChange={handleOrgSearchChange}
+                placeholder="Search by name or slug..."
+              />
+            </div>
+            <Button onClick={() => setCreateOrgModal(true)}>
+              <Plus className="h-4 w-4 mr-1.5" />
+              Create Organization
+            </Button>
+          </div>
+
           {orgsLoading ? (
-            <div className="text-center py-8 text-gray-500">Loading organizations...</div>
+            <div className="text-center py-12 text-muted-foreground">Loading organizations...</div>
+          ) : orgs.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">No organizations found</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Logo</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Name</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Slug</th>
-                    <th className="text-left py-3 px-4 font-medium text-gray-700">Created</th>
-                    <th className="text-right py-3 px-4 font-medium text-gray-700">Actions</th>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Name</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Slug</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Members</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Credits</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Created</th>
+                    <th className="text-left py-3 px-4 font-medium text-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {orgsData?.data?.map((org) => {
-                  // Type assertion: API returns more fields than DBOrganization type defines
-                  const extendedOrg = org as typeof org & { 
-                    id: string;
-                    logo?: string | null;
-                    slug?: string;
-                    name: string;
-                    createdAt: string | Date;
-                  };
-                  return (
-                    <tr key={extendedOrg.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  {orgs.map((org: AdminOrganization) => (
+                    <tr key={org.id} className="border-b border-border/50 hover:bg-muted transition">
+                      <td className="py-3 px-4 text-foreground font-medium">{org.name}</td>
+                      <td className="py-3 px-4 text-muted-foreground">{org.slug}</td>
+                      <td className="py-3 px-4 text-muted-foreground">{org.memberCount}</td>
                       <td className="py-3 px-4">
-                        <button
-                          onClick={() => openLogoModal(extendedOrg)}
-                          className="group relative w-10 h-10 rounded-lg border-2 border-dashed border-gray-300 hover:border-[var(--color-primary)] transition overflow-hidden flex items-center justify-center bg-gray-50"
-                        >
-                          {extendedOrg.logo ? (
-                            <img 
-                              src={extendedOrg.logo} 
-                              alt={`${extendedOrg.name} logo`}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <Image className="h-4 w-4 text-gray-400 group-hover:text-[var(--color-primary)]" />
-                          )}
-                          <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
-                            <Upload className="h-4 w-4 text-white" />
-                          </div>
-                        </button>
+                        <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${
+                          org.creditBalance > 0
+                            ? "bg-green-100 text-green-700"
+                            : "bg-muted text-muted-foreground"
+                        }`}>
+                          {org.creditBalance}
+                        </span>
                       </td>
-                      <td className="py-3 px-4 text-gray-900 font-medium">{extendedOrg.name}</td>
-                      <td className="py-3 px-4 text-gray-600">{extendedOrg.slug}</td>
-                      <td className="py-3 px-4 text-gray-500">
-                        {new Date(extendedOrg.createdAt).toLocaleDateString()}
+                      <td className="py-3 px-4 text-muted-foreground whitespace-nowrap">
+                        {new Date(org.createdAt).toLocaleDateString()}
                       </td>
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleCopyOrgId(extendedOrg.id)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
-                            title="Copy Organization ID"
+                            onClick={() => {
+                              setAddCreditsOrg(org);
+                              setCreditsAmount("");
+                              setCreditsReason("");
+                            }}
+                            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                           >
-                            <Copy className="h-3.5 w-3.5" />
-                            ID
+                            <Plus className="h-3 w-3" />
+                            Credits
                           </button>
                           <button
-                            onClick={() => setAgentModalOrg({ id: extendedOrg.id, name: extendedOrg.name })}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-600 bg-green-100 rounded-lg hover:bg-green-200 transition"
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                            Agent
-                          </button>
-                          <button
-                            onClick={() => handleViewAsOrg(extendedOrg)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[var(--color-primary)] bg-[var(--color-primary)]/10 rounded-lg hover:bg-[var(--color-primary)]/20 transition"
+                            onClick={() => setViewMembersOrg(org)}
+                            className="text-xs text-blue-600 hover:underline"
+                            title="View members"
                           >
                             <Eye className="h-3.5 w-3.5" />
-                            View as
                           </button>
                           <button
-                            onClick={() => setDeleteModalOrg({ id: extendedOrg.id, name: extendedOrg.name })}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-100 rounded-lg hover:bg-red-200 transition"
-                            title="Delete Organization"
+                            onClick={() => setDeleteOrgModal(org)}
+                            className="text-xs text-red-600 hover:underline"
+                            title="Delete organization"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       </td>
                     </tr>
-                  );
-                })}
+                  ))}
                 </tbody>
               </table>
             </div>
           )}
-        </Card>
-        </>
-      )}
 
-      {/* Create Agent Modal */}
-      {agentModalOrg && (
-        <CreateAgentModal
-          isOpen={!!agentModalOrg}
-          onClose={() => setAgentModalOrg(null)}
-          organizationId={agentModalOrg.id}
-          organizationName={agentModalOrg.name}
-        />
-      )}
-
-      {/* Logo Upload Modal */}
-      {logoModalOrg && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div 
-            className="absolute inset-0 bg-black/50" 
-            onClick={() => {
-              setLogoModalOrg(null);
-              setLogoUrl("");
-            }} 
-          />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6 m-4">
-            <button
-              onClick={() => {
-                setLogoModalOrg(null);
-                setLogoUrl("");
-              }}
-              className="absolute top-4 right-4 p-1 text-gray-400 hover:text-gray-600 transition"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Update Logo for {logoModalOrg.name}
-            </h2>
-            
-            {/* Logo Preview */}
-            <div className="mb-4 flex justify-center">
-              <div className="w-24 h-24 rounded-xl border-2 border-dashed border-gray-300 overflow-hidden flex items-center justify-center bg-gray-50">
-                {logoUrl ? (
-                  <img 
-                    src={logoUrl} 
-                    alt="Logo preview"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
-                ) : (
-                  <Image className="h-8 w-8 text-gray-400" />
-                )}
-              </div>
-            </div>
-            
-            <Input
-              label="Logo URL"
-              placeholder="https://example.com/logo.png"
-              value={logoUrl}
-              onChange={(e) => setLogoUrl(e.target.value)}
+          {/* Org Pagination */}
+          {orgPagination && orgPagination.totalPages > 1 && (
+            <Pagination
+              page={orgPagination.page}
+              totalPages={orgPagination.totalPages}
+              total={orgPagination.total}
+              limit={orgPagination.limit}
+              onPageChange={setOrgPage}
             />
-            <p className="text-xs text-gray-500 mt-1 mb-4">
-              Enter a URL to an image (PNG, JPG, or SVG recommended)
-            </p>
-            
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setLogoModalOrg(null);
-                  setLogoUrl("");
-                }}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleUpdateLogo}
-                loading={updateLogoMutation.isPending}
-                disabled={updateLogoMutation.isPending || !logoUrl.trim()}
-                className="flex-1"
-              >
-                Save Logo
-              </Button>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {deleteModalOrg && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div 
-            className="absolute inset-0 bg-black/50" 
-            onClick={() => setDeleteModalOrg(null)} 
-          />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md p-6 m-4">
-            <button
-              onClick={() => setDeleteModalOrg(null)}
-              className="absolute top-4 right-4 p-1 text-gray-400 hover:text-gray-600 transition"
+      {/* ===== ERROR LOGS TAB ===== */}
+      {activeTab === "error-logs" && <ErrorLogsTab />}
+
+      {/* ===== MODALS ===== */}
+
+      {/* Delete User Modal */}
+      <Modal
+        isOpen={!!deleteUserModal}
+        onClose={() => setDeleteUserModal(null)}
+        title="Delete User"
+        subtitle={deleteUserModal ? `Are you sure you want to delete ${deleteUserModal.email}?` : undefined}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            This action cannot be undone. The user will be permanently removed from the system.
+          </p>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setDeleteUserModal(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteUser}
+              loading={deleteUserMutation.isPending}
+              className="!bg-red-600 hover:!bg-red-700"
             >
-              <X className="h-5 w-5" />
-            </button>
-            
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                <Trash2 className="h-5 w-5 text-red-600" />
-              </div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                Delete Organization
-              </h2>
-            </div>
-            
-            <p className="text-gray-600 mb-2">
-              Are you sure you want to delete <span className="font-semibold text-gray-900">{deleteModalOrg.name}</span>?
-            </p>
-            <p className="text-sm text-red-600 bg-red-50 rounded-lg p-3 mb-4">
-              This action cannot be undone. All members, agents, tasks, and recordings associated with this organization will be permanently deleted.
-            </p>
-            
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setDeleteModalOrg(null)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleDeleteOrg}
-                loading={deleteOrgMutation.isPending}
-                disabled={deleteOrgMutation.isPending}
-                className="flex-1 !bg-red-600 hover:!bg-red-700"
-              >
-                Delete
-              </Button>
-            </div>
+              Delete User
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
+
+      {/* Delete Organization Modal */}
+      <Modal
+        isOpen={!!deleteOrgModal}
+        onClose={() => setDeleteOrgModal(null)}
+        title="Delete Organization"
+        subtitle={deleteOrgModal ? `Are you sure you want to delete "${deleteOrgModal.name}"?` : undefined}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            This action cannot be undone. All data associated with this organization will be permanently deleted.
+          </p>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setDeleteOrgModal(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteOrg}
+              loading={deleteOrgMutation.isPending}
+              className="!bg-red-600 hover:!bg-red-700"
+            >
+              Delete Organization
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Reassign User Modal */}
+      <Modal
+        isOpen={!!reassignModal}
+        onClose={() => { setReassignModal(null); setReassignOrgId(""); setReassignRole("member"); }}
+        title="Reassign User"
+        subtitle={reassignModal ? `Add ${reassignModal.email} to an organization` : undefined}
+      >
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-foreground">
+              Target Organization
+            </label>
+            <select
+              value={reassignOrgId}
+              onChange={(e) => setReassignOrgId(e.target.value)}
+              className="w-full rounded-xl border border-border px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
+            >
+              <option value="">Select an organization...</option>
+              {orgsData?.data?.map((org: AdminOrganization) => (
+                <option key={org.id} value={org.id}>
+                  {org.name} ({org.slug})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-foreground">
+              Role
+            </label>
+            <select
+              value={reassignRole}
+              onChange={(e) => setReassignRole(e.target.value)}
+              className="w-full rounded-xl border border-border px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
+            >
+              <option value="member">Member</option>
+              <option value="admin">Admin</option>
+              <option value="owner">Owner</option>
+            </select>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => { setReassignModal(null); setReassignOrgId(""); setReassignRole("member"); }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleReassign}
+              loading={reassignMutation.isPending}
+              disabled={!reassignOrgId.trim()}
+            >
+              Reassign User
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Reset Password Modal */}
+      <Modal
+        isOpen={!!resetPasswordModal}
+        onClose={() => setResetPasswordModal(null)}
+        title="Reset User Password"
+        subtitle={resetPasswordModal ? `Reset password for ${resetPasswordModal.email}` : undefined}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            This will generate a temporary password and send it to the user via email.
+            They will be required to change their password on their next login.
+          </p>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => setResetPasswordModal(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleResetPassword}
+              loading={resetPasswordMutation.isPending}
+            >
+              Reset Password
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Create Organization Modal */}
+      <Modal
+        isOpen={createOrgModal}
+        onClose={() => { setCreateOrgModal(false); setNewOrgName(""); setNewOrgSlug(""); }}
+        title="Create Organization"
+        subtitle="Create a new organization"
+      >
+        <div className="space-y-4">
+          <Input
+            label="Organization Name"
+            placeholder="Acme Corp"
+            value={newOrgName}
+            onChange={(e) => {
+              setNewOrgName(e.target.value);
+              setNewOrgSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
+            }}
+          />
+          <Input
+            label="Slug"
+            placeholder="acme-corp"
+            value={newOrgSlug}
+            onChange={(e) => setNewOrgSlug(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Slug must be lowercase letters, numbers, and hyphens only.
+          </p>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => { setCreateOrgModal(false); setNewOrgName(""); setNewOrgSlug(""); }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateOrg}
+              loading={createOrgMutation.isPending}
+              disabled={!newOrgName.trim() || !newOrgSlug.trim()}
+            >
+              Create Organization
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* View Members Modal */}
+      <Modal
+        isOpen={!!viewMembersOrg}
+        onClose={() => setViewMembersOrg(null)}
+        title="Organization Members"
+        subtitle={viewMembersOrg ? `Members of ${viewMembersOrg.name}` : undefined}
+      >
+        <div className="space-y-4">
+          {membersLoading ? (
+            <div className="py-8 text-center text-muted-foreground">Loading members...</div>
+          ) : members.length === 0 ? (
+            <div className="py-8 text-center text-muted-foreground">No members found</div>
+          ) : (
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {members.map((member) => (
+                <div
+                  key={member.id}
+                  className="flex items-center justify-between p-3 rounded-lg border border-border"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{member.name || member.email}</p>
+                    <p className="text-xs text-muted-foreground">{member.email}</p>
+                    <span className={`inline-flex px-2 py-0.5 text-xs rounded-full mt-1 ${
+                      member.role === "owner"
+                        ? "bg-purple-100 text-purple-700"
+                        : member.role === "admin"
+                        ? "bg-blue-100 text-blue-700"
+                        : "bg-muted text-muted-foreground"
+                    }`}>
+                      {member.role}
+                    </span>
+                  </div>
+                  {member.role !== "owner" && (
+                    <button
+                      onClick={() => handleRemoveMember(member.id, member.email)}
+                      className="text-red-600 hover:text-red-700 p-1"
+                      title="Remove from organization"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex justify-end pt-2">
+            <Button variant="outline" onClick={() => setViewMembersOrg(null)}>
+              Close
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Add Credits Modal */}
+      <Modal
+        isOpen={!!addCreditsOrg}
+        onClose={() => { setAddCreditsOrg(null); setCreditsAmount(""); setCreditsReason(""); }}
+        title="Add Credits"
+        subtitle={addCreditsOrg ? `Add credits to ${addCreditsOrg.name}` : undefined}
+      >
+        <div className="space-y-4">
+          <Input
+            label="Number of Credits"
+            type="number"
+            placeholder="Enter amount"
+            value={creditsAmount}
+            onChange={(e) => setCreditsAmount(e.target.value)}
+          />
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-foreground">
+              Reason (optional)
+            </label>
+            <textarea
+              value={creditsReason}
+              onChange={(e) => setCreditsReason(e.target.value)}
+              placeholder="e.g., Promotional credits, Customer support adjustment..."
+              className="w-full rounded-xl border border-border px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-primary resize-none placeholder:text-muted-foreground"
+              rows={2}
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="outline" onClick={() => { setAddCreditsOrg(null); setCreditsAmount(""); setCreditsReason(""); }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddCredits}
+              loading={addCreditsMutation.isPending}
+              disabled={!creditsAmount || parseFloat(creditsAmount) <= 0}
+            >
+              Add Credits
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </Page>
   );
 }
-

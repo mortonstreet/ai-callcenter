@@ -236,19 +236,19 @@ export default function SettingsPage() {
           <div className="space-y-6">
             {/* Account Information */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-gray-900">Profile</h3>
+              <h3 className="text-sm font-semibold text-foreground">Profile</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-foreground/80 mb-1">
                     Name
                   </label>
-                  <p className="text-gray-900">{user?.name || "N/A"}</p>
+                  <p className="text-foreground">{user?.name || "N/A"}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-foreground/80 mb-1">
                     Email
                   </label>
-                  <p className="text-gray-900">{user?.email || "N/A"}</p>
+                  <p className="text-foreground">{user?.email || "N/A"}</p>
                 </div>
               </div>
             </div>
@@ -256,9 +256,9 @@ export default function SettingsPage() {
             {/* Change Password - Only for email/password users */}
             {hasPasswordAuth && (
               <>
-                <div className="border-t border-gray-200" />
+                <div className="border-t border-border" />
                 <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-gray-900">Change Password</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Change Password</h3>
                   <form onSubmit={handleChangePassword} className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <Input
@@ -302,28 +302,28 @@ export default function SettingsPage() {
             <div className="space-y-6">
               {/* Organization Info */}
               <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-gray-900">Information</h3>
+                <h3 className="text-sm font-semibold text-foreground">Information</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-foreground/80 mb-1">
                       Organization Name
                     </label>
-                    <p className="text-gray-900">{effectiveOrganization.name}</p>
+                    <p className="text-foreground">{effectiveOrganization.name}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-foreground/80 mb-1">
                       Domain
                     </label>
-                    <p className="text-gray-900">{(orgMeta as any)?.domain || "—"}</p>
+                    <p className="text-foreground">{(orgMeta as any)?.domain || "—"}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-foreground/80 mb-1">
                       Industry
                     </label>
-                    <p className="text-gray-900 capitalize">{(orgMeta as any)?.industry || "—"}</p>
+                    <p className="text-foreground capitalize">{(orgMeta as any)?.industry || "—"}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-foreground/80 mb-1">
                       Services
                     </label>
                     {(orgMeta as any)?.services?.length ? (
@@ -331,21 +331,21 @@ export default function SettingsPage() {
                         {(orgMeta as any).services.map((svc: string) => (
                           <span
                             key={svc}
-                            className="px-2.5 py-1 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)] text-xs font-medium"
+                            className="px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium"
                           >
                             {svc}
                           </span>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-gray-500 text-sm">—</p>
+                      <p className="text-muted-foreground text-sm">—</p>
                     )}
                   </div>
                 </div>
               </div>
 
               {/* Divider */}
-              <div className="border-t border-gray-200" />
+              <div className="border-t border-border" />
 
               {/* Members Section */}
               <div className="space-y-4">
@@ -353,7 +353,7 @@ export default function SettingsPage() {
                 {(isAdmin || isOwner) && (
                   <>
                     <div className="space-y-4">
-                      <h3 className="text-sm font-semibold text-gray-900">Invite New Member</h3>
+                      <h3 className="text-sm font-semibold text-foreground">Invite New Member</h3>
                       {impersonatedOrg ? (
                         <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
                           <p className="text-sm text-purple-700">
@@ -375,7 +375,7 @@ export default function SettingsPage() {
                           <select
                             value={inviteRole}
                             onChange={(e) => setInviteRole(e.target.value as "member")}
-                            className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+                            className="px-4 py-2 border border-border rounded-lg text-sm text-foreground bg-card focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
                             aria-label="Member role"
                           >
                             <option value="member">Member</option>
@@ -387,19 +387,19 @@ export default function SettingsPage() {
                       </form>
                       )}
                     </div>
-                    <div className="border-t border-gray-200" />
+                    <div className="border-t border-border" />
                   </>
                 )}
 
                 {/* Members List */}
                 <div className="space-y-3">
-                  <h3 className="text-sm font-semibold text-gray-900">
+                  <h3 className="text-sm font-semibold text-foreground">
                     Team Members ({members.length})
                   </h3>
                   {membersLoading ? (
-                    <div className="text-center py-8 text-gray-500">Loading members...</div>
+                    <div className="text-center py-8 text-muted-foreground">Loading members...</div>
                   ) : members.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">No members yet</div>
+                    <div className="text-center py-8 text-muted-foreground">No members yet</div>
                   ) : (
                     <div className="space-y-2">
                       {members.map((member: any) => {
@@ -411,10 +411,10 @@ export default function SettingsPage() {
                         return (
                           <div
                             key={member.id}
-                            className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+                            className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent transition"
                           >
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-[var(--color-primary)] flex items-center justify-center overflow-hidden">
+                              <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center overflow-hidden">
                                 {avatarImage ? (
                                   <Image
                                     src={avatarImage}
@@ -424,22 +424,22 @@ export default function SettingsPage() {
                                     className="w-full h-full object-cover"
                                   />
                                 ) : (
-                                  <span className="text-white font-semibold">
+                                  <span className="text-primary-foreground font-semibold">
                                     {avatarFallback}
                                   </span>
                                 )}
                               </div>
                               <div>
-                                <p className="font-medium text-gray-900">{memberName}</p>
-                                <p className="text-sm text-gray-500">{memberEmail}</p>
+                                <p className="font-medium text-foreground">{memberName}</p>
+                                <p className="text-sm text-muted-foreground">{memberEmail}</p>
                               </div>
                             </div>
                             <div className="flex items-center gap-3">
                               <span
                                 className={`px-3 py-1 text-xs font-medium rounded-full ${
                                   member.role === "admin" || member.role === "owner"
-                                    ? "bg-[var(--color-primary)]/10 text-[var(--color-primary)]"
-                                    : "bg-gray-100 text-gray-600"
+                                    ? "bg-primary/10 text-primary"
+                                    : "bg-muted text-muted-foreground"
                                 }`}
                               >
                                 {member.role}
@@ -480,13 +480,13 @@ export default function SettingsPage() {
                 {/* Pending Invitations */}
                 {invitations.length > 0 && (
                   <>
-                    <div className="border-t border-gray-200" />
+                    <div className="border-t border-border" />
                     <div className="space-y-3">
-                      <h3 className="text-sm font-semibold text-gray-900">
+                      <h3 className="text-sm font-semibold text-foreground">
                         Pending Invitations ({invitations.length})
                       </h3>
                       {invitationsLoading ? (
-                        <div className="text-center py-8 text-gray-500">Loading invitations...</div>
+                        <div className="text-center py-8 text-muted-foreground">Loading invitations...</div>
                       ) : (
                         <div className="space-y-2">
                           {invitations.map((invitation: any) => {
@@ -496,17 +496,17 @@ export default function SettingsPage() {
                             return (
                               <div
                                 key={invitation.id}
-                                className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+                                className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-accent transition"
                               >
                                 <div className="flex items-center gap-3">
-                                  <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                                    <span className="text-gray-600 font-semibold">
+                                  <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center">
+                                    <span className="text-muted-foreground font-semibold">
                                       {avatar}
                                     </span>
                                   </div>
                                   <div>
-                                    <p className="font-medium text-gray-900">{inviteeEmail}</p>
-                                    <p className="text-sm text-gray-500">Invited • Pending acceptance</p>
+                                    <p className="font-medium text-foreground">{inviteeEmail}</p>
+                                    <p className="text-sm text-muted-foreground">Invited • Pending acceptance</p>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-3">
@@ -538,7 +538,7 @@ export default function SettingsPage() {
         {process.env.NODE_ENV !== "production" && effectiveOrganization?.id && !impersonatedOrg && (
           <Card title="Danger Zone">
             <div className="space-y-3">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 Delete the current organization and all related data. This is only enabled in development.
               </p>
               <Button
@@ -565,7 +565,7 @@ export default function SettingsPage() {
         subtitle="Are you sure you want to cancel this invitation?"
       >
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             The invited user will no longer be able to accept this invitation.
           </p>
           <div className="flex justify-end gap-3">
@@ -600,7 +600,7 @@ export default function SettingsPage() {
         subtitle="Are you sure you want to remove this member?"
       >
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             {memberToRemove && (
               <>
                 <strong>{memberToRemove.name}</strong>
@@ -636,7 +636,7 @@ export default function SettingsPage() {
         title="Delete Organization"
       >
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             Are you sure? This action cannot be undone.
           </p>
           <div className="flex justify-end gap-3">

@@ -117,41 +117,41 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
 
   if (isEditing) {
     return (
-      <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+      <div className="border border-border rounded-lg p-4 bg-muted">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground/80 mb-2">
               Service Name *
             </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black placeholder:text-gray-400"
+              className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground placeholder:text-muted-foreground/70"
               placeholder="Service name"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground/80 mb-2">
               Description
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black placeholder:text-gray-400"
+              className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground placeholder:text-muted-foreground/70"
               placeholder="Give your agent more context about this service, such as pricing current discounts, etc."
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground/80 mb-2">
               Assign to User
             </label>
             <select
               value={dispatcherUserId}
               onChange={(e) => setDispatcherUserId(e.target.value)}
-              className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black"
+              className="w-full px-3 py-2 pr-8 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground"
               aria-label="Assign to user"
             >
               <option value="">No assignment (optional)</option>
@@ -164,13 +164,13 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
           </div>
           <div>
             <div className="flex items-center justify-between mb-3">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-sm font-medium text-foreground/80">
                 Information to Capture *
               </label>
               <button
                 type="button"
                 onClick={addField}
-                className="flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 rounded-lg transition"
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-primary hover:bg-primary/10 rounded-lg transition"
               >
                 <Plus className="h-4 w-4" />
                 Add Field
@@ -178,7 +178,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
             </div>
             <div className="space-y-3">
               {taskFields.map((field, index) => (
-                <div key={index} className="flex gap-3 items-start p-3 bg-white rounded-lg border border-gray-200">
+                <div key={index} className="flex gap-3 items-start p-3 bg-card rounded-lg border border-border">
                   <div className="flex-1 space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -187,14 +187,14 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
                           value={field.name}
                           onChange={(e) => updateField(index, { name: e.target.value })}
                           placeholder="Field name"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black placeholder:text-gray-400"
+                          className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground placeholder:text-muted-foreground/70"
                         />
                       </div>
                       <div>
                         <select
                           value={field.type}
                           onChange={(e) => updateField(index, { type: e.target.value as TaskFieldType })}
-                          className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black"
+                          className="w-full px-3 py-2 pr-8 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground"
                           aria-label="Field type"
                         >
                           {FIELD_TYPE_OPTIONS.map((option) => (
@@ -211,7 +211,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
                         value={field.description || ""}
                         onChange={(e) => updateField(index, { description: e.target.value })}
                         placeholder="Field description (optional)"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-sm text-black placeholder:text-gray-400"
+                        className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent text-sm text-foreground placeholder:text-muted-foreground/70"
                       />
                     </div>
                   </div>
@@ -233,14 +233,14 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
             <button
               type="button"
               onClick={onCancel}
-              className="px-3 py-1.5 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+              className="px-3 py-1.5 text-sm text-foreground/80 bg-muted rounded-lg hover:bg-accent transition"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={updateTaskMutation.isPending}
-              className="px-3 py-1.5 text-sm bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
+              className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition disabled:opacity-50"
             >
               {updateTaskMutation.isPending ? "Saving..." : "Save"}
             </button>
@@ -251,15 +251,15 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
   }
 
   return (
-    <div className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition">
+    <div className="border border-border rounded-lg p-4 hover:border-border transition">
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <h4 className="font-semibold text-gray-900 mb-1">{task.name}</h4>
+          <h4 className="font-semibold text-foreground mb-1">{task.name}</h4>
           {task.description && (
-            <p className="text-sm text-gray-600 mb-3">{task.description}</p>
+            <p className="text-sm text-muted-foreground mb-3">{task.description}</p>
           )}
           {task.dispatcherUserId && (
-            <p className="text-sm text-gray-600 mb-3">
+            <p className="text-sm text-muted-foreground mb-3">
               <span className="font-medium">Assigned to:</span>{" "}
               {members.find((m: any) => m.userId === task.dispatcherUserId)?.user?.name || 
                members.find((m: any) => m.userId === task.dispatcherUserId)?.user?.email || 
@@ -269,11 +269,11 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
           <div className="space-y-2">
             {fields.map((field, idx) => (
               <div key={idx} className="flex items-start gap-2">
-                <span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded font-medium">
+                <span className="px-2 py-1 text-xs bg-muted text-foreground/80 rounded font-medium">
                   {field.name} ({field.type})
                 </span>
                 {field.description && (
-                  <span className="text-xs text-gray-500 mt-1">{field.description}</span>
+                  <span className="text-xs text-muted-foreground mt-1">{field.description}</span>
                 )}
               </div>
             ))}
@@ -283,7 +283,7 @@ function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate
           <div className="flex gap-1">
             <button
               onClick={onEdit}
-              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition"
+              className="p-2 text-muted-foreground hover:bg-accent rounded-lg transition"
               aria-label="Edit task"
             >
               <Edit2 className="h-4 w-4" />
@@ -315,7 +315,7 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
     return (
       <Page title="Loading...">
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+          <Loader2 className="h-8 w-8 text-muted-foreground/70 animate-spin" />
         </div>
       </Page>
     );
@@ -325,8 +325,8 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
     return (
       <Page title="Agent Not Found">
         <div className="text-center py-12">
-          <p className="text-gray-600 mb-4">Agent not found</p>
-          <Link href="/dashboard" className="text-[var(--color-primary)] hover:underline">
+          <p className="text-muted-foreground mb-4">Agent not found</p>
+          <Link href="/dashboard" className="text-primary hover:underline">
             Back to Agents
           </Link>
         </div>
@@ -341,74 +341,74 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
       <div className="space-y-6">
         <Link
           href="/dashboard"
-          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Agents
         </Link>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-card rounded-xl border border-border p-6">
           <div className="flex items-start justify-between mb-6">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center">
-                <Bot className="h-6 w-6 text-[var(--color-primary)]" />
+              <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
+                <Bot className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">{agent.name}</h2>
+                <h2 className="text-xl font-semibold text-foreground">{agent.name}</h2>
               </div>
             </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase mb-1">Created</p>
-              <p className="text-sm text-gray-900">{new Date(agent.createdAt).toLocaleDateString()}</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase mb-1">Created</p>
+              <p className="text-sm text-foreground">{new Date(agent.createdAt).toLocaleDateString()}</p>
             </div>
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase mb-1">Updated</p>
-              <p className="text-sm text-gray-900">{new Date(agent.updatedAt).toLocaleDateString()}</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase mb-1">Updated</p>
+              <p className="text-sm text-foreground">{new Date(agent.updatedAt).toLocaleDateString()}</p>
             </div>
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase mb-1">Agent ID</p>
-              <p className="text-sm text-gray-900 font-mono">{agent.id}</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase mb-1">Agent ID</p>
+              <p className="text-sm text-foreground font-mono">{agent.id}</p>
             </div>
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase mb-1">Organization ID</p>
-              <p className="text-sm text-gray-900 font-mono">{agent.organizationId}</p>
+              <p className="text-xs font-medium text-muted-foreground uppercase mb-1">Organization ID</p>
+              <p className="text-sm text-foreground font-mono">{agent.organizationId}</p>
             </div>
           </div>
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Contact Information</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase mb-1">Phone Number</p>
-                <p className="text-sm text-gray-900">{agent.phoneNumber}</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase mb-1">Phone Number</p>
+                <p className="text-sm text-foreground">{agent.phoneNumber}</p>
               </div>
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase mb-1">Redirect Number</p>
-                <p className="text-sm text-gray-900">{agent.redirectNumber}</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase mb-1">Redirect Number</p>
+                <p className="text-sm text-foreground">{agent.redirectNumber}</p>
               </div>
             </div>
           </div>
 
           {isElevenLabs && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Test Your Agent</h3>
+            <div className="bg-card rounded-xl border border-border p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-4">Test Your Agent</h3>
               <ElevenLabsConversation agentId={agent.externalId} />
             </div>
           )}
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="bg-card rounded-xl border border-border p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Services</h3>
+            <h3 className="text-lg font-semibold text-foreground">Services</h3>
             {!showCreateTask && isAdminOrOwner && (
               <button
                 onClick={() => setShowCreateTask(true)}
-                className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition text-sm font-medium"
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition text-sm font-medium"
               >
                 Create Service
               </button>
@@ -423,7 +423,7 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
             />
           ) : isLoadingTasks ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 text-gray-400 animate-spin" />
+              <Loader2 className="h-6 w-6 text-muted-foreground/70 animate-spin" />
             </div>
           ) : tasks && tasks.length > 0 ? (
             <div className="space-y-4">
@@ -451,7 +451,7 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
               })}
             </div>
           ) : (
-            <p className="text-sm text-gray-500">No services yet. Create your first service to get started.</p>
+            <p className="text-sm text-muted-foreground">No services yet. Create your first service to get started.</p>
           )}
         </div>
       </div>

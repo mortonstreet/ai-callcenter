@@ -35,11 +35,60 @@ export type Agent = {
   webhookSecret: string | null
   mcpEndpointUrl: string | null
 }
+export type CallDisposition = {
+  id: string
+  organizationId: string
+  label: string
+  color: Generated<string | null>
+  sortOrder: Generated<number>
+  isDefault: Generated<boolean>
+  createdAt: Generated<Timestamp>
+}
+export type CallLog = {
+  id: string
+  organizationId: string
+  userId: string | null
+  callSid: string | null
+  direction: string
+  fromNumber: string
+  toNumber: string
+  status: Generated<string>
+  duration: Generated<number>
+  recordingUrl: string | null
+  recordingSid: string | null
+  outcome: string | null
+  notes: string | null
+  dispositionId: string | null
+  leadId: string | null
+  startedAt: Generated<Timestamp>
+  endedAt: Timestamp | null
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
+}
 export type Example = {
   id: string
   name: string
   createdAt: Generated<Timestamp>
   updatedAt: Timestamp
+}
+export type Lead = {
+  id: string
+  organizationId: string
+  firstName: string | null
+  lastName: string | null
+  email: string | null
+  phone: string | null
+  normalizedPhone: string | null
+  company: string | null
+  title: string | null
+  linkedInUrl: string | null
+  website: string | null
+  customFields: unknown | null
+  pipelineStageId: string | null
+  dealValue: string | null
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
+  deletedAt: Timestamp | null
 }
 export type Invitation = {
   id: string
@@ -65,6 +114,15 @@ export type Organization = {
   logo: string | null
   createdAt: Timestamp
   metadata: string | null
+}
+export type PipelineStage = {
+  id: string
+  organizationId: string
+  label: string
+  color: Generated<string>
+  sortOrder: Generated<number>
+  isDefault: Generated<boolean>
+  createdAt: Generated<Timestamp>
 }
 export type Recording = {
   id: string
@@ -142,6 +200,20 @@ export type TaskInstance = {
   bookingCancelReason: string | null
   tags: unknown | null
   pipelineStage: Generated<string | null>
+  pipelineStageId: string | null
+}
+export type TwilioConfig = {
+  id: string
+  organizationId: string
+  accountSid: string | null
+  authToken: string | null
+  phoneNumber: string | null
+  apiKeySid: string | null
+  apiKeySecret: string | null
+  twimlAppSid: string | null
+  autoRecord: Generated<boolean>
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
 }
 export type User = {
   id: string
@@ -167,15 +239,20 @@ export type Verification = {
 export type DB = {
   account: Account
   agent: Agent
+  call_disposition: CallDisposition
+  call_log: CallLog
   example: Example
   invitation: Invitation
+  lead: Lead
   member: Member
   organization: Organization
+  pipeline_stage: PipelineStage
   recording: Recording
   session: Session
   subscription: Subscription
   task: Task
   task_instance: TaskInstance
+  twilio_config: TwilioConfig
   user: User
   verification: Verification
 }

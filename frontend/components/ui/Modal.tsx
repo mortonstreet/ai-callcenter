@@ -26,25 +26,25 @@ export default function Modal({ isOpen, onClose, title, subtitle, children, show
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
       onClick={showCloseButton ? onClose : undefined}
     >
       <div
-        className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+        className="bg-card border border-border rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6">
           <div className="flex items-center justify-between mb-1">
-            <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
+            <h2 className="text-xl font-semibold text-foreground">{title}</h2>
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-lg hover:bg-accent"
                 aria-label="Close modal"
                 title="Close"
               >
                 <svg
-                  className="w-6 h-6"
+                  className="w-5 h-5"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -60,7 +60,7 @@ export default function Modal({ isOpen, onClose, title, subtitle, children, show
             )}
           </div>
           {subtitle && (
-            <p className="text-sm text-gray-500 mb-4">{subtitle}</p>
+            <p className="text-sm text-muted-foreground mb-4">{subtitle}</p>
           )}
           {children}
         </div>
@@ -68,4 +68,3 @@ export default function Modal({ isOpen, onClose, title, subtitle, children, show
     </div>
   );
 }
-

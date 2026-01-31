@@ -214,6 +214,7 @@ export interface DBTaskInstance {
   bookingCancelReason: string | null;
   tags: unknown | null;
   pipelineStage: string | null;
+  pipelineStageId: string | null;
 }
 
 export interface DBRecording {
@@ -264,6 +265,26 @@ export interface DBSubscription {
   trialEnd: Timestamp | null;
   cancelAtPeriodEnd: boolean | null;
   seats: number | null;
+}
+
+export interface DBLead {
+  id: string;
+  organizationId: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  phone: string | null;
+  normalizedPhone: string | null;
+  company: string | null;
+  title: string | null;
+  linkedInUrl: string | null;
+  website: string | null;
+  customFields: unknown | null;
+  pipelineStageId: string | null;
+  dealValue: string | null;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  deletedAt: Timestamp | null;
 }
 
 // =============================================================================
@@ -417,3 +438,43 @@ export type DBPagination = {
   limit: number;
   offset: number;
 };
+
+// =============================================================================
+// ADMIN TYPES
+// =============================================================================
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string | null;
+  organizations: string[];
+  emailVerified: boolean;
+  role: string;
+  createdAt: string;
+}
+
+export interface AdminOrganization {
+  id: string;
+  name: string;
+  slug: string;
+  memberCount: number;
+  creditBalance: number;
+  createdAt: string;
+}
+
+export interface ErrorLogItem {
+  id: string;
+  code: string;
+  message: string;
+  severity: string;
+  status: string;
+  product: string;
+  organizationName: string | null;
+  occurredAt: string;
+}
+
+export interface ErrorLogDetail extends ErrorLogItem {
+  stackTrace: string | null;
+  metadata: Record<string, unknown> | null;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+}
