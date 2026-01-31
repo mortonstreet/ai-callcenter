@@ -17,10 +17,7 @@ export const listLeads: AuthRequestHandler<ListLeadsRequest> = async (
   return res.json(result)
 }
 
-export const getLead: AuthRequestHandler<GetLeadRequest> = async (
-  req,
-  res,
-) => {
+export const getLead: AuthRequestHandler<GetLeadRequest> = async (req, res) => {
   const { organizationId, id } = req.validated
   const lead = await leadService.getById(id, organizationId)
   if (!lead) {

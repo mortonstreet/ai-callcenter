@@ -53,10 +53,7 @@ export const list = async (
   organizationId: string,
   options: { search?: string; page: number; limit: number },
 ) => {
-  const { data, total } = await leadRepository.findMany(
-    organizationId,
-    options,
-  )
+  const { data, total } = await leadRepository.findMany(organizationId, options)
   const totalPages = Math.ceil(total / options.limit)
   return {
     data,
@@ -91,7 +88,8 @@ export const update = async (
   if (!existing || existing.organizationId !== organizationId) return undefined
 
   const updateData: Record<string, unknown> = {}
-  if (data.firstName !== undefined) updateData.firstName = data.firstName || null
+  if (data.firstName !== undefined)
+    updateData.firstName = data.firstName || null
   if (data.lastName !== undefined) updateData.lastName = data.lastName || null
   if (data.email !== undefined) updateData.email = data.email || null
   if (data.phone !== undefined) {
@@ -100,10 +98,13 @@ export const update = async (
   }
   if (data.company !== undefined) updateData.company = data.company || null
   if (data.title !== undefined) updateData.title = data.title || null
-  if (data.linkedInUrl !== undefined) updateData.linkedInUrl = data.linkedInUrl || null
+  if (data.linkedInUrl !== undefined)
+    updateData.linkedInUrl = data.linkedInUrl || null
   if (data.website !== undefined) updateData.website = data.website || null
-  if (data.dealValue !== undefined) updateData.dealValue = String(data.dealValue)
-  if (data.pipelineStageId !== undefined) updateData.pipelineStageId = data.pipelineStageId
+  if (data.dealValue !== undefined)
+    updateData.dealValue = String(data.dealValue)
+  if (data.pipelineStageId !== undefined)
+    updateData.pipelineStageId = data.pipelineStageId
 
   return leadRepository.update(id, updateData as any)
 }

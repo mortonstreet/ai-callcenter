@@ -40,11 +40,7 @@ async function loadTwilioCredentials(req: Request): Promise<boolean> {
   if (!orgId) return false
 
   const dbConfig = await findTwilioConfig(orgId)
-  if (
-    dbConfig?.accountSid &&
-    dbConfig?.authToken &&
-    dbConfig?.phoneNumber
-  ) {
+  if (dbConfig?.accountSid && dbConfig?.authToken && dbConfig?.phoneNumber) {
     twilioClient.setCredentials({
       accountSid: dbConfig.accountSid,
       authToken: dbConfig.authToken,
@@ -188,7 +184,11 @@ router.post(
 
       res.json({
         success: true,
-        configured: !!(result.accountSid && result.authToken && result.phoneNumber),
+        configured: !!(
+          result.accountSid &&
+          result.authToken &&
+          result.phoneNumber
+        ),
       })
     } catch (error: any) {
       logger.error('Failed to save Twilio config:', error)
@@ -245,7 +245,9 @@ router.get(
       const user = (req as any).user
       const identity = `agent_${user.id}`
 
-      logger.info(`Generating voice token for identity: ${identity} (user: ${user.email || user.name})`)
+      logger.info(
+        `Generating voice token for identity: ${identity} (user: ${user.email || user.name})`,
+      )
 
       const token = twilioClient.generateAccessToken(identity)
 
@@ -480,7 +482,9 @@ router.get(
     }
 
     const direction = req.query.direction as string | undefined
-    const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined
+    const limit = req.query.limit
+      ? parseInt(req.query.limit as string)
+      : undefined
     const page = req.query.page ? parseInt(req.query.page as string) : undefined
 
     try {
@@ -538,9 +542,7 @@ router.get(
       const { db } = await import('@/lib/db')
       const { sql } = await import('kysely')
 
-      let query = db
-        .selectFrom('call_log')
-        .where('organizationId', '=', orgId)
+      let query = db.selectFrom('call_log').where('organizationId', '=', orgId)
 
       if (startDate) {
         query = query.where('startedAt', '>=', new Date(startDate))
@@ -553,26 +555,37 @@ router.get(
 
       // Metrics
       const totalCalls = calls.length
-      const outboundCalls = calls.filter(c => c.direction === 'outbound').length
-      const inboundCalls = calls.filter(c => c.direction === 'inbound').length
-      const connectedCalls = calls.filter(c =>
-        c.status === 'completed' || c.status === 'in-progress' || (c.duration && c.duration > 0)
+      const outboundCalls = calls.filter(
+        (c) => c.direction === 'outbound',
       ).length
-      const connectionRate = totalCalls > 0 ? Math.round((connectedCalls / totalCalls) * 100) : 0
-      const totalTalkTimeSeconds = calls.reduce((sum, c) => sum + (c.duration || 0), 0)
-      const avgCallDurationSeconds = connectedCalls > 0
-        ? Math.round(totalTalkTimeSeconds / connectedCalls)
-        : 0
+      const inboundCalls = calls.filter((c) => c.direction === 'inbound').length
+      const connectedCalls = calls.filter(
+        (c) =>
+          c.status === 'completed' ||
+          c.status === 'in-progress' ||
+          (c.duration && c.duration > 0),
+      ).length
+      const connectionRate =
+        totalCalls > 0 ? Math.round((connectedCalls / totalCalls) * 100) : 0
+      const totalTalkTimeSeconds = calls.reduce(
+        (sum, c) => sum + (c.duration || 0),
+        0,
+      )
+      const avgCallDurationSeconds =
+        connectedCalls > 0
+          ? Math.round(totalTalkTimeSeconds / connectedCalls)
+          : 0
 
       // Disposition breakdown
       const dispositions = await findDispositions(orgId)
-      const dispositionMap = new Map(dispositions.map(d => [d.id, d]))
+      const dispositionMap = new Map(dispositions.map((d) => [d.id, d]))
 
       const dispositionCounts: Record<string, number> = {}
       let noDispositionCount = 0
       for (const call of calls) {
         if (call.dispositionId) {
-          dispositionCounts[call.dispositionId] = (dispositionCounts[call.dispositionId] || 0) + 1
+          dispositionCounts[call.dispositionId] =
+            (dispositionCounts[call.dispositionId] || 0) + 1
         } else if (call.outcome) {
           // Use outcome as fallback label
           const key = `outcome:${call.outcome}`
@@ -597,7 +610,9 @@ router.get(
             const outcome = id.replace('outcome:', '')
             return {
               dispositionId: null,
-              label: outcome.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+              label: outcome
+                .replace(/_/g, ' ')
+                .replace(/\b\w/g, (l) => l.toUpperCase()),
               color: outcomeColors[outcome] || '#6B7280',
               count,
             }
@@ -611,17 +626,20 @@ router.get(
           }
         }),
         ...(noDispositionCount > 0
-          ? [{
-              dispositionId: null,
-              label: 'No Status',
-              color: '#22c55e',
-              count: noDispositionCount,
-            }]
+          ? [
+              {
+                dispositionId: null,
+                label: 'No Status',
+                color: '#22c55e',
+                count: noDispositionCount,
+              },
+            ]
           : []),
       ].sort((a, b) => b.count - a.count)
 
       // Calls over time
-      const callsByDate: Record<string, { outbound: number; inbound: number }> = {}
+      const callsByDate: Record<string, { outbound: number; inbound: number }> =
+        {}
       for (const call of calls) {
         const date = new Date(call.startedAt).toISOString().split('T')[0]
         if (!callsByDate[date]) callsByDate[date] = { outbound: 0, inbound: 0 }
@@ -636,7 +654,8 @@ router.get(
         const current = new Date(start)
         while (current <= end) {
           const dateStr = current.toISOString().split('T')[0]
-          if (!callsByDate[dateStr]) callsByDate[dateStr] = { outbound: 0, inbound: 0 }
+          if (!callsByDate[dateStr])
+            callsByDate[dateStr] = { outbound: 0, inbound: 0 }
           current.setDate(current.getDate() + 1)
         }
       }
@@ -675,54 +694,52 @@ router.get(
  * GET /call-center/activity
  * Get activity feed
  */
-router.get(
-  '/activity',
-  withBetterAuth,
-  async (req: Request, res: Response) => {
-    const orgId = getOrgId(req)
-    if (!orgId) {
-      return res.status(400).json({ error: 'No active organization' })
+router.get('/activity', withBetterAuth, async (req: Request, res: Response) => {
+  const orgId = getOrgId(req)
+  if (!orgId) {
+    return res.status(400).json({ error: 'No active organization' })
+  }
+
+  const type = (req.query.type as string) || 'all'
+  const limit = req.query.limit ? parseInt(req.query.limit as string) : 20
+
+  try {
+    const { db } = await import('@/lib/db')
+
+    // Get recent calls as activity items
+    let query = db
+      .selectFrom('call_log')
+      .where('organizationId', '=', orgId)
+      .orderBy('startedAt', 'desc')
+      .limit(limit)
+
+    if (type === 'calls') {
+      // Already filtering call_log
     }
 
-    const type = (req.query.type as string) || 'all'
-    const limit = req.query.limit ? parseInt(req.query.limit as string) : 20
+    const calls = await query.selectAll().execute()
 
-    try {
-      const { db } = await import('@/lib/db')
+    const items = calls.map((call) => ({
+      id: call.id,
+      type: 'call' as const,
+      userId: call.userId || '',
+      userName: '',
+      description: `Call ${call.direction} - ${Math.floor((call.duration || 0) / 60)}:${String((call.duration || 0) % 60).padStart(2, '0')} duration`,
+      metadata: {
+        callDuration: call.duration || 0,
+        disposition: call.outcome || undefined,
+      },
+      createdAt: call.startedAt.toISOString
+        ? call.startedAt.toISOString()
+        : new Date(call.startedAt).toISOString(),
+    }))
 
-      // Get recent calls as activity items
-      let query = db
-        .selectFrom('call_log')
-        .where('organizationId', '=', orgId)
-        .orderBy('startedAt', 'desc')
-        .limit(limit)
-
-      if (type === 'calls') {
-        // Already filtering call_log
-      }
-
-      const calls = await query.selectAll().execute()
-
-      const items = calls.map((call) => ({
-        id: call.id,
-        type: 'call' as const,
-        userId: call.userId || '',
-        userName: '',
-        description: `Call ${call.direction} - ${Math.floor((call.duration || 0) / 60)}:${String((call.duration || 0) % 60).padStart(2, '0')} duration`,
-        metadata: {
-          callDuration: call.duration || 0,
-          disposition: call.outcome || undefined,
-        },
-        createdAt: call.startedAt.toISOString ? call.startedAt.toISOString() : new Date(call.startedAt).toISOString(),
-      }))
-
-      res.json({ items })
-    } catch (error: any) {
-      logger.error('Failed to get activity:', error)
-      res.status(500).json({ error: error.message })
-    }
-  },
-)
+    res.json({ items })
+  } catch (error: any) {
+    logger.error('Failed to get activity:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
 
 // =============================================================================
 // DISPOSITIONS
@@ -849,9 +866,19 @@ router.delete(
  *          No CallerId param is sent by the browser.
  */
 router.post('/voice', async (req: Request, res: Response) => {
-  const { To, From, Caller, CallSid, CallerId: callerIdParam, Direction, Called } = req.body || {}
+  const {
+    To,
+    From,
+    Caller,
+    CallSid,
+    CallerId: callerIdParam,
+    Direction,
+    Called,
+  } = req.body || {}
 
-  logger.info(`Voice webhook - To: ${To}, From: ${From}, Caller: ${Caller}, CallerId: ${callerIdParam}, CallSid: ${CallSid}, Direction: ${Direction}, Called: ${Called}`)
+  logger.info(
+    `Voice webhook - To: ${To}, From: ${From}, Caller: ${Caller}, CallerId: ${callerIdParam}, CallSid: ${CallSid}, Direction: ${Direction}, Called: ${Called}`,
+  )
   logger.info(`Voice webhook full body: ${JSON.stringify(req.body)}`)
 
   const voiceResponse = new TwiML.VoiceResponse()
@@ -865,8 +892,8 @@ router.post('/voice', async (req: Request, res: Response) => {
     // ── OUTBOUND: Browser agent dialing a PSTN number ──
     if (To) {
       // Resolve callerId: explicit param > org's DB phone number > env fallback
-      let callerId = callerIdParam
-        || (From && !From.startsWith('client:') ? From : null)
+      let callerId =
+        callerIdParam || (From && !From.startsWith('client:') ? From : null)
 
       // If still no callerId, look up the org's configured phone number from DB
       if (!callerId) {
@@ -887,7 +914,12 @@ router.post('/voice', async (req: Request, res: Response) => {
               if (orgConfig?.phoneNumber) {
                 // Normalize to E.164
                 const digits = orgConfig.phoneNumber.replace(/\D/g, '')
-                callerId = digits.length === 10 ? `+1${digits}` : digits.length === 11 ? `+${digits}` : orgConfig.phoneNumber
+                callerId =
+                  digits.length === 10
+                    ? `+1${digits}`
+                    : digits.length === 11
+                      ? `+${digits}`
+                      : orgConfig.phoneNumber
               }
             }
           }
@@ -913,7 +945,9 @@ router.post('/voice', async (req: Request, res: Response) => {
         destination = `+1${To}`
       }
 
-      logger.info(`Outbound call: callerId=${callerId}, destination=${destination}`)
+      logger.info(
+        `Outbound call: callerId=${callerId}, destination=${destination}`,
+      )
 
       const dialOpts: Record<string, any> = {
         callerId,
@@ -938,16 +972,22 @@ router.post('/voice', async (req: Request, res: Response) => {
     }
   } else {
     // ── INBOUND: External caller dialing the Twilio number ──
-    logger.info(`Inbound call detected - From: ${From}, To: ${To}, CallSid: ${CallSid}`)
+    logger.info(
+      `Inbound call detected - From: ${From}, To: ${To}, CallSid: ${CallSid}`,
+    )
 
     try {
       // Look up which org owns this Twilio number
       const twilioConfig = await findTwilioConfigByPhoneNumber(To || '')
 
-      logger.info(`Inbound lookup result for ${To}: ${twilioConfig ? `found org ${twilioConfig.organizationId}` : 'NOT FOUND'}`)
+      logger.info(
+        `Inbound lookup result for ${To}: ${twilioConfig ? `found org ${twilioConfig.organizationId}` : 'NOT FOUND'}`,
+      )
 
       if (!twilioConfig) {
-        logger.warn(`No org found for Twilio number ${To} — check that twilio_config.phoneNumber matches`)
+        logger.warn(
+          `No org found for Twilio number ${To} — check that twilio_config.phoneNumber matches`,
+        )
         voiceResponse.say('Sorry, this number is not configured. Goodbye.')
         voiceResponse.hangup()
         res.type('text/xml')
@@ -955,12 +995,18 @@ router.post('/voice', async (req: Request, res: Response) => {
       }
 
       // Get all org members to ring as browser clients
-      const members = await findMembersByOrganizationId(twilioConfig.organizationId)
-      logger.info(`Found ${members.length} members for org ${twilioConfig.organizationId}: ${members.map(m => `agent_${m.userId}`).join(', ')}`)
+      const members = await findMembersByOrganizationId(
+        twilioConfig.organizationId,
+      )
+      logger.info(
+        `Found ${members.length} members for org ${twilioConfig.organizationId}: ${members.map((m) => `agent_${m.userId}`).join(', ')}`,
+      )
 
       if (members.length === 0) {
         logger.warn(`No members found for org ${twilioConfig.organizationId}`)
-        voiceResponse.say('Sorry, no agents are available right now. Please try again later.')
+        voiceResponse.say(
+          'Sorry, no agents are available right now. Please try again later.',
+        )
         voiceResponse.hangup()
         res.type('text/xml')
         return res.send(voiceResponse.toString())
@@ -1000,7 +1046,9 @@ router.post('/voice', async (req: Request, res: Response) => {
         dial.client(`agent_${member.userId}`)
       }
 
-      logger.info(`Ringing ${members.length} agents for inbound call ${CallSid}`)
+      logger.info(
+        `Ringing ${members.length} agents for inbound call ${CallSid}`,
+      )
     } catch (err: any) {
       logger.error('Error handling inbound call:', err)
       voiceResponse.say('An error occurred. Please try again later.')
@@ -1021,13 +1069,17 @@ router.post('/voice', async (req: Request, res: Response) => {
 router.post('/voice/inbound/status', async (req: Request, res: Response) => {
   const { CallSid, DialCallStatus, DialCallDuration } = req.body || {}
 
-  logger.info(`Inbound dial status: ${CallSid} - ${DialCallStatus} (${DialCallDuration || 0}s)`)
+  logger.info(
+    `Inbound dial status: ${CallSid} - ${DialCallStatus} (${DialCallDuration || 0}s)`,
+  )
 
   const voiceResponse = new TwiML.VoiceResponse()
 
   // If nobody answered, leave a voicemail message
   if (DialCallStatus !== 'completed' && DialCallStatus !== 'answered') {
-    voiceResponse.say('All agents are currently unavailable. Please leave a message after the beep.')
+    voiceResponse.say(
+      'All agents are currently unavailable. Please leave a message after the beep.',
+    )
     voiceResponse.record({
       maxLength: 120,
       action: `${config.backendUrl}/api/call-center/voice/recording-complete`,
@@ -1072,28 +1124,34 @@ router.post('/voice/inbound/status', async (req: Request, res: Response) => {
  * POST /call-center/voice/recording-complete
  * Called after <Record> completes — must return valid TwiML
  */
-router.post('/voice/recording-complete', async (req: Request, res: Response) => {
-  const { CallSid, RecordingUrl, RecordingSid, RecordingDuration } = req.body || {}
-  logger.info(`Voicemail recording complete for ${CallSid}: ${RecordingSid} (${RecordingDuration}s)`)
+router.post(
+  '/voice/recording-complete',
+  async (req: Request, res: Response) => {
+    const { CallSid, RecordingUrl, RecordingSid, RecordingDuration } =
+      req.body || {}
+    logger.info(
+      `Voicemail recording complete for ${CallSid}: ${RecordingSid} (${RecordingDuration}s)`,
+    )
 
-  // Save recording to call log
-  if (CallSid && RecordingUrl) {
-    try {
-      await updateCallLogByCallSid(CallSid, {
-        recordingUrl: `${RecordingUrl}.mp3`,
-        recordingSid: RecordingSid,
-      })
-    } catch (err: any) {
-      logger.error('Failed to save voicemail recording:', err)
+    // Save recording to call log
+    if (CallSid && RecordingUrl) {
+      try {
+        await updateCallLogByCallSid(CallSid, {
+          recordingUrl: `${RecordingUrl}.mp3`,
+          recordingSid: RecordingSid,
+        })
+      } catch (err: any) {
+        logger.error('Failed to save voicemail recording:', err)
+      }
     }
-  }
 
-  const voiceResponse = new TwiML.VoiceResponse()
-  voiceResponse.say('Thank you. Goodbye.')
-  voiceResponse.hangup()
-  res.type('text/xml')
-  res.send(voiceResponse.toString())
-})
+    const voiceResponse = new TwiML.VoiceResponse()
+    voiceResponse.say('Thank you. Goodbye.')
+    voiceResponse.hangup()
+    res.type('text/xml')
+    res.send(voiceResponse.toString())
+  },
+)
 
 /**
  * POST /call-center/webhook

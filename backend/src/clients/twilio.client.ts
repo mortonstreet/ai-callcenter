@@ -62,7 +62,11 @@ class TwilioClient {
       return this.currentCredentials
     }
 
-    if (config.twilio.accountSid && config.twilio.authToken && config.twilio.phoneNumber) {
+    if (
+      config.twilio.accountSid &&
+      config.twilio.authToken &&
+      config.twilio.phoneNumber
+    ) {
       return {
         accountSid: config.twilio.accountSid,
         authToken: config.twilio.authToken,

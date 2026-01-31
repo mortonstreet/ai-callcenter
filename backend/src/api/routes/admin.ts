@@ -80,8 +80,7 @@ router.delete(
  */
 async function loadTwilioCredentialsForAdmin(req: any): Promise<boolean> {
   const orgId =
-    req.session?.session?.activeOrganizationId ||
-    req.user?.activeOrganizationId
+    req.session?.session?.activeOrganizationId || req.user?.activeOrganizationId
   if (!orgId) return false
 
   const dbConfig = await findTwilioConfig(orgId)
@@ -135,9 +134,12 @@ router.get(
     const search = req.query.search as string | undefined
 
     try {
-      const logLevel = severity === 'error' ? 'error'
-        : severity === 'warning' ? 'warning'
-        : undefined
+      const logLevel =
+        severity === 'error'
+          ? 'error'
+          : severity === 'warning'
+            ? 'warning'
+            : undefined
 
       const result = await twilioClient.listAlerts({
         logLevel,
@@ -173,7 +175,9 @@ router.get(
         status: 'active',
         product: a.serviceSid ? 'Voice' : 'General',
         organizationName: null,
-        occurredAt: a.dateCreated ? new Date(a.dateCreated).toISOString() : new Date().toISOString(),
+        occurredAt: a.dateCreated
+          ? new Date(a.dateCreated).toISOString()
+          : new Date().toISOString(),
       }))
 
       res.json({
@@ -263,7 +267,9 @@ router.get(
       const result = await twilioClient.getAlert(id)
 
       if (!result.success || !result.alert) {
-        return res.status(404).json({ error: result.error || 'Alert not found' })
+        return res
+          .status(404)
+          .json({ error: result.error || 'Alert not found' })
       }
 
       const a = result.alert as any
@@ -277,7 +283,9 @@ router.get(
           status: 'active',
           product: a.serviceSid ? 'Voice' : 'General',
           organizationName: null,
-          occurredAt: a.dateCreated ? new Date(a.dateCreated).toISOString() : new Date().toISOString(),
+          occurredAt: a.dateCreated
+            ? new Date(a.dateCreated).toISOString()
+            : new Date().toISOString(),
           stackTrace: a.alertText || null,
           metadata: {
             resourceSid: a.resourceSid,

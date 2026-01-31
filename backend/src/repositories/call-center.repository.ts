@@ -16,9 +16,7 @@ export const findTwilioConfigByPhoneNumber = async (phoneNumber: string) => {
   const inputDigits = phoneNumber.replace(/\D/g, '')
 
   // Get the last 10 digits (strip country code if present)
-  const last10 = inputDigits.length >= 10
-    ? inputDigits.slice(-10)
-    : inputDigits
+  const last10 = inputDigits.length >= 10 ? inputDigits.slice(-10) : inputDigits
 
   // Fetch all configs and compare by extracted digits, since the DB may store
   // numbers in any format: "(917) 675-3976", "+19176753976", "9176753976", etc.
@@ -54,10 +52,13 @@ export const upsertTwilioConfig = async (
     const updateData: Record<string, any> = { updatedAt: new Date() }
     if (data.accountSid !== undefined) updateData.accountSid = data.accountSid
     if (data.authToken !== undefined) updateData.authToken = data.authToken
-    if (data.phoneNumber !== undefined) updateData.phoneNumber = data.phoneNumber
+    if (data.phoneNumber !== undefined)
+      updateData.phoneNumber = data.phoneNumber
     if (data.apiKeySid !== undefined) updateData.apiKeySid = data.apiKeySid
-    if (data.apiKeySecret !== undefined) updateData.apiKeySecret = data.apiKeySecret
-    if (data.twimlAppSid !== undefined) updateData.twimlAppSid = data.twimlAppSid
+    if (data.apiKeySecret !== undefined)
+      updateData.apiKeySecret = data.apiKeySecret
+    if (data.twimlAppSid !== undefined)
+      updateData.twimlAppSid = data.twimlAppSid
     if (data.autoRecord !== undefined) updateData.autoRecord = data.autoRecord
 
     return await db
@@ -148,7 +149,12 @@ export const createDefaultDispositions = async (organizationId: string) => {
   const defaults = [
     { label: 'Booked', color: '#22c55e', sortOrder: 0, isDefault: true },
     { label: 'Follow Up', color: '#3b82f6', sortOrder: 1, isDefault: false },
-    { label: 'Not Interested', color: '#6b7280', sortOrder: 2, isDefault: false },
+    {
+      label: 'Not Interested',
+      color: '#6b7280',
+      sortOrder: 2,
+      isDefault: false,
+    },
     { label: 'No Answer', color: '#eab308', sortOrder: 3, isDefault: false },
     { label: 'Voicemail', color: '#8b5cf6', sortOrder: 4, isDefault: false },
     { label: 'Wrong Number', color: '#ef4444', sortOrder: 5, isDefault: false },
@@ -247,8 +253,10 @@ export const updateCallLogByCallSid = async (
   const updateData: Record<string, any> = { updatedAt: new Date() }
   if (data.status !== undefined) updateData.status = data.status
   if (data.duration !== undefined) updateData.duration = data.duration
-  if (data.recordingUrl !== undefined) updateData.recordingUrl = data.recordingUrl
-  if (data.recordingSid !== undefined) updateData.recordingSid = data.recordingSid
+  if (data.recordingUrl !== undefined)
+    updateData.recordingUrl = data.recordingUrl
+  if (data.recordingSid !== undefined)
+    updateData.recordingSid = data.recordingSid
   if (data.outcome !== undefined) updateData.outcome = data.outcome
   if (data.notes !== undefined) updateData.notes = data.notes
   if (data.endedAt !== undefined) updateData.endedAt = data.endedAt

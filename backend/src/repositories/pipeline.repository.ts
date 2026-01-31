@@ -120,10 +120,7 @@ export const getStageStats = async (
     .selectFrom('task_instance')
     .where('organizationId', '=', organizationId)
     .where('pipelineStageId', 'is not', null)
-    .select([
-      'pipelineStageId',
-      db.fn.countAll<number>().as('count'),
-    ])
+    .select(['pipelineStageId', db.fn.countAll<number>().as('count')])
     .groupBy('pipelineStageId')
     .execute()
 

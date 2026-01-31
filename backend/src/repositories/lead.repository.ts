@@ -1,10 +1,6 @@
 import { db } from '@/lib/db'
 import { withId } from './utils'
-import {
-  DBLead,
-  InsertDBLead,
-  UpdateDBLead,
-} from '@shared/db/src'
+import { DBLead, InsertDBLead, UpdateDBLead } from '@shared/db/src'
 
 export const create = async (
   data: Omit<InsertDBLead, 'id'>,
@@ -16,9 +12,7 @@ export const create = async (
     .executeTakeFirstOrThrow()
 }
 
-export const findById = async (
-  id: string,
-): Promise<DBLead | undefined> => {
+export const findById = async (id: string): Promise<DBLead | undefined> => {
   return db
     .selectFrom('lead')
     .where('id', '=', id)
