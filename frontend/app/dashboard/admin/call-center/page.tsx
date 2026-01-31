@@ -37,7 +37,6 @@ import { toast } from "sonner";
 import {
   useCallCenterStatus,
   usePhoneNumbers,
-  useVoiceToken,
   useCallHistory,
   useInboundCalls,
   useSetCallOutcome,
@@ -51,9 +50,9 @@ import {
   type CallRecord,
   type Disposition,
 } from "@/hooks/api/useCallCenter";
-import { env } from "@/lib/config";
+import { useDialerContext } from "@/components/providers/DialerProvider";
 
-import type { Device, Call } from "@twilio/voice-sdk";
+import type { Call } from "@twilio/voice-sdk";
 
 // ─── Types ───
 
@@ -112,21 +111,29 @@ function formatTimeAgo(dateStr: string): string {
 export default function CallCenterPage() {
   const [activeTab, setActiveTab] = useState<TabType>("dialer");
 
+  // Global dialer context (device + inbound state from DialerProvider)
+  const {
+    device,
+    deviceStatus,
+    deviceError,
+    incomingCall,
+    inboundCallStatus,
+    inboundCallDuration,
+    inboundMuted,
+    answerIncomingCall: handleAnswerInbound,
+    rejectIncomingCall: handleRejectInbound,
+    endInboundCall: handleEndInbound,
+    toggleInboundMute: handleToggleInboundMute,
+    sendInboundDigit: handleInboundDialpadPress,
+  } = useDialerContext();
+
   // API hooks
   const { data: statusData, isLoading: statusLoading } = useCallCenterStatus();
   const isConfigured = statusData?.configured ?? false;
-  const isVoiceConfigured = statusData?.voiceConfigured ?? false;
   const { data: numbersData, isLoading: numbersLoading } = usePhoneNumbers(isConfigured);
-  const { data: tokenData } = useVoiceToken(isVoiceConfigured);
 
-  // Twilio Device state
-  const deviceRef = useRef<Device | null>(null);
+  // Local outbound call state
   const activeCallRef = useRef<Call | null>(null);
-  const incomingCallRef = useRef<Call | null>(null);
-  const [deviceStatus, setDeviceStatus] = useState<DeviceStatus>("offline");
-  const [deviceError, setDeviceError] = useState<string | null>(null);
-
-  // Call state
   const [selectedFromNumber, setSelectedFromNumber] = useState("");
   const [dialNumber, setDialNumber] = useState("");
   const [callStatus, setCallStatus] = useState<CallStatus>("idle");
@@ -135,129 +142,18 @@ export default function CallCenterPage() {
   const [showOutcome, setShowOutcome] = useState(false);
   const [showDtmfKeypad, setShowDtmfKeypad] = useState(false);
   const [lastCallSid, setLastCallSid] = useState<string | null>(null);
-
-  // Inbound call state
-  const [incomingCall, setIncomingCall] = useState<Call | null>(null);
-  const [inboundCallDuration, setInboundCallDuration] = useState(0);
-  const [inboundCallStatus, setInboundCallStatus] = useState<"idle" | "ringing" | "connected">("idle");
-  const [inboundMuted, setInboundMuted] = useState(false);
   const [showInboundKeypad, setShowInboundKeypad] = useState(false);
 
   const phoneNumbers = numbersData?.numbers || [];
   const isLoading = statusLoading || numbersLoading;
 
-  // Initialize Twilio Device
+  // Auto-switch to inbound tab when incoming call arrives
   useEffect(() => {
-    if (!tokenData?.token || typeof window === "undefined") return;
-
-    const initDevice = async () => {
-      try {
-        const { Device } = await import("@twilio/voice-sdk");
-        setDeviceStatus("registering");
-        console.log("[CallCenter] Initializing Twilio Device with identity:", tokenData.identity);
-
-        if (deviceRef.current) {
-          deviceRef.current.destroy();
-        }
-
-        const device = new Device(tokenData.token, {
-          logLevel: 1,
-          codecPreferences: ["opus", "pcmu"] as any,
-        });
-
-        device.on("registered", () => {
-          console.log("[CallCenter] Device registered successfully — ready for incoming calls");
-          setDeviceStatus("ready");
-          setDeviceError(null);
-        });
-
-        device.on("unregistered", () => {
-          console.log("[CallCenter] Device unregistered");
-          setDeviceStatus("offline");
-        });
-
-        device.on("error", (error: any) => {
-          console.error("[CallCenter] Device error:", error);
-          setDeviceStatus("error");
-          setDeviceError(error.message || "Device error");
-        });
-
-        device.on("tokenWillExpire", async () => {
-          console.log("[CallCenter] Token expiring, refreshing...");
-          try {
-            const resp = await fetch(`${env.API_URL.toString()}/call-center/token`, {
-              credentials: "include",
-            });
-            const data = await resp.json();
-            if (data?.token) {
-              device.updateToken(data.token);
-              console.log("[CallCenter] Token refreshed");
-            }
-          } catch (err) {
-            console.error("[CallCenter] Failed to refresh token:", err);
-          }
-        });
-
-        device.on("incoming", (call: Call) => {
-          console.log("[CallCenter] Incoming call from:", call.parameters?.From, "CallSid:", call.parameters?.CallSid);
-          setIncomingCall(call);
-          incomingCallRef.current = call;
-          setInboundCallStatus("ringing");
-          setShowInboundKeypad(false);
-
-          // Auto-switch to inbound tab
-          setActiveTab("inbound");
-
-          call.on("accept", () => {
-            console.log("[CallCenter] Inbound call accepted");
-            setInboundCallStatus("connected");
-            setInboundCallDuration(0);
-          });
-
-          call.on("disconnect", () => {
-            console.log("[CallCenter] Inbound call disconnected");
-            setIncomingCall(null);
-            incomingCallRef.current = null;
-            setInboundCallStatus("idle");
-            setInboundCallDuration(0);
-            setInboundMuted(false);
-            setShowInboundKeypad(false);
-          });
-
-          call.on("cancel", () => {
-            console.log("[CallCenter] Inbound call cancelled (caller hung up)");
-            setIncomingCall(null);
-            incomingCallRef.current = null;
-            setInboundCallStatus("idle");
-          });
-
-          call.on("reject", () => {
-            console.log("[CallCenter] Inbound call rejected");
-            setIncomingCall(null);
-            incomingCallRef.current = null;
-            setInboundCallStatus("idle");
-          });
-        });
-
-        await device.register();
-        deviceRef.current = device;
-        console.log("[CallCenter] Device.register() completed");
-      } catch (error: any) {
-        console.error("[CallCenter] Device init failed:", error);
-        setDeviceStatus("error");
-        setDeviceError(error.message || "Failed to initialize");
-      }
-    };
-
-    initDevice();
-
-    return () => {
-      if (deviceRef.current) {
-        deviceRef.current.destroy();
-        deviceRef.current = null;
-      }
-    };
-  }, [tokenData?.token]);
+    if (inboundCallStatus === "ringing") {
+      setActiveTab("inbound");
+      setShowInboundKeypad(false);
+    }
+  }, [inboundCallStatus]);
 
   // Set default phone number
   useEffect(() => {
@@ -275,15 +171,6 @@ export default function CallCenterPage() {
     return () => clearInterval(interval);
   }, [callStatus]);
 
-  // Inbound call timer
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (inboundCallStatus === "connected") {
-      interval = setInterval(() => setInboundCallDuration((prev) => prev + 1), 1000);
-    }
-    return () => clearInterval(interval);
-  }, [inboundCallStatus]);
-
   // ─── Outbound Call Actions ───
 
   const handleStartCall = useCallback(async () => {
@@ -291,7 +178,7 @@ export default function CallCenterPage() {
       toast.error("Please enter a number to dial");
       return;
     }
-    if (!deviceRef.current || deviceStatus !== "ready") {
+    if (!device || deviceStatus !== "ready") {
       toast.error("Phone not ready. Please wait...");
       return;
     }
@@ -302,7 +189,7 @@ export default function CallCenterPage() {
       setShowOutcome(false);
 
       const selectedPhone = phoneNumbers.find((p) => p.sid === selectedFromNumber);
-      const call = await deviceRef.current.connect({
+      const call = await device.connect({
         params: {
           To: dialNumber,
           CallerId: selectedPhone?.phoneNumber || "",
@@ -338,7 +225,7 @@ export default function CallCenterPage() {
       setCallStatus("idle");
       toast.error(error.message || "Failed to make call");
     }
-  }, [dialNumber, deviceStatus]);
+  }, [dialNumber, deviceStatus, device]);
 
   const handleEndCall = useCallback(() => {
     if (activeCallRef.current) {
@@ -371,40 +258,6 @@ export default function CallCenterPage() {
       setIsMuted(false);
     }, 300);
   };
-
-  // ─── Inbound Call Actions ───
-
-  const handleAnswerInbound = useCallback(() => {
-    if (incomingCallRef.current) {
-      incomingCallRef.current.accept();
-    }
-  }, []);
-
-  const handleRejectInbound = useCallback(() => {
-    if (incomingCallRef.current) {
-      incomingCallRef.current.reject();
-    }
-  }, []);
-
-  const handleEndInbound = useCallback(() => {
-    if (incomingCallRef.current) {
-      incomingCallRef.current.disconnect();
-    }
-  }, []);
-
-  const handleToggleInboundMute = useCallback(() => {
-    if (incomingCallRef.current) {
-      const newMute = !inboundMuted;
-      incomingCallRef.current.mute(newMute);
-      setInboundMuted(newMute);
-    }
-  }, [inboundMuted]);
-
-  const handleInboundDialpadPress = useCallback((digit: string) => {
-    if (incomingCallRef.current) {
-      incomingCallRef.current.sendDigits(digit);
-    }
-  }, []);
 
   const handleCallBack = useCallback((phoneNumber: string) => {
     setDialNumber(phoneNumber);
@@ -451,8 +304,8 @@ export default function CallCenterPage() {
          deviceStatus === "registering" ? "Connecting phone..." :
          deviceStatus === "error" ? `Error: ${deviceError}` :
          "Phone Offline — No token"}
-        {tokenData?.identity && deviceStatus === "ready" && (
-          <span className="text-green-600/60 font-mono ml-1">({tokenData.identity})</span>
+        {deviceStatus === "ready" && (
+          <span className="text-green-600/60 font-mono ml-1">(connected)</span>
         )}
       </div>
 

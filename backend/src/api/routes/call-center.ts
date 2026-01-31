@@ -180,6 +180,35 @@ router.post(
         await createDefaultDispositions(orgId)
       }
 
+      // Auto-configure phone number voice URL if backendUrl is public
+      if (
+        config.backendUrl &&
+        !config.backendUrl.includes('localhost') &&
+        result.phoneNumber &&
+        result.accountSid &&
+        result.authToken
+      ) {
+        try {
+          twilioClient.setCredentials({
+            accountSid: result.accountSid,
+            authToken: result.authToken,
+            phoneNumber: result.phoneNumber,
+            apiKeySid: result.apiKeySid || undefined,
+            apiKeySecret: result.apiKeySecret || undefined,
+            twimlAppSid: result.twimlAppSid || undefined,
+          })
+          await twilioClient.updatePhoneNumberVoiceConfig(
+            result.phoneNumber,
+            `${config.backendUrl}/api/call-center/voice`,
+            `${config.backendUrl}/api/call-center/webhook`,
+          )
+          twilioClient.clearCredentials()
+        } catch (err: any) {
+          logger.error('Failed to auto-configure voice URL:', err)
+          twilioClient.clearCredentials()
+        }
+      }
+
       logger.info(`Twilio config saved for org ${orgId}`)
 
       res.json({
@@ -1030,12 +1059,12 @@ router.post('/voice', async (req: Request, res: Response) => {
       const inboundDialOpts: Record<string, any> = {
         callerId: From,
         record: 'record-from-answer-dual',
-        action: `${config.backendUrl}/api/call-center/voice/inbound/status`,
         timeout: 30,
       }
 
-      // Only set recording callback if backendUrl is a valid public URL
+      // Only set callback URLs if backendUrl is a valid public URL
       if (config.backendUrl && !config.backendUrl.includes('localhost')) {
+        inboundDialOpts.action = `${config.backendUrl}/api/call-center/voice/inbound/status`
         inboundDialOpts.recordingStatusCallback = `${config.backendUrl}/api/call-center/webhook/recording`
         inboundDialOpts.recordingStatusCallbackEvent = ['completed']
       }

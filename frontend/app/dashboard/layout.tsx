@@ -17,6 +17,8 @@ import { useAdminStore } from "@/lib/admin-store";
 import { useSetActiveOrganizationMutation } from "@/hooks/api/useOrganization";
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { DialerProvider } from "@/components/providers/DialerProvider";
+import { GlobalIncomingCallBanner } from "@/components/dialer/GlobalIncomingCallBanner";
 
 // Map route paths to page names
 const PAGE_NAMES: Record<string, string> = {
@@ -148,6 +150,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const userInitial = session.user?.name?.charAt(0)?.toUpperCase() || session.user?.email?.charAt(0)?.toUpperCase() || "U";
 
   return (
+    <DialerProvider>
     <div className="h-screen bg-white flex overflow-hidden">
       {/* Sidebar */}
       <Sidebar
@@ -262,6 +265,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
 
+        {/* Global incoming call banner */}
+        <GlobalIncomingCallBanner />
+
         {/* Content Area - no card wrapper */}
         <div className="flex-1 p-4 md:p-6 overflow-auto scrollbar-minimal">
           <div className="mx-auto max-w-[96rem]">
@@ -270,5 +276,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </div>
     </div>
+    </DialerProvider>
   );
 }

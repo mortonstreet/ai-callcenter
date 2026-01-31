@@ -300,6 +300,47 @@ class TwilioClient {
     }
   }
 
+  async updatePhoneNumberVoiceConfig(
+    phoneNumber: string,
+    voiceUrl: string,
+    statusCallbackUrl?: string,
+  ) {
+    try {
+      const client = this.getClient()
+      const numbers = await client.incomingPhoneNumbers.list({ phoneNumber })
+
+      if (numbers.length === 0) {
+        logger.warn(
+          `No Twilio phone number found matching ${phoneNumber} — skipping voice URL config`,
+        )
+        return { success: false, error: 'Phone number not found' }
+      }
+
+      const sid = numbers[0].sid
+      const updateData: Record<string, any> = {
+        voiceUrl,
+        voiceMethod: 'POST',
+      }
+      if (statusCallbackUrl) {
+        updateData.statusCallback = statusCallbackUrl
+        updateData.statusCallbackMethod = 'POST'
+      }
+
+      await client.incomingPhoneNumbers(sid).update(updateData)
+
+      logger.info(
+        `Auto-configured inbound voice URL for ${phoneNumber} (${sid}): ${voiceUrl}`,
+      )
+      return { success: true }
+    } catch (error: any) {
+      logger.error('Failed to update phone number voice config:', {
+        message: error.message,
+        code: error.code,
+      })
+      return { success: false, error: error.message }
+    }
+  }
+
   async listPhoneNumbers() {
     try {
       const client = this.getClient()
