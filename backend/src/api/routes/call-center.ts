@@ -894,6 +894,80 @@ router.delete(
   },
 )
 
+/**
+ * GET /call-center/debug-voice-config
+ * Check what voice URL is actually configured on the Twilio phone number & TwiML App
+ */
+router.get(
+  '/debug-voice-config',
+  withBetterAuth,
+  validateIsAdmin,
+  async (req: Request, res: Response) => {
+    await loadTwilioCredentials(req)
+
+    if (!twilioClient.isConfigured()) {
+      return res.status(400).json({ error: 'Twilio not configured' })
+    }
+
+    try {
+      const orgId = getOrgId(req)
+      const dbConfig = orgId ? await findTwilioConfig(orgId) : null
+
+      const numbers = await twilioClient.listPhoneNumbers()
+      const phoneDetails: any[] = []
+
+      if (numbers.success && numbers.numbers) {
+        const client = twilioClient.getClient()
+        for (const num of numbers.numbers) {
+          try {
+            const full = await client.incomingPhoneNumbers(num.sid).fetch()
+            phoneDetails.push({
+              sid: full.sid,
+              phoneNumber: full.phoneNumber,
+              voiceUrl: full.voiceUrl,
+              voiceMethod: full.voiceMethod,
+              voiceApplicationSid: full.voiceApplicationSid,
+              statusCallback: full.statusCallback,
+            })
+          } catch (e: any) {
+            phoneDetails.push({ sid: num.sid, error: e.message })
+          }
+        }
+      }
+
+      let twimlAppDetails = null
+      if (dbConfig?.twimlAppSid) {
+        try {
+          const client = twilioClient.getClient()
+          const app = await client
+            .applications(dbConfig.twimlAppSid)
+            .fetch()
+          twimlAppDetails = {
+            sid: app.sid,
+            friendlyName: app.friendlyName,
+            voiceUrl: app.voiceUrl,
+            voiceMethod: app.voiceMethod,
+          }
+        } catch (e: any) {
+          twimlAppDetails = { error: e.message }
+        }
+      }
+
+      res.json({
+        backendUrl: config.backendUrl,
+        expectedVoiceUrl: `${config.backendUrl}/api/call-center/voice`,
+        phoneNumbers: phoneDetails,
+        twimlApp: twimlAppDetails,
+        dbPhoneNumber: dbConfig?.phoneNumber,
+        dbTwimlAppSid: dbConfig?.twimlAppSid,
+      })
+    } catch (error: any) {
+      logger.error('Debug voice config error:', error)
+      res.status(500).json({ error: error.message })
+    }
+  },
+)
+
 // =============================================================================
 // WEBHOOKS (from Twilio)
 // =============================================================================

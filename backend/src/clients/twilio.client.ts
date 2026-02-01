@@ -80,7 +80,7 @@ class TwilioClient {
     return null
   }
 
-  private getClient(): Twilio.Twilio {
+  getClient(): Twilio.Twilio {
     const creds = this.getCredentials()
     if (!creds) {
       throw new Error('Twilio credentials not configured')
@@ -342,6 +342,9 @@ class TwilioClient {
       const updateData: Record<string, any> = {
         voiceUrl,
         voiceMethod: 'POST',
+        // Clear voiceApplicationSid so voiceUrl takes effect
+        // (voiceApplicationSid takes precedence over voiceUrl if set)
+        voiceApplicationSid: '',
       }
       if (statusCallbackUrl) {
         updateData.statusCallback = statusCallbackUrl
