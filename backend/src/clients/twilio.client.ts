@@ -300,6 +300,28 @@ class TwilioClient {
     }
   }
 
+  async updateTwimlAppVoiceUrl(twimlAppSid: string, voiceUrl: string) {
+    try {
+      const client = this.getClient()
+
+      await client.applications(twimlAppSid).update({
+        voiceUrl,
+        voiceMethod: 'POST',
+      })
+
+      logger.info(
+        `Auto-configured TwiML App ${twimlAppSid} voice URL: ${voiceUrl}`,
+      )
+      return { success: true }
+    } catch (error: any) {
+      logger.error('Failed to update TwiML App voice URL:', {
+        message: error.message,
+        code: error.code,
+      })
+      return { success: false, error: error.message }
+    }
+  }
+
   async updatePhoneNumberVoiceConfig(
     phoneNumber: string,
     voiceUrl: string,

@@ -197,11 +197,23 @@ router.post(
             apiKeySecret: result.apiKeySecret || undefined,
             twimlAppSid: result.twimlAppSid || undefined,
           })
+
+          const voiceUrl = `${config.backendUrl}/api/call-center/voice`
+
           await twilioClient.updatePhoneNumberVoiceConfig(
             result.phoneNumber,
-            `${config.backendUrl}/api/call-center/voice`,
+            voiceUrl,
             `${config.backendUrl}/api/call-center/webhook`,
           )
+
+          // Also configure the TwiML App's voice URL so browser SDK calls route correctly
+          if (result.twimlAppSid) {
+            await twilioClient.updateTwimlAppVoiceUrl(
+              result.twimlAppSid,
+              voiceUrl,
+            )
+          }
+
           twilioClient.clearCredentials()
         } catch (err: any) {
           logger.error('Failed to auto-configure voice URL:', err)
