@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import AuthCard from "@/components/AuthCard";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
@@ -8,6 +8,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSignUpEmail, useSignInSocial } from "@/hooks/api/useAuth";
 
 export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupContent />
+    </Suspense>
+  );
+}
+
+function SignupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
