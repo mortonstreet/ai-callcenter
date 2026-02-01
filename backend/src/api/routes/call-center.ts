@@ -898,6 +898,63 @@ router.delete(
 )
 
 /**
+ * GET /call-center/debug-call-log
+ * Test inserting and reading from call_log table
+ */
+router.get(
+  '/debug-call-log',
+  withBetterAuth,
+  validateIsAdmin,
+  async (req: Request, res: Response) => {
+    const orgId = getOrgId(req)
+    if (!orgId) {
+      return res.status(400).json({ error: 'No active organization' })
+    }
+
+    try {
+      // Try creating a test log entry
+      const testLog = await createCallLog({
+        organizationId: orgId,
+        callSid: `CAtest_debug_${Date.now()}`,
+        direction: 'inbound',
+        fromNumber: '+15550000000',
+        toNumber: '+15550000001',
+        status: 'test',
+      })
+
+      // Read it back
+      const logs = await findCallLogs(orgId, {
+        direction: 'inbound',
+        limit: 5,
+      })
+
+      res.json({
+        insertSuccess: true,
+        insertedId: testLog.id,
+        insertedOrgId: testLog.organizationId,
+        totalInboundLogs: logs.total,
+        recentLogs: logs.data.map((l) => ({
+          id: l.id,
+          callSid: l.callSid,
+          direction: l.direction,
+          status: l.status,
+          fromNumber: l.fromNumber,
+          startedAt: l.startedAt,
+        })),
+      })
+    } catch (error: any) {
+      res.status(500).json({
+        insertSuccess: false,
+        error: error.message,
+        code: error.code,
+        detail: error.detail,
+        constraint: error.constraint,
+      })
+    }
+  },
+)
+
+/**
  * GET /call-center/debug-voice-config
  * Check what voice URL is actually configured on the Twilio phone number & TwiML App
  */
@@ -1130,7 +1187,7 @@ router.post('/voice', async (req: Request, res: Response) => {
 
       // Create call log for the inbound call
       try {
-        await createCallLog({
+        const callLog = await createCallLog({
           organizationId: twilioConfig.organizationId,
           callSid: CallSid || undefined,
           direction: 'inbound',
@@ -1138,8 +1195,18 @@ router.post('/voice', async (req: Request, res: Response) => {
           toNumber: To || '',
           status: 'ringing',
         })
+        logger.info(
+          `Inbound call log created: id=${callLog.id}, callSid=${callLog.callSid}, org=${callLog.organizationId}`,
+        )
       } catch (err: any) {
-        logger.error('Failed to log inbound call:', err)
+        logger.error('Failed to log inbound call:', {
+          message: err.message,
+          code: err.code,
+          detail: err.detail,
+          table: err.table,
+          constraint: err.constraint,
+          stack: err.stack,
+        })
       }
 
       // Ring all org members as browser clients simultaneously
