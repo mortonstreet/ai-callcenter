@@ -200,19 +200,22 @@ router.post(
 
           const voiceUrl = `${config.backendUrl}/api/call-center/voice`
 
-          await twilioClient.updatePhoneNumberVoiceConfig(
-            result.phoneNumber,
-            voiceUrl,
-            `${config.backendUrl}/api/call-center/webhook`,
-          )
-
-          // Also configure the TwiML App's voice URL so browser SDK calls route correctly
+          // 1. Set the TwiML App's voice URL to our webhook
           if (result.twimlAppSid) {
             await twilioClient.updateTwimlAppVoiceUrl(
               result.twimlAppSid,
               voiceUrl,
             )
           }
+
+          // 2. Configure phone number to route through TwiML App (if available)
+          //    or fall back to direct voiceUrl
+          await twilioClient.updatePhoneNumberVoiceConfig(
+            result.phoneNumber,
+            voiceUrl,
+            `${config.backendUrl}/api/call-center/webhook`,
+            result.twimlAppSid || undefined,
+          )
 
           twilioClient.clearCredentials()
         } catch (err: any) {
@@ -939,9 +942,7 @@ router.get(
       if (dbConfig?.twimlAppSid) {
         try {
           const client = twilioClient.getClient()
-          const app = await client
-            .applications(dbConfig.twimlAppSid)
-            .fetch()
+          const app = await client.applications(dbConfig.twimlAppSid).fetch()
           twimlAppDetails = {
             sid: app.sid,
             friendlyName: app.friendlyName,

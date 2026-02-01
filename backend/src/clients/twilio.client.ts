@@ -326,6 +326,7 @@ class TwilioClient {
     phoneNumber: string,
     voiceUrl: string,
     statusCallbackUrl?: string,
+    twimlAppSid?: string,
   ) {
     try {
       const client = this.getClient()
@@ -339,23 +340,36 @@ class TwilioClient {
       }
 
       const sid = numbers[0].sid
-      const updateData: Record<string, any> = {
-        voiceUrl,
-        voiceMethod: 'POST',
-        // Clear voiceApplicationSid so voiceUrl takes effect
-        // (voiceApplicationSid takes precedence over voiceUrl if set)
-        voiceApplicationSid: '',
-      }
-      if (statusCallbackUrl) {
-        updateData.statusCallback = statusCallbackUrl
-        updateData.statusCallbackMethod = 'POST'
+
+      if (twimlAppSid) {
+        // Route phone number through the TwiML App (gtmdialer pattern).
+        // Twilio will call the TwiML App's Voice URL for inbound calls.
+        await client.incomingPhoneNumbers(sid).update({
+          voiceApplicationSid: twimlAppSid,
+        })
+
+        logger.info(
+          `Configured phone number ${phoneNumber} (${sid}) to use TwiML App ${twimlAppSid}`,
+        )
+      } else {
+        // Fallback: set voiceUrl directly on the phone number
+        const updateData: Record<string, any> = {
+          voiceUrl,
+          voiceMethod: 'POST',
+          voiceApplicationSid: '',
+        }
+        if (statusCallbackUrl) {
+          updateData.statusCallback = statusCallbackUrl
+          updateData.statusCallbackMethod = 'POST'
+        }
+
+        await client.incomingPhoneNumbers(sid).update(updateData)
+
+        logger.info(
+          `Auto-configured inbound voice URL for ${phoneNumber} (${sid}): ${voiceUrl}`,
+        )
       }
 
-      await client.incomingPhoneNumbers(sid).update(updateData)
-
-      logger.info(
-        `Auto-configured inbound voice URL for ${phoneNumber} (${sid}): ${voiceUrl}`,
-      )
       return { success: true }
     } catch (error: any) {
       logger.error('Failed to update phone number voice config:', {
