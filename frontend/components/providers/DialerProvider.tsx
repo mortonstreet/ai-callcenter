@@ -79,7 +79,20 @@ export function DialerProvider({ children }: { children: ReactNode }) {
         const device = new Device(tokenData.token, {
           logLevel: 1,
           codecPreferences: ["opus", "pcmu"] as any,
+          allowIncomingWhileBusy: true,
         });
+
+        // Resume AudioContext on first user interaction to satisfy browser autoplay policy
+        const resumeAudio = () => {
+          const audioCtx = (device as any)?.audio?._audioContext;
+          if (audioCtx?.state === "suspended") {
+            audioCtx.resume();
+          }
+          document.removeEventListener("click", resumeAudio);
+          document.removeEventListener("keydown", resumeAudio);
+        };
+        document.addEventListener("click", resumeAudio);
+        document.addEventListener("keydown", resumeAudio);
 
         device.on("registered", () => {
           console.log("[Dialer] Device registered - ready for incoming calls");
