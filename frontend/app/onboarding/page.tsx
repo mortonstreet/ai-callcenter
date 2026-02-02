@@ -7,28 +7,29 @@ import Button from "@/components/ui/Button";
 import { useOnboardOrganization } from "@/hooks/api/useOrganization";
 import { toast } from "sonner";
 
-type Step = "org" | "agent" | "review";
+type Step = "org" | "use_case" | "agent" | "review";
 
 const STEPS: { key: Step; label: string; num: string }[] = [
   { key: "org", label: "Company", num: "01" },
-  { key: "agent", label: "Agent", num: "02" },
-  { key: "review", label: "Review", num: "03" },
+  { key: "use_case", label: "Use Case", num: "02" },
+  { key: "agent", label: "Agent", num: "03" },
+  { key: "review", label: "Review", num: "04" },
 ];
 
 const INDUSTRY_OPTIONS = [
   { value: "hvac", label: "HVAC" },
-  { value: "plumbing", label: "Plumbing" },
   { value: "pest_control", label: "Pest Control" },
   { value: "electrical", label: "Electrical" },
   { value: "roofing", label: "Roofing" },
+  { value: "cleaning_services", label: "Cleaning Services" },
 ];
 
 const SERVICE_PRESETS: Record<string, string[]> = {
   hvac: ["AC repair", "Ductless mini split"],
-  plumbing: ["Faucet repair", "Toilet repair", "Pipe leak repair"],
   pest_control: ["Termite treatment", "Rodent removal", "Wildlife removal"],
   electrical: ["Panel upgrade", "Outlet/lighting install", "EV charger install"],
   roofing: ["Leak repair", "Shingle replacement", "Roof inspection"],
+  cleaning_services: ["Deep cleaning", "Move-in/out cleaning", "Recurring cleaning", "Office cleaning"],
 };
 
 const QUESTION_PRESETS: Record<string, string[]> = {
@@ -36,11 +37,6 @@ const QUESTION_PRESETS: Record<string, string[]> = {
     "What type of unit and age?",
     "Is it blowing warm air or not turning on?",
     "Any error codes or strange noises?",
-  ],
-  plumbing: [
-    "Where is the leak or issue located?",
-    "How long has it been happening?",
-    "Have you shut off the water?",
   ],
   pest_control: [
     "Which pests are you seeing and where?",
@@ -57,7 +53,65 @@ const QUESTION_PRESETS: Record<string, string[]> = {
     "When was the roof last repaired or replaced?",
     "Do you see missing shingles or water stains?",
   ],
+  cleaning_services: [
+    "How many bedrooms and bathrooms?",
+    "Any pets in the home?",
+    "What frequency do you need? (one-time, weekly, bi-weekly)",
+  ],
 };
+
+const USE_CASE_OPTIONS = [
+  {
+    value: "customer_support",
+    label: "Customer Support",
+    description: "Handle inbound calls, answer FAQs, and resolve issues",
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
+      </svg>
+    ),
+  },
+  {
+    value: "outbound_sales",
+    label: "Outbound Sales",
+    description: "Make outbound calls to leads and prospects",
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+      </svg>
+    ),
+  },
+  {
+    value: "scheduling",
+    label: "Scheduling",
+    description: "Book, reschedule, and manage appointments",
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+      </svg>
+    ),
+  },
+  {
+    value: "lead_qualification",
+    label: "Lead Qualification",
+    description: "Qualify leads by gathering info and scoring urgency",
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+      </svg>
+    ),
+  },
+  {
+    value: "answering_service",
+    label: "Answering Service",
+    description: "After-hours call handling and message taking",
+    icon: (
+      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+];
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -68,6 +122,10 @@ export default function OnboardingPage() {
   const [domain, setDomain] = useState("");
   const [industry, setIndustry] = useState(INDUSTRY_OPTIONS[0].value);
   const [services, setServices] = useState<string[]>(SERVICE_PRESETS[industry]);
+
+  const [useCase, setUseCase] = useState("");
+  const [website, setWebsite] = useState("");
+  const [mainGoal, setMainGoal] = useState("");
 
   const [agentName, setAgentName] = useState("");
   const [openingLine, setOpeningLine] = useState("");
@@ -106,6 +164,9 @@ export default function OnboardingPage() {
         domain: domain.trim() || undefined,
         industry,
         services: currentServices,
+        useCase: useCase || undefined,
+        website: website.trim() || undefined,
+        mainGoal: mainGoal.trim() || undefined,
         agent: {
           name: agentName.trim(),
           openingLine: openingLine.trim() || undefined,
@@ -189,8 +250,63 @@ export default function OnboardingPage() {
 
       <div className="flex justify-end pt-2">
         <button
-          onClick={() => setStep("agent")}
+          onClick={() => setStep("use_case")}
           className="inline-flex items-center gap-2 rounded-xl bg-[#1b191a] px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#2d2a2b] hover:shadow-md active:scale-[0.98]"
+        >
+          Continue
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderUseCaseStep = () => (
+    <div className="animate-fade-in-up space-y-6">
+      <div>
+        <h2 className="text-xl font-semibold text-foreground mb-1">What will your agent do?</h2>
+        <p className="text-sm text-muted-foreground">Select the primary use case for your AI agent.</p>
+      </div>
+
+      <div className="grid gap-3">
+        {USE_CASE_OPTIONS.map((option) => {
+          const active = useCase === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setUseCase(option.value)}
+              className={`flex items-start gap-4 rounded-xl border p-4 text-left transition-all duration-150 ${
+                active
+                  ? "border-[#1b191a] bg-[#1b191a]/[0.02] ring-1 ring-[#1b191a]"
+                  : "border-border hover:border-foreground/30"
+              }`}
+            >
+              <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg transition-colors ${
+                active ? "bg-[#1b191a] text-white" : "bg-muted text-muted-foreground"
+              }`}>
+                {option.icon}
+              </div>
+              <div>
+                <div className="text-sm font-medium text-foreground">{option.label}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">{option.description}</div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="flex justify-between pt-2">
+        <button
+          onClick={() => setStep("org")}
+          className="inline-flex items-center gap-2 rounded-xl border border-border px-5 py-2.5 text-sm font-medium text-foreground transition-all duration-200 hover:bg-accent active:scale-[0.98]"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+          Back
+        </button>
+        <button
+          onClick={() => setStep("agent")}
+          disabled={!useCase}
+          className="inline-flex items-center gap-2 rounded-xl bg-[#1b191a] px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#2d2a2b] hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Continue
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
@@ -208,6 +324,18 @@ export default function OnboardingPage() {
 
       <div className="space-y-5">
         <Input label="Agent name" value={agentName} onChange={(e) => setAgentName(e.target.value)} required />
+        <Input label="Company website" placeholder="https://www.example.com" value={website} onChange={(e) => setWebsite(e.target.value)} hint="We'll use this to train your agent about your business." />
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1">Main goal</label>
+          <textarea
+            value={mainGoal}
+            onChange={(e) => setMainGoal(e.target.value)}
+            rows={2}
+            placeholder="e.g., Book appointments for new customers, qualify leads and collect contact info..."
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/60"
+          />
+          <p className="text-xs text-muted-foreground mt-1">Describe what you want the agent to accomplish on each call.</p>
+        </div>
         <Input label="Opening line" placeholder="Hi, thanks for calling..." value={openingLine} onChange={(e) => setOpeningLine(e.target.value)} hint="The first thing callers hear when the agent picks up." />
 
         <div className="space-y-3">
@@ -262,7 +390,7 @@ export default function OnboardingPage() {
 
       <div className="flex justify-between pt-2">
         <button
-          onClick={() => setStep("org")}
+          onClick={() => setStep("use_case")}
           className="inline-flex items-center gap-2 rounded-xl border border-border px-5 py-2.5 text-sm font-medium text-foreground transition-all duration-200 hover:bg-accent active:scale-[0.98]"
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
@@ -278,6 +406,8 @@ export default function OnboardingPage() {
       </div>
     </div>
   );
+
+  const useCaseLabel = USE_CASE_OPTIONS.find((o) => o.value === useCase)?.label || useCase;
 
   const renderReviewStep = () => (
     <div className="animate-fade-in-up space-y-6">
@@ -304,7 +434,11 @@ export default function OnboardingPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Industry</span>
-              <span className="font-medium text-foreground capitalize">{industry.replace("_", " ")}</span>
+              <span className="font-medium text-foreground capitalize">{industry.replace(/_/g, " ")}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Use Case</span>
+              <span className="font-medium text-foreground">{useCaseLabel || "\u2014"}</span>
             </div>
             <div className="pt-1">
               <span className="text-muted-foreground block mb-1.5">Services</span>
@@ -328,6 +462,18 @@ export default function OnboardingPage() {
               <span className="text-muted-foreground">Name</span>
               <span className="font-medium text-foreground">{agentName || "\u2014"}</span>
             </div>
+            {website && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Website</span>
+                <span className="font-medium text-foreground max-w-[60%] text-right truncate">{website}</span>
+              </div>
+            )}
+            {mainGoal && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Goal</span>
+                <span className="font-medium text-foreground max-w-[60%] text-right">{mainGoal}</span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Opening line</span>
               <span className="font-medium text-foreground max-w-[60%] text-right">{openingLine || "\u2014"}</span>
@@ -398,7 +544,6 @@ export default function OnboardingPage() {
                 <div key={s.key} className="flex items-center gap-1 flex-1">
                   <button
                     onClick={() => {
-                      /* Allow going back to completed steps */
                       if (idx < stepIndex) setStep(s.key);
                     }}
                     className={`flex items-center gap-2 text-xs font-medium transition-colors ${
@@ -435,6 +580,7 @@ export default function OnboardingPage() {
 
             {/* Step content */}
             {step === "org" && renderOrgStep()}
+            {step === "use_case" && renderUseCaseStep()}
             {step === "agent" && renderAgentStep()}
             {step === "review" && renderReviewStep()}
           </div>

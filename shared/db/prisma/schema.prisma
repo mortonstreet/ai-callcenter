@@ -179,9 +179,17 @@ model Agent {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   
+  // Agent configuration fields
+  industry       String?  // pest_control, hvac, roofing, electrical, cleaning_services
+  useCase        String?  // customer_support, outbound_sales, scheduling, lead_qualification, answering_service
+  website        String?
+  mainGoal       String?
+  voiceId        String?  // ElevenLabs voice ID
+  status         String   @default("active") // active, paused, archived
+
   // MCP Configuration - allows each agent to have unique credentials
   mcpApiKey      String?  // API key for MCP authentication
-  webhookSecret  String?  // Secret for webhook signature verification  
+  webhookSecret  String?  // Secret for webhook signature verification
   mcpEndpointUrl String?  // Public URL for this agent's MCP endpoint (e.g., ngrok URL)
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)

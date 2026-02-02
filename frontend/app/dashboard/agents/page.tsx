@@ -2,16 +2,32 @@
 
 import { Page } from "@/components/dashboard/Page";
 import Link from "next/link";
-import { Bot, Loader2 } from "lucide-react";
+import { Bot, Loader2, Plus } from "lucide-react";
 import { useAgents } from "@/hooks/api/useAgent";
+import { useIsAdminOrOwner } from "@/hooks/api/useOrganization";
+import { useState } from "react";
+import { CreateAgentWizard } from "@/components/agent/CreateAgentWizard";
 
 export default function AgentsPage() {
   const { data: agents, isLoading, error } = useAgents();
+  const isAdminOrOwner = useIsAdminOrOwner();
+  const [showWizard, setShowWizard] = useState(false);
 
   return (
-    <Page 
-      title="Agents" 
+    <Page
+      title="Agents"
       subtitle="Your AI agents"
+      actions={
+        isAdminOrOwner ? (
+          <button
+            onClick={() => setShowWizard(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#1b191a] px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#2d2a2b] hover:shadow-md active:scale-[0.98]"
+          >
+            <Plus className="h-4 w-4" />
+            New Agent
+          </button>
+        ) : undefined
+      }
     >
       <div className="space-y-4">
         {isLoading && (
@@ -38,11 +54,21 @@ export default function AgentsPage() {
                   <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
                     <Bot className="h-5 w-5 text-primary" />
                   </div>
+                  {agent.status && agent.status !== "active" && (
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                      agent.status === "paused" ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-600"
+                    }`}>
+                      {agent.status}
+                    </span>
+                  )}
                 </div>
                 <h3 className="text-lg font-semibold text-foreground mb-1 group-hover:text-primary transition">
                   {agent.name}
                 </h3>
                 <div className="text-xs text-muted-foreground space-y-1">
+                  {agent.industry && (
+                    <p className="capitalize">{agent.industry.replace(/_/g, " ")}</p>
+                  )}
                   <p>Phone: {agent.phoneNumber}</p>
                   <p>Created {new Date(agent.createdAt).toLocaleDateString()}</p>
                 </div>
@@ -55,15 +81,27 @@ export default function AgentsPage() {
           <div className="text-center py-12">
             <Bot className="h-12 w-12 text-muted-foreground/70 mx-auto mb-4" />
             <p className="text-muted-foreground mb-4">No agents yet</p>
-            <a 
-              href="mailto:support@revcenter.ai" 
-              className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition text-sm font-medium"
-            >
-              Contact Support to Get Started
-            </a>
+            {isAdminOrOwner ? (
+              <button
+                onClick={() => setShowWizard(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#1b191a] text-white rounded-xl hover:bg-[#2d2a2b] transition text-sm font-medium"
+              >
+                <Plus className="h-4 w-4" />
+                Create Your First Agent
+              </button>
+            ) : (
+              <a
+                href="mailto:support@revcenter.ai"
+                className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition text-sm font-medium"
+              >
+                Contact Support to Get Started
+              </a>
+            )}
           </div>
         )}
       </div>
+
+      <CreateAgentWizard isOpen={showWizard} onClose={() => setShowWizard(false)} />
     </Page>
   );
 }

@@ -48,6 +48,9 @@ export function useOnboardOrganization() {
       domain?: string;
       industry: string;
       services: string[];
+      useCase?: string;
+      website?: string;
+      mainGoal?: string;
       agent: {
         name: string;
         openingLine?: string;

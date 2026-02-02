@@ -31,6 +31,12 @@ export type Agent = {
   externalType: string
   createdAt: Generated<Timestamp>
   updatedAt: Timestamp
+  industry: string | null
+  useCase: string | null
+  website: string | null
+  mainGoal: string | null
+  voiceId: string | null
+  status: Generated<string>
   mcpApiKey: string | null
   webhookSecret: string | null
   mcpEndpointUrl: string | null
@@ -71,6 +77,16 @@ export type Example = {
   createdAt: Generated<Timestamp>
   updatedAt: Timestamp
 }
+export type Invitation = {
+  id: string
+  organizationId: string
+  email: string
+  role: string | null
+  status: string
+  expiresAt: Timestamp
+  createdAt: Timestamp
+  inviterId: string
+}
 export type Lead = {
   id: string
   organizationId: string
@@ -89,16 +105,6 @@ export type Lead = {
   createdAt: Generated<Timestamp>
   updatedAt: Timestamp
   deletedAt: Timestamp | null
-}
-export type Invitation = {
-  id: string
-  organizationId: string
-  email: string
-  role: string | null
-  status: string
-  expiresAt: Timestamp
-  createdAt: Timestamp
-  inviterId: string
 }
 export type Member = {
   id: string

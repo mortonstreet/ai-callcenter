@@ -7,6 +7,13 @@ import {
   GetTasksRequest,
   UpdateTaskRequest,
   DeleteTaskRequest,
+  CreateElevenLabsAgentRequest,
+  UpdateElevenLabsAgentRequest,
+  OwnerUpdateAgentRequest,
+  DeleteElevenLabsAgentRequest,
+  GetAgentConfigRequest,
+  GetAgentAnalyticsRequest,
+  GetAgentConversationsRequest,
 } from '@shared/types/src'
 import {
   findAllByOrganizationId,
@@ -22,6 +29,15 @@ import {
   findTaskInstanceByBookingId,
   updateTaskInstanceBookingStatus,
 } from '@/repositories/agent.repository'
+import {
+  createElevenLabsAgent as createElevenLabsAgentService,
+  updateElevenLabsAgent as updateElevenLabsAgentService,
+  deleteElevenLabsAgent as deleteElevenLabsAgentService,
+  getElevenLabsAgentConfig as getElevenLabsAgentConfigService,
+  getVoices as getVoicesService,
+  getAgentAnalytics as getAgentAnalyticsService,
+  getAgentConversations as getAgentConversationsService,
+} from '@/services/agent.service'
 import { formatTaskFields } from '@/utils/task'
 import logger from '@/lib/logger'
 import {
@@ -356,6 +372,144 @@ export const getAgentMcpConfig: AuthRequestHandler<{
     mcpEndpoint: `/api/mcp/sse`,
     webhookEndpoint: `/api/webhook/agent/elevenlabs`,
   })
+}
+
+// ===== ElevenLabs Agent Management =====
+
+export const createElevenLabsAgent: AuthRequestHandler<
+  CreateElevenLabsAgentRequest
+> = async (req, res) => {
+  const { organizationId, name, industry, useCase, website, mainGoal, voiceId, firstMessage, systemPrompt } =
+    req.validated
+
+  try {
+    // Get org name for template interpolation
+    const agent = await createElevenLabsAgentService({
+      organizationId,
+      companyName: name, // Will be overridden in onboarding
+      name,
+      industry,
+      useCase,
+      website,
+      mainGoal,
+      voiceId,
+      firstMessage,
+      systemPrompt,
+    })
+
+    res.json(agent)
+  } catch (error) {
+    logger.error('Failed to create ElevenLabs agent:', error)
+    res.status(500).json({ error: 'Failed to create agent' })
+  }
+}
+
+export const updateElevenLabsAgent: AuthRequestHandler<
+  UpdateElevenLabsAgentRequest
+> = async (req, res) => {
+  const { id, organizationId, ...updates } = req.validated
+
+  try {
+    const agent = await updateElevenLabsAgentService(id, organizationId, updates)
+    res.json(agent)
+  } catch (error) {
+    logger.error('Failed to update ElevenLabs agent:', error)
+    res.status(500).json({ error: 'Failed to update agent' })
+  }
+}
+
+export const ownerUpdateAgent: AuthRequestHandler<
+  OwnerUpdateAgentRequest
+> = async (req, res) => {
+  const { id, organizationId, ...updates } = req.validated
+
+  try {
+    const agent = await updateElevenLabsAgentService(id, organizationId, updates)
+    res.json(agent)
+  } catch (error) {
+    logger.error('Failed to update agent (owner):', error)
+    res.status(500).json({ error: 'Failed to update agent' })
+  }
+}
+
+export const deleteElevenLabsAgent: AuthRequestHandler<
+  DeleteElevenLabsAgentRequest
+> = async (req, res) => {
+  const { id, organizationId } = req.validated
+
+  try {
+    const agent = await deleteElevenLabsAgentService(id, organizationId)
+    res.json({ success: true, agent })
+  } catch (error) {
+    logger.error('Failed to delete ElevenLabs agent:', error)
+    res.status(500).json({ error: 'Failed to delete agent' })
+  }
+}
+
+export const getAgentConfig: AuthRequestHandler<
+  GetAgentConfigRequest
+> = async (req, res) => {
+  const { id, organizationId } = req.validated
+
+  try {
+    const agent = await findAgentById(id, organizationId)
+    const config = await getElevenLabsAgentConfigService(agent.externalId)
+    res.json(config)
+  } catch (error) {
+    logger.error('Failed to get agent config:', error)
+    res.status(500).json({ error: 'Failed to get agent config' })
+  }
+}
+
+export const listVoices: AuthRequestHandler<Record<string, never>> = async (
+  _req,
+  res,
+) => {
+  try {
+    const voices = await getVoicesService()
+    res.json(voices)
+  } catch (error) {
+    logger.error('Failed to list voices:', error)
+    res.status(500).json({ error: 'Failed to list voices' })
+  }
+}
+
+export const getAgentAnalytics: AuthRequestHandler<
+  GetAgentAnalyticsRequest
+> = async (req, res) => {
+  const { id, organizationId, startDate, endDate, granularity } = req.validated
+
+  try {
+    const analytics = await getAgentAnalyticsService(
+      id,
+      organizationId,
+      startDate,
+      endDate,
+      granularity,
+    )
+    res.json(analytics)
+  } catch (error) {
+    logger.error('Failed to get agent analytics:', error)
+    res.status(500).json({ error: 'Failed to get analytics' })
+  }
+}
+
+export const getAgentConversations: AuthRequestHandler<
+  GetAgentConversationsRequest
+> = async (req, res) => {
+  const { id, organizationId, pageSize } = req.validated
+
+  try {
+    const conversations = await getAgentConversationsService(
+      id,
+      organizationId,
+      pageSize,
+    )
+    res.json(conversations)
+  } catch (error) {
+    logger.error('Failed to get agent conversations:', error)
+    res.status(500).json({ error: 'Failed to get conversations' })
+  }
 }
 
 // Cal.com webhook types

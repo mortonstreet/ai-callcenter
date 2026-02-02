@@ -36,4 +36,8 @@ export const QUERY_KEYS = {
   agents: (orgId?: string) => ['agents', orgId] as const,
   agent: (orgId?: string, agentId?: string) => ['agent', orgId, agentId] as const,
   tasks: (orgId?: string, agentId?: string) => ['tasks', orgId, agentId] as const,
+  agentConfig: (orgId?: string, agentId?: string) => ['agentConfig', orgId, agentId] as const,
+  voices: () => ['voices'] as const,
+  agentAnalytics: (orgId?: string, agentId?: string, startDate?: string, endDate?: string) => ['agentAnalytics', orgId, agentId, startDate, endDate] as const,
+  agentConversations: (orgId?: string, agentId?: string) => ['agentConversations', orgId, agentId] as const,
 };

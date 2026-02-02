@@ -4,10 +4,11 @@ import { db } from '@/lib/db'
 import { getOrganizationMember } from '@/repositories/auth.repository'
 import { formatToSlug } from '@/utils'
 import { createOrganization } from '@/repositories/organization.repository'
-import { createAgent as createAgentRepo } from '@/repositories/agent.repository'
 import { withId } from '@/repositories/utils'
 import { updateUserLastActiveOrganizationId } from '@/repositories/auth.repository'
 import { AgentExternalType } from '@shared/types/src'
+import { createElevenLabsAgent } from '@/services/agent.service'
+import logger from '@/lib/logger'
 import { z } from 'zod'
 
 export const OrganizationOnboardingSchema = z.object({
@@ -15,6 +16,9 @@ export const OrganizationOnboardingSchema = z.object({
   domain: z.string().optional(),
   industry: z.string(),
   services: z.array(z.string()).default([]),
+  useCase: z.string().optional(),
+  website: z.string().optional(),
+  mainGoal: z.string().optional(),
   agent: z.object({
     name: z.string(),
     openingLine: z.string().optional(),
@@ -27,11 +31,8 @@ type OrgOnboardingRequest = z.infer<typeof OrganizationOnboardingSchema>
 export const onboardOrganization: AuthRequestHandler<
   OrgOnboardingRequest
 > = async (req, res) => {
-  if (config.nodeEnv === 'production') {
-    return res.status(403).json({ error: 'Not available in production' })
-  }
-
-  const { name, domain, industry, services, agent } = req.validated
+  const { name, domain, industry, services, useCase, website, mainGoal, agent } =
+    req.validated
   const now = new Date()
 
   // Create organization with metadata captured from onboarding
@@ -43,6 +44,9 @@ export const onboardOrganization: AuthRequestHandler<
       domain,
       industry,
       services,
+      useCase,
+      website,
+      mainGoal,
       agent: {
         openingLine: agent.openingLine,
         serviceQuestions: agent.serviceQuestions,
@@ -65,17 +69,42 @@ export const onboardOrganization: AuthRequestHandler<
 
   await updateUserLastActiveOrganizationId(req.user.id, organization.id)
 
-  // Create agent with provided name and stash onboarding details in metadata-compatible fields
-  const createdAgent = await createAgentRepo({
-    name: agent.name,
-    slug: formatToSlug(agent.name),
-    organizationId: organization.id,
-    // Placeholder numbers; can be edited later in settings
-    phoneNumber: '+15555550123',
-    redirectNumber: '+15555550123',
-    externalId: organization.id,
-    externalType: AgentExternalType.ELEVEN_LABS,
-  })
+  // Create agent via ElevenLabs API
+  let createdAgent
+  try {
+    createdAgent = await createElevenLabsAgent({
+      organizationId: organization.id,
+      companyName: name,
+      name: agent.name,
+      industry,
+      useCase: useCase || 'customer_support',
+      website,
+      mainGoal,
+      firstMessage: agent.openingLine,
+      services,
+    })
+  } catch (error) {
+    logger.error('Failed to create ElevenLabs agent during onboarding, creating local-only agent:', error)
+    // Fallback: create local agent without ElevenLabs
+    const { createAgent: createAgentRepo } = await import(
+      '@/repositories/agent.repository'
+    )
+    createdAgent = await createAgentRepo({
+      name: agent.name,
+      slug: formatToSlug(agent.name),
+      organizationId: organization.id,
+      phoneNumber: '+15555550123',
+      redirectNumber: '+15555550123',
+      externalId: organization.id,
+      externalType: AgentExternalType.ELEVEN_LABS,
+      industry: industry || null,
+      useCase: useCase || null,
+      website: website || null,
+      mainGoal: mainGoal || null,
+      voiceId: null,
+      status: 'active',
+    })
+  }
 
   res.json({
     data: {

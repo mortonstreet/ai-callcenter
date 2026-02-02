@@ -73,6 +73,11 @@ const createAgent = async () => {
     redirectNumber,
     externalId,
     externalType,
+    industry: null,
+    useCase: null,
+    website: null,
+    mainGoal: null,
+    voiceId: null,
     // MCP fields - null by default
     mcpApiKey: null,
     webhookSecret: null,

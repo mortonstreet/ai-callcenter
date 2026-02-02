@@ -80,6 +80,11 @@ export const createAgent: AuthRequestHandler<AdminCreateAgentRequest> = async (
     redirectNumber,
     externalId,
     externalType: AgentExternalType.ELEVEN_LABS,
+    industry: null,
+    useCase: null,
+    website: null,
+    mainGoal: null,
+    voiceId: null,
     // MCP fields - will be set later via updateAgentMcpCredentials
     mcpApiKey: null,
     webhookSecret: null,
