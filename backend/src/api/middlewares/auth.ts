@@ -1,7 +1,7 @@
 import { Express, Request, Response, NextFunction } from 'express'
 import passport from 'passport'
 import { Strategy as JwtStrategy, ExtractJwt } from 'passport-jwt'
-import { createHmac } from 'crypto'
+import { createHash, createHmac } from 'crypto'
 import { config, McpProvider } from '@/config'
 import logger from '@/lib/logger'
 import { findById } from '@/repositories/user.repository'
@@ -13,6 +13,98 @@ import { findMember } from '@/repositories/organization.repository'
 import { OrganizationRole, AgentExternalType } from '@shared/types/src'
 import { findAgentByExternalId } from '@/repositories/agent.repository'
 import { sendApiError } from '../utils/error-contract'
+import { getRedis } from '@/lib/redis'
+
+const WEBHOOK_REPLAY_TTL_SECONDS = 24 * 60 * 60
+const replayFallbackStore = new Map<string, number>()
+
+const nowMs = () => Date.now()
+
+const hasReplayFallbackKey = (key: string): boolean => {
+  const expiresAt = replayFallbackStore.get(key)
+  if (!expiresAt) return false
+  if (expiresAt <= nowMs()) {
+    replayFallbackStore.delete(key)
+    return false
+  }
+  return true
+}
+
+const setReplayFallbackKey = (key: string): boolean => {
+  if (hasReplayFallbackKey(key)) {
+    return false
+  }
+  replayFallbackStore.set(key, nowMs() + WEBHOOK_REPLAY_TTL_SECONDS * 1000)
+  return true
+}
+
+const rememberReplayKey = async (key: string): Promise<boolean> => {
+  try {
+    const result = await getRedis().set(
+      key,
+      '1',
+      'EX',
+      WEBHOOK_REPLAY_TTL_SECONDS,
+      'NX',
+    )
+    return result === 'OK'
+  } catch (error) {
+    logger.warn(
+      { error, key },
+      'Redis unavailable for webhook replay detection; using in-memory fallback',
+    )
+    return setReplayFallbackKey(key)
+  }
+}
+
+const extractWebhookEventIdFromBody = (bodyString: string): string | null => {
+  const patterns = [
+    /\"eventId\"\\s*:\\s*\"([^\"]+)\"/,
+    /\"event_id\"\\s*:\\s*\"([^\"]+)\"/,
+    /\"id\"\\s*:\\s*\"([^\"]+)\"/,
+    /\"messageId\"\\s*:\\s*\"([^\"]+)\"/,
+    /\"providerMessageId\"\\s*:\\s*\"([^\"]+)\"/,
+    /\"CallSid\"\\s*:\\s*\"([^\"]+)\"/,
+    /\"SmsSid\"\\s*:\\s*\"([^\"]+)\"/,
+  ]
+
+  for (const pattern of patterns) {
+    const match = bodyString.match(pattern)
+    if (match?.[1]?.trim()) {
+      return match[1].trim()
+    }
+  }
+
+  return null
+}
+
+const ensureWebhookNotReplayed = async (input: {
+  providerKey: string
+  bodyString: string
+  explicitEventId?: string | null
+}) => {
+  const payloadHash = createHash('sha256')
+    .update(input.bodyString, 'utf8')
+    .digest('hex')
+
+  const eventId =
+    input.explicitEventId || extractWebhookEventIdFromBody(input.bodyString)
+  const keys = [
+    `webhook:replay:${input.providerKey}:payload:${payloadHash}`,
+    ...(eventId
+      ? [`webhook:replay:${input.providerKey}:event:${eventId}`]
+      : []),
+  ]
+
+  const writes = await Promise.all(keys.map((key) => rememberReplayKey(key)))
+  const isReplay = writes.some((ok) => !ok)
+
+  return {
+    isReplay,
+    payloadHash,
+    eventId,
+  }
+}
 
 // Helper to find provider by slug from env config
 const findProviderBySlug = (slug: string): McpProvider | undefined => {
@@ -307,6 +399,30 @@ export const withElevenLabsWebhookAuth = async (
       return res.status(401).json({ error: 'Signature timestamp too old' })
     }
 
+    const replayCheck = await ensureWebhookNotReplayed({
+      providerKey: 'elevenlabs',
+      bodyString,
+    })
+    if (replayCheck.isReplay) {
+      logger.warn(
+        {
+          agentExternalId,
+          payloadHash: replayCheck.payloadHash,
+          eventId: replayCheck.eventId,
+        },
+        'Webhook replay detected and rejected',
+      )
+      return sendApiError(req, res, 409, {
+        code: 'WEBHOOK_REPLAY_DETECTED',
+        message: 'Duplicate webhook payload was rejected',
+        userMessage: 'Duplicate webhook event rejected.',
+        details: {
+          payloadHash: replayCheck.payloadHash,
+          eventId: replayCheck.eventId,
+        },
+      })
+    }
+
     // Parse the body now that signature is verified
     try {
       req.body = JSON.parse(bodyString)
@@ -429,6 +545,31 @@ export const withWebhookAuth = async (
         timeDiff,
       })
       return res.status(401).json({ error: 'Signature timestamp too old' })
+    }
+
+    const replayCheck = await ensureWebhookNotReplayed({
+      providerKey: providerSlug || providerName || 'unknown',
+      bodyString,
+    })
+    if (replayCheck.isReplay) {
+      logger.warn(
+        {
+          providerSlug,
+          payloadHash: replayCheck.payloadHash,
+          eventId: replayCheck.eventId,
+        },
+        'Provider webhook replay detected and rejected',
+      )
+      return sendApiError(req, res, 409, {
+        code: 'WEBHOOK_REPLAY_DETECTED',
+        message: 'Duplicate webhook payload was rejected',
+        userMessage: 'Duplicate webhook event rejected.',
+        details: {
+          payloadHash: replayCheck.payloadHash,
+          eventId: replayCheck.eventId,
+          provider: providerSlug,
+        },
+      })
     }
 
     // Parse the body now that signature is verified
