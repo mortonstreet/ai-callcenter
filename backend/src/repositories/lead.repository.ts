@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { withId } from './utils'
 import { DBLead, InsertDBLead, UpdateDBLead } from '@shared/db/src'
+import { sql } from 'kysely'
 
 export const create = async (
   data: Omit<InsertDBLead, 'id'>,
@@ -19,6 +20,64 @@ export const findById = async (id: string): Promise<DBLead | undefined> => {
     .where('deletedAt', 'is', null)
     .selectAll()
     .executeTakeFirst()
+}
+
+export const findByOrganizationAndIntegrationExternalId = async (
+  organizationId: string,
+  provider: string,
+  externalId: string,
+): Promise<DBLead | undefined> => {
+  return db
+    .selectFrom('lead')
+    .where('organizationId', '=', organizationId)
+    .where('deletedAt', 'is', null)
+    .where(
+      sql<boolean>`
+      COALESCE(("customFields"->'integration'->>'provider'), '') = ${provider}
+    `,
+    )
+    .where(
+      sql<boolean>`
+      COALESCE(("customFields"->'integration'->>'externalId'), '') = ${externalId}
+    `,
+    )
+    .selectAll()
+    .executeTakeFirst()
+}
+
+export const findByOrganizationAndContact = async (
+  organizationId: string,
+  input: {
+    email?: string | null
+    normalizedPhone?: string | null
+  },
+): Promise<DBLead | undefined> => {
+  const email = input.email?.trim().toLowerCase()
+  const normalizedPhone = input.normalizedPhone?.trim()
+
+  if (!email && !normalizedPhone) {
+    return undefined
+  }
+
+  let query = db
+    .selectFrom('lead')
+    .where('organizationId', '=', organizationId)
+    .where('deletedAt', 'is', null)
+
+  if (email && normalizedPhone) {
+    query = query.where((eb) =>
+      eb.or([
+        eb('email', '=', email),
+        eb('normalizedPhone', '=', normalizedPhone),
+      ]),
+    )
+  } else if (email) {
+    query = query.where('email', '=', email)
+  } else if (normalizedPhone) {
+    query = query.where('normalizedPhone', '=', normalizedPhone)
+  }
+
+  return query.orderBy('updatedAt', 'desc').selectAll().executeTakeFirst()
 }
 
 export const findMany = async (
