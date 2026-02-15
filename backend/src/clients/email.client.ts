@@ -11,6 +11,64 @@ export const sendEmail = async (to: string, subject: string, text: string) => {
   })
 }
 
+export const sendMagicLinkEmail = async (to: string, url: string) => {
+  await transporter.sendMail({
+    from: 'RevCenter <noreply@revcenter.ai>',
+    to,
+    subject: 'Your RevCenter sign-in link',
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f7f7f8;">
+        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 40px 20px;">
+              <table role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+                <tr>
+                  <td style="padding: 48px 40px; text-align: center;">
+                    <h1 style="margin: 0 0 8px 0; font-size: 28px; font-weight: 600; color: #171717; letter-spacing: -0.5px;">
+                      Sign in to RevCenter
+                    </h1>
+                    <p style="margin: 0 0 32px 0; font-size: 16px; line-height: 1.6; color: #666;">
+                      Click the button below to securely sign in. This link is single-use and expires soon.
+                    </p>
+                    <table role="presentation" style="margin: 0 auto;">
+                      <tr>
+                        <td style="background-color: #1b191a; border-radius: 12px;">
+                          <a href="${url}" 
+                             style="display: inline-block; padding: 14px 32px; color: #ffffff; text-decoration: none; font-size: 16px; font-weight: 500; border-radius: 12px;">
+                            Sign In
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                    <p style="margin: 32px 0 0 0; font-size: 14px; line-height: 1.5; color: #999;">
+                      If the button doesn't work, copy and paste this link into your browser:<br>
+                      <a href="${url}" style="color: #1b191a; word-break: break-all;">${url}</a>
+                    </p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 24px 40px; background-color: #f9f9fa; border-radius: 0 0 12px 12px; border-top: 1px solid #e5e5e5;">
+                    <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #999; text-align: center;">
+                      If you didn&apos;t request this email, you can safely ignore it.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `,
+  })
+}
+
 export const sendVerificationEmail = async (to: string, url: string) => {
   await transporter.sendMail({
     from: 'RevCenter <noreply@revcenter.ai>',

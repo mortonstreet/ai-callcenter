@@ -1,15 +1,17 @@
 import { betterAuth, Session } from 'better-auth'
 import { prismaAdapter } from 'better-auth/adapters/prisma'
 import { prisma_OnlyForBetterAuth } from '@/lib/db'
-import { organization } from 'better-auth/plugins'
+import { magicLink, organization } from 'better-auth/plugins'
 import { buildInvitationLink } from '@/utils/invitation.utils'
 import {
+  sendMagicLinkEmail,
   sendResetPasswordEmail,
   sendVerificationEmail,
   sendOrganizationInvitation,
 } from '@/clients/email.client'
 import logger from '@/lib/logger'
 import {
+  getOrganizationMember,
   getLastActiveOrganization,
   updateUserLastActiveOrganizationId,
 } from '@/repositories/auth.repository'
@@ -83,7 +85,30 @@ async function verifyPassword(data: {
   return timingSafeEqual(storedKey, derivedKey)
 }
 
+const resolveValidActiveOrganizationId = async (
+  userId: string,
+  activeOrganizationId?: string | null,
+) => {
+  if (activeOrganizationId) {
+    const membership = await getOrganizationMember(activeOrganizationId, userId)
+    if (membership) {
+      return activeOrganizationId
+    }
+    logger.warn(
+      {
+        userId,
+        activeOrganizationId,
+        code: 'AUTH_ACTIVE_ORG_INVALID',
+      },
+      'Active organization was invalid for user membership. Recovering session organization context.',
+    )
+  }
+
+  return await getLastActiveOrganization(userId)
+}
+
 export const auth = betterAuth({
+  secret: config.betterAuth.secret,
   database: prismaAdapter(prisma_OnlyForBetterAuth, {
     provider: 'postgresql',
   }),
@@ -101,7 +126,7 @@ export const auth = betterAuth({
   advanced: {
     crossSubDomainCookies: {
       enabled: config.nodeEnv === 'production',
-      domain: '.revcenter.ai', // Allows cookies across revcenter.ai and api.revcenter.ai
+      domain: config.betterAuth.cookieDomain,
     },
     defaultCookieAttributes: {
       secure: config.nodeEnv === 'production',
@@ -112,8 +137,13 @@ export const auth = betterAuth({
     session: {
       create: {
         before: async (data, _context) => {
-          const activeOrganizationId = await getLastActiveOrganization(
+          const requestedActiveOrganizationId =
+            typeof data.activeOrganizationId === 'string'
+              ? data.activeOrganizationId
+              : null
+          const activeOrganizationId = await resolveValidActiveOrganizationId(
             data.userId,
+            requestedActiveOrganizationId,
           )
           logger.info(`Active organization ID: ${activeOrganizationId}`)
           return {
@@ -126,8 +156,13 @@ export const auth = betterAuth({
       },
       update: {
         after: async (data) => {
-          const session = data as Session & { activeOrganizationId: string }
-          const activeOrganizationId = session.activeOrganizationId
+          const session = data as Session & {
+            activeOrganizationId?: string | null
+          }
+          const activeOrganizationId = await resolveValidActiveOrganizationId(
+            data.userId,
+            session.activeOrganizationId ?? null,
+          )
           await updateUserLastActiveOrganizationId(
             data.userId,
             activeOrganizationId,
@@ -165,6 +200,16 @@ export const auth = betterAuth({
     },
   },
   plugins: [
+    magicLink({
+      expiresIn: 60 * 15,
+      rateLimit: {
+        window: 60,
+        max: 5,
+      },
+      sendMagicLink: async ({ email, url }) => {
+        await sendMagicLinkEmail(email, url)
+      },
+    }),
     organization({
       async sendInvitationEmail(data) {
         const inviteLink = buildInvitationLink(data.id, data.email)

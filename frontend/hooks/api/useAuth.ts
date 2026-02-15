@@ -2,11 +2,20 @@ import { useMutation } from '@tanstack/react-query';
 import { get, post } from '@/lib/api';
 import { signIn, signUp, signOut, sendVerificationEmail as sendVerificationEmailClient } from '@/lib/auth-client';
 import { ENDPOINTS } from '@/lib/config';
+import { normalizeAuthError } from '@/lib/auth-errors';
 
 // Types
 interface SignInEmailParams {
   email: string;
   password: string;
+}
+
+interface SignInMagicLinkParams {
+  email: string;
+  name?: string;
+  callbackURL?: string;
+  newUserCallbackURL?: string;
+  errorCallbackURL?: string;
 }
 
 interface SignUpEmailParams {
@@ -52,6 +61,19 @@ export function useSignInEmail() {
   });
 }
 
+// Sign in with magic link
+export function useSignInMagicLink() {
+  return useMutation({
+    mutationFn: async (params: SignInMagicLinkParams) => {
+      try {
+        return await signIn.magicLink(params);
+      } catch (error) {
+        throw normalizeAuthError(error);
+      }
+    },
+  });
+}
+
 // Sign up with email
 export function useSignUpEmail() {
   return useMutation({
@@ -64,8 +86,17 @@ export function useSignUpEmail() {
 // Sign in with social provider (Google)
 export function useSignInSocial() {
   return useMutation({
-    mutationFn: async (params: { provider: 'google'; callbackURL: string }) => {
-      return await signIn.social(params);
+    mutationFn: async (params: {
+      provider: 'google';
+      callbackURL: string;
+      newUserCallbackURL?: string;
+      errorCallbackURL?: string;
+    }) => {
+      try {
+        return await signIn.social(params);
+      } catch (error) {
+        throw normalizeAuthError(error);
+      }
     },
   });
 }
@@ -123,4 +154,3 @@ export function useChangePassword() {
     },
   });
 }
-

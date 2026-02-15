@@ -8,7 +8,16 @@ export const getLastActiveOrganization = async (userId: string) => {
     .executeTakeFirst()
 
   if (user?.lastActiveOrganizationId) {
-    return user.lastActiveOrganizationId
+    const activeMembership = await db
+      .selectFrom('member')
+      .where('organizationId', '=', user.lastActiveOrganizationId)
+      .where('userId', '=', userId)
+      .select('id')
+      .executeTakeFirst()
+
+    if (activeMembership) {
+      return user.lastActiveOrganizationId
+    }
   }
 
   const organizations = await db
@@ -28,7 +37,7 @@ export const getLastActiveOrganization = async (userId: string) => {
 
 export const updateUserLastActiveOrganizationId = async (
   userId: string,
-  activeOrganizationId: string,
+  activeOrganizationId: string | null,
 ) => {
   return await db
     .updateTable('user')
