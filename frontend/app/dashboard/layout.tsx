@@ -25,6 +25,7 @@ const PAGE_NAMES: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/dashboard/agents": "Agents",
   "/dashboard/tasks": "Leads",
+  "/dashboard/campaigns": "Campaigns",
   "/dashboard/schedule": "Schedule",
   "/dashboard/pipeline": "Pipeline",
   "/dashboard/recordings": "Recordings",
@@ -39,6 +40,7 @@ function getPageName(pathname: string): string {
   // Check for dynamic routes
   if (pathname.startsWith("/dashboard/agents/")) return "Agent Details";
   if (pathname.startsWith("/dashboard/tasks/")) return "Lead Details";
+  if (pathname.startsWith("/dashboard/campaigns/")) return "Campaign Details";
   return "Dashboard";
 }
 

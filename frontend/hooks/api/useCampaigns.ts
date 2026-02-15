@@ -245,6 +245,25 @@ export function usePauseCampaign() {
   })
 }
 
+export function useDuplicateCampaign() {
+  const queryClient = useQueryClient()
+  const activeOrganization = useEffectiveOrganization()
+  const organizationId = activeOrganization?.data?.id
+
+  return useMutation<{ data: Campaign }, Error, string>({
+    mutationFn: async (campaignId) => {
+      if (!organizationId) throw new Error('No active organization')
+      return post(`/campaigns/${campaignId}/duplicate`, { organizationId })
+    },
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.campaigns(organizationId) })
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.campaign(organizationId, response.data.id),
+      })
+    },
+  })
+}
+
 export function useCreateCampaignStep() {
   const queryClient = useQueryClient()
   const activeOrganization = useEffectiveOrganization()

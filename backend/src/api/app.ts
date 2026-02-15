@@ -35,6 +35,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/webhook', webhookRoutes)
 app.use('/api/webhooks/integrations', integrationWebhookRoutes)
 app.use('/api/webhooks/campaigns', campaignWebhookRoutes)
+app.use('/api/campaigns/webhooks', campaignWebhookRoutes)
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: false }))

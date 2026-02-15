@@ -8,6 +8,7 @@ import {
   DeleteCampaignEnrollmentRequest,
   DeleteCampaignRequest,
   DeleteCampaignStepRequest,
+  DuplicateCampaignRequest,
   GetCampaignEventsRequest,
   GetCampaignRequest,
   GetCampaignStatsRequest,
@@ -27,6 +28,7 @@ import {
   deleteCampaign,
   deleteCampaignEnrollment,
   deleteCampaignStep,
+  duplicateCampaign,
   getCampaign,
   getCampaignEvents,
   getCampaignStats,
@@ -181,6 +183,23 @@ export const pauseCampaignHandler: AuthRequestHandler<
     })
   }
   return res.json({
+    data: campaign,
+  })
+}
+
+export const duplicateCampaignHandler: AuthRequestHandler<
+  DuplicateCampaignRequest
+> = async (req, res) => {
+  const { organizationId, id } = req.validated
+  const campaign = duplicateCampaign(organizationId, id)
+  if (!campaign) {
+    return sendApiError(req, res, 404, {
+      code: 'CAMPAIGN_NOT_FOUND',
+      message: `Campaign ${id} not found`,
+      userMessage: 'Campaign not found.',
+    })
+  }
+  return res.status(201).json({
     data: campaign,
   })
 }

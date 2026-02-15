@@ -16,6 +16,7 @@ import {
   DeleteCampaignEnrollmentRequestSchema,
   DeleteCampaignRequestSchema,
   DeleteCampaignStepRequestSchema,
+  DuplicateCampaignRequestSchema,
   GetCampaignEventsRequestSchema,
   GetCampaignRequestSchema,
   GetCampaignStatsRequestSchema,
@@ -35,6 +36,7 @@ import {
   deleteCampaignEnrollmentHandler,
   deleteCampaignHandler,
   deleteCampaignStepHandler,
+  duplicateCampaignHandler,
   getCampaignEventsHandler,
   getCampaignHandler,
   getCampaignStatsHandler,
@@ -118,6 +120,17 @@ router.post(
     OrganizationRole.OWNER,
   ]),
   authenticatedRoute(pauseCampaignHandler),
+)
+
+router.post(
+  '/:id/duplicate',
+  validateAndMerge(DuplicateCampaignRequestSchema),
+  resolveOrganizationScope,
+  validateMemberOfOrganizationIsOrAdmin([
+    OrganizationRole.ADMIN,
+    OrganizationRole.OWNER,
+  ]),
+  authenticatedRoute(duplicateCampaignHandler),
 )
 
 router.post(

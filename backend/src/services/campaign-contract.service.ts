@@ -188,6 +188,55 @@ export const pauseCampaign = (organizationId: string, id: string) => {
   return campaign
 }
 
+export const duplicateCampaign = (
+  organizationId: string,
+  id: string,
+): CampaignView | null => {
+  const source = getCampaignRecord(organizationId, id)
+  if (!source) {
+    return null
+  }
+
+  const now = nowIso()
+  const duplicateId = randomUUID()
+  const duplicatedSteps: CampaignStepView[] = source.steps.map((step) => ({
+    ...step,
+    id: randomUUID(),
+    createdAt: now,
+    updatedAt: now,
+  }))
+
+  const duplicated: CampaignRecord = {
+    id: duplicateId,
+    organizationId: source.organizationId,
+    name: `${source.name} (Copy)`,
+    description: source.description,
+    status: 'draft',
+    channels: [...source.channels],
+    allowMemberEnrollment: source.allowMemberEnrollment,
+    createdAt: now,
+    updatedAt: now,
+    activatedAt: null,
+    pausedAt: null,
+    steps: duplicatedSteps,
+    enrollments: [],
+    events: [],
+  }
+
+  appendEvent(duplicated, 'campaign.duplicated', {
+    sourceCampaignId: source.id,
+  })
+  appendEvent(source, 'campaign.duplicate.created', {
+    duplicateCampaignId: duplicateId,
+  })
+
+  source.updatedAt = now
+  campaigns.set(source.id, source)
+  campaigns.set(duplicated.id, duplicated)
+
+  return duplicated
+}
+
 export const createCampaignStep = (
   organizationId: string,
   campaignId: string,

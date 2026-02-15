@@ -80,6 +80,11 @@ export type ActivateCampaignRequest = z.infer<
 export const PauseCampaignRequestSchema = CampaignRouteScopeSchema
 export type PauseCampaignRequest = z.infer<typeof PauseCampaignRequestSchema>
 
+export const DuplicateCampaignRequestSchema = CampaignRouteScopeSchema
+export type DuplicateCampaignRequest = z.infer<
+  typeof DuplicateCampaignRequestSchema
+>
+
 export const CreateCampaignStepRequestSchema = CampaignRouteScopeSchema.extend({
   channel: CampaignChannelSchema,
   offsetMinutes: z.coerce.number().int().nonnegative().default(0),
