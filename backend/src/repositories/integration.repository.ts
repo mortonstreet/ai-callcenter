@@ -98,6 +98,7 @@ export const listIntegrationSyncJobs = async (
   organizationId: string,
   options?: {
     integrationId?: string
+    provider?: string
     status?: string
     limit?: number
   },
@@ -110,6 +111,10 @@ export const listIntegrationSyncJobs = async (
     query = query.where('integrationId', '=', options.integrationId)
   }
 
+  if (options?.provider) {
+    query = query.where('provider', '=', options.provider)
+  }
+
   if (options?.status) {
     query = query.where('status', '=', options.status)
   }
@@ -119,6 +124,16 @@ export const listIntegrationSyncJobs = async (
     .limit(options?.limit ?? 100)
     .selectAll()
     .execute()
+}
+
+export const findIntegrationSyncJobById = async (
+  id: string,
+): Promise<DBIntegrationSyncJob | undefined> => {
+  return db
+    .selectFrom('integration_sync_job')
+    .where('id', '=', id)
+    .selectAll()
+    .executeTakeFirst()
 }
 
 export const createIntegrationSyncLog = async (
@@ -154,7 +169,10 @@ export const createIntegrationWebhookEvent = async (
 
 export const updateIntegrationWebhookEvent = async (
   id: string,
-  data: Omit<UpdateDBIntegrationWebhookEvent, 'id' | 'organizationId' | 'createdAt'>,
+  data: Omit<
+    UpdateDBIntegrationWebhookEvent,
+    'id' | 'organizationId' | 'createdAt'
+  >,
 ): Promise<DBIntegrationWebhookEvent | undefined> => {
   return db
     .updateTable('integration_webhook_event')
