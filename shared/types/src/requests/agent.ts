@@ -1,5 +1,13 @@
 import { z } from 'zod';
 
+export const AgentStatusSchema = z.enum([
+  'draft',
+  'active',
+  'paused',
+  'archived',
+  'error',
+]);
+
 export const GetAgentsRequestSchema = z.object({
   organizationId: z.string(),
 })
@@ -133,9 +141,9 @@ export const CreateElevenLabsAgentSchema = z.object({
   organizationId: z.string(),
   name: z.string().min(1),
   industry: z.string().optional(),
-  useCase: z.string().optional(),
+  useCase: z.string().min(1),
   website: z.string().optional(),
-  mainGoal: z.string().optional(),
+  mainGoal: z.string().min(1),
   voiceId: z.string().optional(),
   firstMessage: z.string().optional(),
   systemPrompt: z.string().optional(),
@@ -178,6 +186,7 @@ export const UpdateElevenLabsAgentSchema = z.object({
     turnTimeout: z.number().optional(),
     postCallWebhookUrl: z.string().optional(),
   }).optional(),
+  status: AgentStatusSchema.optional(),
 })
 
 // Owner-limited update (first message, voice, name only)

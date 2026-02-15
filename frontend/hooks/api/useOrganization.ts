@@ -59,9 +59,15 @@ export function useOnboardOrganization() {
     }) => {
       return await post<{ data: any }>('/organization/onboarding', params);
     },
-    onSuccess: () => {
+    onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.organizations() });
-      toast.success('Organization onboarded');
+      if (result?.data?.agent?.degradedMode?.enabled) {
+        toast.warning(
+          'Organization onboarded. Initial agent is in degraded mode while provider provisioning retries in the background.',
+        );
+      } else {
+        toast.success('Organization onboarded');
+      }
     },
     onError: (error: any) => {
       toast.error(error?.message || 'Failed to onboard organization');

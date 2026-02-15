@@ -170,9 +170,13 @@ export function useCreateElevenLabsAgent() {
         organizationId: activeOrganization.data.id,
       });
     },
-    onSuccess: () => {
+    onSuccess: (agent: any) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.agents(activeOrganization?.data?.id) });
-      toast.success('Agent created successfully');
+      if (agent?.degradedMode?.enabled) {
+        toast.warning('Agent created in degraded mode. Provider sync is queued for retry.');
+      } else {
+        toast.success('Agent created successfully');
+      }
     },
     onError: (error: any) => {
       toast.error(error?.message || 'Failed to create agent');
@@ -299,6 +303,24 @@ export function useAgentConversations(agentId: string) {
         throw new Error('No active organization');
       }
       return await get(`/agent/${activeOrganization.data.id}/${agentId}/conversations`);
+    },
+    enabled: !!activeOrganization?.data?.id && !!agentId,
+  });
+}
+
+/**
+ * Get provider health + sync state for an agent
+ */
+export function useAgentHealth(agentId: string) {
+  const activeOrganization = useEffectiveOrganization();
+
+  return useQuery<any>({
+    queryKey: ["agent-health", activeOrganization?.data?.id, agentId],
+    queryFn: async () => {
+      if (!activeOrganization?.data?.id) {
+        throw new Error('No active organization');
+      }
+      return await get(`/agent/${activeOrganization.data.id}/${agentId}/health`);
     },
     enabled: !!activeOrganization?.data?.id && !!agentId,
   });

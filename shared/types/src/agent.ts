@@ -26,9 +26,11 @@ export const UseCase = {
 export type UseCase = (typeof UseCase)[keyof typeof UseCase]
 
 export const AgentStatus = {
+  DRAFT: 'draft',
   ACTIVE: 'active',
   PAUSED: 'paused',
   ARCHIVED: 'archived',
+  ERROR: 'error',
 } as const
 
 export type AgentStatus = (typeof AgentStatus)[keyof typeof AgentStatus]

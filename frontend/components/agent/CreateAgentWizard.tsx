@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { X, Bot, Loader2 } from "lucide-react";
 import { useCreateElevenLabsAgent } from "@/hooks/api/useAgent";
+import { VoiceSelector } from "@/components/agent/VoiceSelector";
 
 interface CreateAgentWizardProps {
   isOpen: boolean;
@@ -98,6 +99,9 @@ export function CreateAgentWizard({ isOpen, onClose }: CreateAgentWizardProps) {
   const [agentName, setAgentName] = useState("");
   const [website, setWebsite] = useState("");
   const [mainGoal, setMainGoal] = useState("");
+  const [openingLine, setOpeningLine] = useState("");
+  const [voiceId, setVoiceId] = useState<string | null>(null);
+  const [systemPrompt, setSystemPrompt] = useState("");
 
   const reset = useCallback(() => {
     setStep("template");
@@ -107,6 +111,9 @@ export function CreateAgentWizard({ isOpen, onClose }: CreateAgentWizardProps) {
     setAgentName("");
     setWebsite("");
     setMainGoal("");
+    setOpeningLine("");
+    setVoiceId(null);
+    setSystemPrompt("");
   }, []);
 
   const handleClose = useCallback(() => {
@@ -146,6 +153,9 @@ export function CreateAgentWizard({ isOpen, onClose }: CreateAgentWizardProps) {
         useCase: useCase || undefined,
         website: website.trim() || undefined,
         mainGoal: mainGoal.trim() || undefined,
+        voiceId: voiceId || undefined,
+        firstMessage: openingLine.trim() || undefined,
+        systemPrompt: systemPrompt.trim() || undefined,
       },
     );
     handleClose();
@@ -339,6 +349,33 @@ export function CreateAgentWizard({ isOpen, onClose }: CreateAgentWizardProps) {
               className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/60"
             />
             <p className="text-xs text-muted-foreground mt-1">Describe what you want the agent to accomplish on each call.</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Opening line</label>
+            <input
+              type="text"
+              value={openingLine}
+              onChange={(e) => setOpeningLine(e.target.value)}
+              placeholder="Hi, thanks for calling..."
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/60"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Voice (optional)</label>
+            <VoiceSelector value={voiceId} onChange={setVoiceId} />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">System prompt override</label>
+            <textarea
+              value={systemPrompt}
+              onChange={(e) => setSystemPrompt(e.target.value)}
+              rows={5}
+              placeholder="Optional custom system prompt..."
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/60"
+            />
           </div>
         </div>
 
