@@ -17,6 +17,7 @@ import { useChangePassword } from "@/hooks/api/useAuth";
 import { useEffectiveOrganization, useAdminStore } from "@/lib/admin-store";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { env, QUERY_KEYS } from "@/lib/config";
+import IntegrationsSettingsCard from "@/components/settings/IntegrationsSettingsCard";
 
 export default function SettingsPage() {
   const { data: session } = useSession();
@@ -533,6 +534,12 @@ export default function SettingsPage() {
               </div>
             </div>
           </Card>
+        )}
+
+        {effectiveOrganization && (
+          <IntegrationsSettingsCard
+            canManageIntegrations={Boolean(isAdmin || isOwner)}
+          />
         )}
 
         {process.env.NODE_ENV !== "production" && effectiveOrganization?.id && !impersonatedOrg && (

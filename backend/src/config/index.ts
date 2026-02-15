@@ -67,6 +67,7 @@ const envSchema = z.object({
     }),
   BACKEND_URL: z.string().url().default('http://localhost:8000'),
   FRONTEND_URL: z.string().url(),
+  COOKIE_DOMAIN: z.string().default('localhost'),
   DATABASE_URL: z.string().url(),
   DB_HOST: z.string(),
   DB_PORT: z.coerce.number(),
@@ -78,10 +79,17 @@ const envSchema = z.object({
   BETTERSTACK_HOST: z.string(),
   SENTRY_DSN: z.string(),
   JWT_SECRET: z.string(),
+  BETTER_AUTH_SECRET: z.string().default('revcenter-dev-better-auth-secret'),
   WEBHOOK_API_KEY: z.string(),
+  ENCRYPTION_KEY: z.string().min(1).default('revcenter-dev-encryption-key'),
   GOOGLE_CLIENT_ID: z.string(),
   GOOGLE_CLIENT_SECRET: z.string(),
   RESEND_API_KEY: z.string(),
+  JOBBER_CLIENT_ID: z.string().optional(),
+  JOBBER_CLIENT_SECRET: z.string().optional(),
+  WORKIZ_API_KEY: z.string().optional(),
+  SERVICETITAN_CLIENT_ID: z.string().optional(),
+  SERVICETITAN_CLIENT_SECRET: z.string().optional(),
   // Cal.com integration
   CALCOM_API_KEY: z.string().optional(),
   // Legacy single provider - now optional
@@ -113,6 +121,13 @@ const mcpProviders = parseMcpProviders()
 export const config = {
   timezone: env.TIMEZONE,
   webhookApiKey: env.WEBHOOK_API_KEY,
+  betterAuth: {
+    secret: env.BETTER_AUTH_SECRET,
+    cookieDomain: env.COOKIE_DOMAIN,
+  },
+  security: {
+    encryptionKey: env.ENCRYPTION_KEY,
+  },
   jwt: {
     secret: env.JWT_SECRET,
   },
@@ -145,6 +160,17 @@ export const config = {
     google: {
       clientId: env.GOOGLE_CLIENT_ID,
       clientSecret: env.GOOGLE_CLIENT_SECRET,
+    },
+    jobber: {
+      clientId: env.JOBBER_CLIENT_ID || '',
+      clientSecret: env.JOBBER_CLIENT_SECRET || '',
+    },
+    workiz: {
+      apiKey: env.WORKIZ_API_KEY || '',
+    },
+    servicetitan: {
+      clientId: env.SERVICETITAN_CLIENT_ID || '',
+      clientSecret: env.SERVICETITAN_CLIENT_SECRET || '',
     },
   },
   resend: {
