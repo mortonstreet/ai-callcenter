@@ -8,6 +8,7 @@
 // =============================================================================
 export const AgentExternalType = {
   ELEVEN_LABS: 'eleven_labs',
+  LOCAL_FALLBACK: 'local_fallback',
 } as const;
 export type AgentExternalType = (typeof AgentExternalType)[keyof typeof AgentExternalType];
 
@@ -30,9 +31,11 @@ export const UseCase = {
 export type UseCase = (typeof UseCase)[keyof typeof UseCase];
 
 export const AgentStatus = {
+  DRAFT: 'draft',
   ACTIVE: 'active',
   PAUSED: 'paused',
   ARCHIVED: 'archived',
+  ERROR: 'error',
 } as const;
 export type AgentStatus = (typeof AgentStatus)[keyof typeof AgentStatus];
 
@@ -203,6 +206,10 @@ export interface DBAgent {
   mainGoal: string | null;
   voiceId: string | null;
   status: string;
+  syncPending: boolean;
+  lastSyncAt: Timestamp | null;
+  lastSyncError: string | null;
+  providerCorrelationKey: string | null;
   mcpApiKey: string | null;
   webhookSecret: string | null;
   mcpEndpointUrl: string | null;
@@ -501,6 +508,8 @@ export interface ErrorLogItem {
   product: string;
   organizationName: string | null;
   occurredAt: string;
+  correlationId?: string | null;
+  correlationLink?: string | null;
 }
 
 export interface ErrorLogDetail extends ErrorLogItem {

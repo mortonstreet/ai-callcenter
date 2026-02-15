@@ -14,6 +14,8 @@ import {
   GetAgentConfigRequest,
   GetAgentAnalyticsRequest,
   GetAgentConversationsRequest,
+  GetAgentHealthRequest,
+  AgentDegradedModeMetadata,
 } from '@shared/types/src'
 import {
   findAllByOrganizationId,
@@ -22,9 +24,6 @@ import {
   getAgentTasks,
   updateTask as updateTaskRepository,
   deleteTask as deleteTaskRepository,
-  createRecording,
-  findAgentByExternalId,
-  findTaskInstanceByConversationId,
   updateAgentMcpCredentials,
   findTaskInstanceByBookingId,
   updateTaskInstanceBookingStatus,
@@ -37,83 +36,58 @@ import {
   getVoices as getVoicesService,
   getAgentAnalytics as getAgentAnalyticsService,
   getAgentConversations as getAgentConversationsService,
+  getAgentHealth as getAgentHealthService,
 } from '@/services/agent.service'
+import {
+  processElevenLabsConversationWebhook,
+  isProcessableElevenLabsWebhookType,
+  ELEVENLABS_WEBHOOK_RETRY_JOB_NAME,
+} from '@/services/agent-webhook.service'
 import { formatTaskFields } from '@/utils/task'
 import logger from '@/lib/logger'
-import {
-  AgentExternalType,
-  PipelineStage,
-  CallQuality,
-} from '@shared/types/src'
+import { AgentExternalType, PipelineStage } from '@shared/types/src'
 import { randomBytes } from 'crypto'
 import { Request, Response } from 'express'
+import { enqueueQueueJob } from '@/queues'
+import { QUEUE_NAMES } from '@/types/queues'
+import { createAdminAuditLog } from '@/repositories/governance.repository'
+import { findById as findOrganizationById } from '@/repositories/organization.repository'
 
-// Call quality classification thresholds
-const MIN_PRODUCTIVE_DURATION_SECS = 15
-
-interface CallQualityResult {
-  quality: CallQuality
-  reason: string
-}
-
-/**
- * Classifies a call's quality based on duration and transcript content.
- */
-const classifyCallQuality = (
-  durationSecs: number,
-  transcriptSummary: string | null,
-): CallQualityResult => {
-  // Short call check
-  if (durationSecs < MIN_PRODUCTIVE_DURATION_SECS) {
+const getAgentDegradedModeMetadata = (agent: {
+  externalType: string
+  syncPending?: boolean | null
+  status?: string | null
+}): AgentDegradedModeMetadata => {
+  if (agent.externalType === AgentExternalType.LOCAL_FALLBACK) {
     return {
-      quality: CallQuality.SHORT_CALL,
-      reason: `Call duration (${durationSecs}s) is under ${MIN_PRODUCTIVE_DURATION_SECS}s threshold`,
+      enabled: true,
+      reason: 'local_fallback_agent',
     }
   }
-
-  const summaryLower = (transcriptSummary || '').toLowerCase()
-
-  // Robocall indicators
-  const robocallIndicators = [
-    'automated',
-    'press 1',
-    'recording',
-    'robot',
-    'robo',
-  ]
-  if (robocallIndicators.some((i) => summaryLower.includes(i))) {
+  if (agent.syncPending || agent.status === 'error') {
     return {
-      quality: CallQuality.ROBOCALL,
-      reason: 'Robocall indicators detected',
+      enabled: true,
+      reason: 'provider_unavailable',
     }
   }
-
-  // No conversation indicators
-  const noConvoIndicators = [
-    'no response',
-    'hung up',
-    'disconnected',
-    'silence',
-    'no audio',
-  ]
-  if (noConvoIndicators.some((i) => summaryLower.includes(i))) {
-    return {
-      quality: CallQuality.NO_CONVERSATION,
-      reason: 'No meaningful conversation',
-    }
-  }
-
-  // Spam indicators
-  const spamIndicators = ['wrong number', 'prank', 'spam', 'test call']
-  if (spamIndicators.some((i) => summaryLower.includes(i))) {
-    return { quality: CallQuality.SPAM, reason: 'Spam/prank call detected' }
-  }
-
   return {
-    quality: CallQuality.PRODUCTIVE,
-    reason: 'Productive call with real conversation',
+    enabled: false,
+    reason: null,
   }
 }
+
+const withAgentContractMetadata = <
+  T extends {
+    externalType: string
+    syncPending?: boolean | null
+    status?: string | null
+  },
+>(
+  agent: T,
+) => ({
+  ...agent,
+  degradedMode: getAgentDegradedModeMetadata(agent),
+})
 
 export const getAgents: AuthRequestHandler<GetAgentsRequest> = async (
   req,
@@ -121,7 +95,7 @@ export const getAgents: AuthRequestHandler<GetAgentsRequest> = async (
 ) => {
   const { organizationId } = req.validated
   const agents = await findAllByOrganizationId(organizationId)
-  res.json(agents)
+  res.json(agents.map((agent) => withAgentContractMetadata(agent)))
 }
 
 export const getAgent: AuthRequestHandler<GetAgentRequest> = async (
@@ -130,7 +104,7 @@ export const getAgent: AuthRequestHandler<GetAgentRequest> = async (
 ) => {
   const { id, organizationId } = req.validated
   const agent = await findAgentById(id, organizationId)
-  res.json(agent)
+  res.json(withAgentContractMetadata(agent))
 }
 
 export const createTask: AuthRequestHandler<CreateTaskRequest> = async (
@@ -210,71 +184,42 @@ export const agentWebhook: ValidatedRequestHandler<ElevenLabsWebhook> = async (
     `Received webhook type: ${webhook.type} for conversation: ${webhook.data.conversation_id}`,
   )
 
-  try {
-    // Only process conversation.ended events for recordings
-    // Other events (started, in_progress) are acknowledged but not recorded
-    if (
-      webhook.type !== 'conversation.ended' &&
-      webhook.type !== 'post_call_transcription'
-    ) {
-      logger.info(`Ignoring webhook type: ${webhook.type}`)
-      return res.json({
-        success: true,
-        message: `Webhook type ${webhook.type} acknowledged`,
-      })
-    }
-
-    // Find the agent in our system by ElevenLabs agent_id
-    const agent = await findAgentByExternalId(
-      webhook.data.agent_id,
-      AgentExternalType.ELEVEN_LABS,
-    )
-
-    if (!agent) {
-      logger.warn(
-        `Agent not found for ElevenLabs agent_id: ${webhook.data.agent_id}`,
-      )
-      return res.status(404).json({ error: 'Agent not found' })
-    }
-
-    const taskInstance = await findTaskInstanceByConversationId(
-      webhook.data.conversation_id,
-      agent.organizationId,
-    )
-
-    // Classify call quality
-    const callDuration = webhook.data.metadata?.call_duration_secs || 0
-    const transcriptSummary = webhook.data.analysis?.transcript_summary || null
-    const qualityResult = classifyCallQuality(callDuration, transcriptSummary)
-
-    logger.info(
-      `📊 Call quality: ${qualityResult.quality} (${qualityResult.reason})`,
-    )
-
-    // Create the recording
-    const recording = await createRecording({
-      conversationId: webhook.data.conversation_id,
-      callSid:
-        webhook.data.metadata?.phone_call?.call_sid ||
-        webhook.data.conversation_id, // Fallback to conversationId if no callSid
-      taskInstanceId: taskInstance?.id || null,
-      organizationId: agent.organizationId,
-      callDurationSeconds: callDuration,
-      cost: webhook.data.metadata?.cost || 0,
-      transcriptSummary,
-      payload: webhook as any, // Store the entire webhook
-      callQuality: qualityResult.quality,
-      callQualityReason: qualityResult.reason,
+  if (!isProcessableElevenLabsWebhookType(webhook.type)) {
+    logger.info(`Ignoring webhook type: ${webhook.type}`)
+    return res.json({
+      success: true,
+      message: `Webhook type ${webhook.type} acknowledged`,
     })
+  }
 
-    logger.info(
-      `Created recording ${recording.id} (quality: ${qualityResult.quality}) for conversation ${webhook.data.conversation_id}`,
-    )
-
-    res.json({ success: true, recordingId: recording.id })
+  try {
+    const { recording } = await processElevenLabsConversationWebhook(webhook)
+    return res.json({ success: true, recordingId: recording.id })
   } catch (error) {
-    logger.error('Error processing webhook', error)
-    return res.status(500).json({ error: 'Internal server error' })
+    logger.error({ error }, 'Error processing ElevenLabs webhook directly')
+
+    try {
+      await enqueueQueueJob(
+        QUEUE_NAMES.WEBHOOK_INGEST,
+        ELEVENLABS_WEBHOOK_RETRY_JOB_NAME,
+        {
+          webhookPayload: webhook,
+          organizationId: undefined,
+          idempotencyKey: `webhook:${webhook.type}:${webhook.data.conversation_id}`,
+        },
+      )
+      return res.status(202).json({
+        success: false,
+        queued: true,
+        message: 'Webhook processing deferred for retry',
+      })
+    } catch (queueError) {
+      logger.error(
+        { queueError, webhookType: webhook.type },
+        'Failed to queue webhook retry',
+      )
+      return res.status(500).json({ error: 'Internal server error' })
+    }
   }
 }
 
@@ -337,6 +282,36 @@ export const updateAgentMcpConfig: AuthRequestHandler<{
 
   logger.info(`Updated MCP config for agent ${agent.name} (${id})`)
 
+  try {
+    await createAdminAuditLog({
+      organizationId,
+      actorUserId: req.user.id,
+      action:
+        generateNewApiKey || generateNewWebhookSecret
+          ? 'agent.mcp_credentials_rotated'
+          : 'agent.mcp_config_updated',
+      resourceType: 'agent',
+      resourceId: id,
+      before: {
+        hasMcpApiKey: !!agent.mcpApiKey,
+        hasWebhookSecret: !!agent.webhookSecret,
+        mcpEndpointUrl: agent.mcpEndpointUrl,
+      },
+      after: {
+        hasMcpApiKey: !!updatedAgent.mcpApiKey,
+        hasWebhookSecret: !!updatedAgent.webhookSecret,
+        mcpEndpointUrl: updatedAgent.mcpEndpointUrl,
+      },
+      ipAddress: req.ip || null,
+      userAgent: req.get('user-agent') || null,
+    })
+  } catch (auditError) {
+    logger.warn(
+      { auditError, agentId: id, organizationId },
+      'Failed to persist MCP audit log entry',
+    )
+  }
+
   res.json({
     id: updatedAgent.id,
     name: updatedAgent.name,
@@ -379,14 +354,24 @@ export const getAgentMcpConfig: AuthRequestHandler<{
 export const createElevenLabsAgent: AuthRequestHandler<
   CreateElevenLabsAgentRequest
 > = async (req, res) => {
-  const { organizationId, name, industry, useCase, website, mainGoal, voiceId, firstMessage, systemPrompt } =
-    req.validated
+  const {
+    organizationId,
+    name,
+    industry,
+    useCase,
+    website,
+    mainGoal,
+    voiceId,
+    firstMessage,
+    systemPrompt,
+  } = req.validated
 
   try {
-    // Get org name for template interpolation
+    const organization = await findOrganizationById(organizationId)
+
     const agent = await createElevenLabsAgentService({
       organizationId,
-      companyName: name, // Will be overridden in onboarding
+      companyName: organization.name,
       name,
       industry,
       useCase,
@@ -397,7 +382,7 @@ export const createElevenLabsAgent: AuthRequestHandler<
       systemPrompt,
     })
 
-    res.json(agent)
+    res.json(withAgentContractMetadata(agent))
   } catch (error) {
     logger.error('Failed to create ElevenLabs agent:', error)
     res.status(500).json({ error: 'Failed to create agent' })
@@ -410,8 +395,12 @@ export const updateElevenLabsAgent: AuthRequestHandler<
   const { id, organizationId, ...updates } = req.validated
 
   try {
-    const agent = await updateElevenLabsAgentService(id, organizationId, updates)
-    res.json(agent)
+    const agent = await updateElevenLabsAgentService(
+      id,
+      organizationId,
+      updates,
+    )
+    res.json(withAgentContractMetadata(agent))
   } catch (error) {
     logger.error('Failed to update ElevenLabs agent:', error)
     res.status(500).json({ error: 'Failed to update agent' })
@@ -424,8 +413,12 @@ export const ownerUpdateAgent: AuthRequestHandler<
   const { id, organizationId, ...updates } = req.validated
 
   try {
-    const agent = await updateElevenLabsAgentService(id, organizationId, updates)
-    res.json(agent)
+    const agent = await updateElevenLabsAgentService(
+      id,
+      organizationId,
+      updates,
+    )
+    res.json(withAgentContractMetadata(agent))
   } catch (error) {
     logger.error('Failed to update agent (owner):', error)
     res.status(500).json({ error: 'Failed to update agent' })
@@ -446,18 +439,33 @@ export const deleteElevenLabsAgent: AuthRequestHandler<
   }
 }
 
-export const getAgentConfig: AuthRequestHandler<
-  GetAgentConfigRequest
-> = async (req, res) => {
+export const getAgentConfig: AuthRequestHandler<GetAgentConfigRequest> = async (
+  req,
+  res,
+) => {
   const { id, organizationId } = req.validated
 
   try {
     const agent = await findAgentById(id, organizationId)
+    if (agent.externalType === AgentExternalType.LOCAL_FALLBACK) {
+      return res.json({
+        id: agent.id,
+        name: agent.name,
+        provider: AgentExternalType.LOCAL_FALLBACK,
+        degradedMode: {
+          enabled: true,
+          reason: 'local_fallback_agent',
+        },
+        syncPending: agent.syncPending,
+        lastSyncError: agent.lastSyncError,
+      })
+    }
+
     const config = await getElevenLabsAgentConfigService(agent.externalId)
-    res.json(config)
+    return res.json(config)
   } catch (error) {
     logger.error('Failed to get agent config:', error)
-    res.status(500).json({ error: 'Failed to get agent config' })
+    return res.status(500).json({ error: 'Failed to get agent config' })
   }
 }
 
@@ -509,6 +517,21 @@ export const getAgentConversations: AuthRequestHandler<
   } catch (error) {
     logger.error('Failed to get agent conversations:', error)
     res.status(500).json({ error: 'Failed to get conversations' })
+  }
+}
+
+export const getAgentHealth: AuthRequestHandler<GetAgentHealthRequest> = async (
+  req,
+  res,
+) => {
+  const { id, organizationId } = req.validated
+
+  try {
+    const health = await getAgentHealthService(id, organizationId)
+    return res.json(health)
+  } catch (error) {
+    logger.error('Failed to get agent health:', error)
+    return res.status(500).json({ error: 'Failed to get agent health' })
   }
 }
 

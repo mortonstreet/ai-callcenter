@@ -12,6 +12,10 @@ export default function AgentsPage() {
   const { data: agents, isLoading, error } = useAgents();
   const isAdminOrOwner = useIsAdminOrOwner();
   const [showWizard, setShowWizard] = useState(false);
+  const degradedAgents = (agents || []).filter(
+    (agent: any) =>
+      agent?.degradedMode?.enabled || agent?.syncPending || agent?.status === "error",
+  );
 
   return (
     <Page
@@ -30,6 +34,16 @@ export default function AgentsPage() {
       }
     >
       <div className="space-y-4">
+        {!isLoading && !error && degradedAgents.length > 0 && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-sm text-amber-900">
+              {degradedAgents.length === 1
+                ? "1 agent is running in degraded mode while provider sync retries in the background."
+                : `${degradedAgents.length} agents are running in degraded mode while provider sync retries in the background.`}
+            </p>
+          </div>
+        )}
+
         {isLoading && (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 text-muted-foreground/70 animate-spin" />
@@ -54,13 +68,17 @@ export default function AgentsPage() {
                   <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
                     <Bot className="h-5 w-5 text-primary" />
                   </div>
-                  {agent.status && agent.status !== "active" && (
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      agent.status === "paused" ? "bg-yellow-100 text-yellow-800" : "bg-gray-100 text-gray-600"
-                    }`}>
-                      {agent.status}
-                    </span>
-                  )}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    agent.status === "active"
+                      ? "bg-green-100 text-green-800"
+                      : agent.status === "paused"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : agent.status === "error"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-gray-100 text-gray-700"
+                  }`}>
+                    {agent.status || "draft"}
+                  </span>
                 </div>
                 <h3 className="text-lg font-semibold text-foreground mb-1 group-hover:text-primary transition">
                   {agent.name}

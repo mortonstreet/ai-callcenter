@@ -1,5 +1,13 @@
 import { z } from 'zod';
 
+export const AgentStatusSchema = z.enum([
+  'draft',
+  'active',
+  'paused',
+  'archived',
+  'error',
+]);
+
 export const GetAgentsRequestSchema = z.object({
   organizationId: z.string(),
 })
@@ -133,9 +141,9 @@ export const CreateElevenLabsAgentSchema = z.object({
   organizationId: z.string(),
   name: z.string().min(1),
   industry: z.string().optional(),
-  useCase: z.string().optional(),
+  useCase: z.string().min(1),
   website: z.string().optional(),
-  mainGoal: z.string().optional(),
+  mainGoal: z.string().min(1),
   voiceId: z.string().optional(),
   firstMessage: z.string().optional(),
   systemPrompt: z.string().optional(),
@@ -178,6 +186,7 @@ export const UpdateElevenLabsAgentSchema = z.object({
     turnTimeout: z.number().optional(),
     postCallWebhookUrl: z.string().optional(),
   }).optional(),
+  status: AgentStatusSchema.optional(),
 })
 
 // Owner-limited update (first message, voice, name only)
@@ -217,6 +226,11 @@ export const GetAgentConversationsSchema = z.object({
   pageSize: z.coerce.number().optional().default(50),
 })
 
+export const GetAgentHealthSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+})
+
 export type GetAgentsRequest = z.infer<typeof GetAgentsRequestSchema>
 export type GetAgentRequest = z.infer<typeof GetAgentRequestSchema>
 export type AgentWebhookRequest = z.infer<typeof AgentWebhookSchema>
@@ -228,4 +242,24 @@ export type DeleteElevenLabsAgentRequest = z.infer<typeof DeleteElevenLabsAgentS
 export type GetAgentConfigRequest = z.infer<typeof GetAgentConfigSchema>
 export type GetAgentAnalyticsRequest = z.infer<typeof GetAgentAnalyticsSchema>
 export type GetAgentConversationsRequest = z.infer<typeof GetAgentConversationsSchema>
+export type GetAgentHealthRequest = z.infer<typeof GetAgentHealthSchema>
 
+export interface AgentDegradedModeMetadata {
+  enabled: boolean
+  reason: 'local_fallback_agent' | 'provider_unavailable' | null
+}
+
+export interface AgentHealthResponse {
+  agentId: string
+  organizationId: string
+  status: 'healthy' | 'degraded'
+  degradedMode: AgentDegradedModeMetadata
+  checks: {
+    provider: {
+      status: 'ok' | 'degraded'
+      provider: string
+      checkedAt: string
+      message: string
+    }
+  }
+}

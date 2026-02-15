@@ -1,5 +1,5 @@
 import { JobsOptions, Queue } from 'bullmq'
-import { getQueueConnection } from '@/queues/connection'
+import { config } from '@/config'
 import {
   ALL_QUEUE_NAMES,
   DEAD_LETTER_QUEUE_SUFFIX,
@@ -10,9 +10,18 @@ import {
 const DEFAULT_ATTEMPTS = 5
 const DEFAULT_BACKOFF_DELAY_MS = 2000
 
+const queueConnection = {
+  url: config.redis.url,
+  ...(config.redis.useTLS && {
+    tls: {
+      rejectUnauthorized: false,
+    },
+  }),
+}
+
 const createQueue = (name: string) =>
   new Queue<QueueJobPayload>(name, {
-    connection: getQueueConnection(),
+    connection: queueConnection,
     defaultJobOptions: {
       attempts: DEFAULT_ATTEMPTS,
       backoff: {

@@ -1,11 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { Page } from "@/components/dashboard/Page";
 import { use, useState } from "react";
 import { Bot, ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useAgent, useAgentConfig, useDeleteElevenLabsAgent } from "@/hooks/api/useAgent";
+import { useAgent, useAgentConfig, useAgentHealth, useDeleteElevenLabsAgent } from "@/hooks/api/useAgent";
 import { AgentExternalType } from "@/lib/shared-types";
 import { useIsAdminOrOwner } from "@/hooks/api/useOrganization";
 import { useRouter } from "next/navigation";
@@ -36,6 +35,7 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
   const router = useRouter();
   const { data: agent, isLoading, error } = useAgent(id);
   const { data: agentConfig } = useAgentConfig(id);
+  const { data: health, isLoading: healthLoading } = useAgentHealth(id);
   const isAdminOrOwner = useIsAdminOrOwner();
   const deleteAgent = useDeleteElevenLabsAgent();
   const [activeTab, setActiveTab] = useState("agent");
@@ -127,9 +127,10 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                     agent.status === "active" ? "bg-green-100 text-green-800" :
                     agent.status === "paused" ? "bg-yellow-100 text-yellow-800" :
-                    "bg-gray-100 text-gray-600"
+                    agent.status === "error" ? "bg-red-100 text-red-800" :
+                    "bg-gray-100 text-gray-700"
                   }`}>
-                    {agent.status || "active"}
+                    {agent.status || "draft"}
                   </span>
                 </div>
               </div>
@@ -139,6 +140,34 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
               <p>Created {new Date(agent.createdAt).toLocaleDateString()}</p>
             </div>
           </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">Provider health</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {health?.checks?.provider?.message || "Checking provider sync status..."}
+              </p>
+            </div>
+            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+              healthLoading
+                ? "bg-gray-100 text-gray-700"
+                : health?.status === "healthy"
+                  ? "bg-green-100 text-green-800"
+                  : "bg-amber-100 text-amber-800"
+            }`}>
+              {healthLoading ? "checking" : health?.status === "healthy" ? "healthy" : "degraded"}
+            </span>
+          </div>
+          {agent.syncPending && (
+            <p className="text-xs text-amber-700 mt-3">
+              Sync pending: latest provider update is queued for retry.
+            </p>
+          )}
+          {agent.lastSyncError && (
+            <p className="text-xs text-red-700 mt-2">Last sync error: {agent.lastSyncError}</p>
+          )}
         </div>
 
         {/* Tab navigation */}

@@ -1,32 +1,61 @@
 import { Job, Worker } from 'bullmq'
 import { config } from '@/config'
+import { setRequestContext } from '@/lib/context'
 import logger from '@/lib/logger'
 import Sentry from '@/lib/sentry'
-import { setRequestContext } from '@/lib/context'
-import { getRedis } from '@/lib/redis'
-import { getQueueConnection } from '@/queues/connection'
-import { getDeadLetterQueue, getQueue, queueRegistry } from '@/queues'
-import { QueueMetricsEmitter } from '@/queues/metrics'
+import { getDeadLetterQueue, queueRegistry } from '@/queues'
+import { resolveTaxonomyFromQueue } from '@/lib/error-taxonomy'
+import {
+  recordCampaignSendMetric,
+  recordIntegrationSyncMetric,
+  recordQueueJobMetric,
+} from '@/services/operations-metrics.service'
+import { isSuppressed, isWithinSendWindow } from '@/services/compliance.service'
 import {
   ALL_QUEUE_NAMES,
   QueueJobPayload,
   QueueName,
   QUEUE_NAMES,
-  READY_ENROLLMENT_JOB_ID,
-  READY_ENROLLMENT_JOB_NAME,
-  ReadyEnrollmentJobPayload,
 } from '@/types/queues'
+import { startSyncJob } from '@/services/integration-contract.service'
 
-const IDEMPOTENCY_LOCK_TTL_SECONDS = 24 * 60 * 60
-const READY_ENROLLMENT_REPEAT_MS = 60 * 1000
-const WORKER_HEARTBEAT_PREFIX = 'revcenter:worker:heartbeat'
+const DEFAULT_QUEUE_CONCURRENCY = 5
+const INTEGRATION_SYNC_CONCURRENCY = 4
 
-const queueConcurrencyByName: Record<QueueName, number> = {
-  campaign_voice: config.queues.concurrency.campaignVoice,
-  campaign_sms: config.queues.concurrency.campaignSms,
-  campaign_email: config.queues.concurrency.campaignEmail,
-  integration_sync: config.queues.concurrency.integrationSync,
-  webhook_ingest: config.queues.concurrency.webhookIngest,
+const queueConnection = {
+  url: config.redis.url,
+  ...(config.redis.useTLS && {
+    tls: {
+      rejectUnauthorized: false,
+    },
+  }),
+}
+
+const getConcurrencyForQueue = (queueName: QueueName) => {
+  if (queueName === QUEUE_NAMES.INTEGRATION_SYNC) {
+    return INTEGRATION_SYNC_CONCURRENCY
+  }
+  return DEFAULT_QUEUE_CONCURRENCY
+}
+
+const toCampaignChannel = (
+  queueName: QueueName,
+): 'sms' | 'voice' | 'email' | null => {
+  if (queueName === QUEUE_NAMES.CAMPAIGN_SMS) return 'sms'
+  if (queueName === QUEUE_NAMES.CAMPAIGN_VOICE) return 'voice'
+  if (queueName === QUEUE_NAMES.CAMPAIGN_EMAIL) return 'email'
+  return null
+}
+
+interface WorkerQueueHealthSnapshot {
+  queueName: QueueName
+  depth: {
+    waiting: number
+    active: number
+    delayed: number
+    completed: number
+    failed: number
+  }
 }
 
 export interface WorkerRuntimeHealth {
@@ -34,94 +63,86 @@ export interface WorkerRuntimeHealth {
   startedAt: string | null
   lastHeartbeatAt: string | null
   queueWorkerCount: number
-  queues: Awaited<ReturnType<QueueMetricsEmitter['getSnapshots']>>
+  queues: WorkerQueueHealthSnapshot[]
 }
 
 export class WorkerRuntime {
   private readonly workers = new Map<QueueName, Worker<QueueJobPayload>>()
-  private readonly metrics = new QueueMetricsEmitter(queueRegistry)
   private startedAt: string | null = null
   private lastHeartbeatAt: string | null = null
-  private heartbeatTimer: NodeJS.Timeout | null = null
 
   async start() {
-    if (this.startedAt) {
-      logger.info(
-        'Worker runtime already started; skipping duplicate start call',
-      )
+    if (this.workers.size > 0) {
       return
     }
 
-    await this.registerRecurringJobs()
-    await this.startWorkers()
-    this.metrics.start()
-    this.startHeartbeatLoop()
-
-    this.startedAt = new Date().toISOString()
-    logger.info(
-      {
-        deployEnv: config.deployEnv,
-        queues: ALL_QUEUE_NAMES,
-      },
-      'Worker runtime started',
-    )
-  }
-
-  async stop() {
-    this.metrics.stop()
-
-    if (this.heartbeatTimer) {
-      clearInterval(this.heartbeatTimer)
-      this.heartbeatTimer = null
-    }
-
-    await Promise.all(
-      [...this.workers.values()].map(async (worker) => {
-        try {
-          await worker.close()
-        } catch (error) {
-          logger.error({ error }, 'Failed to close worker cleanly')
-        }
-      }),
-    )
-
-    this.workers.clear()
-    this.startedAt = null
-  }
-
-  async getHealth(): Promise<WorkerRuntimeHealth> {
-    return {
-      started: this.startedAt !== null,
-      startedAt: this.startedAt,
-      lastHeartbeatAt: this.lastHeartbeatAt,
-      queueWorkerCount: this.workers.size,
-      queues: await this.metrics.getSnapshots(),
-    }
-  }
-
-  private async startWorkers() {
     await Promise.all(
       ALL_QUEUE_NAMES.map(async (queueName) => {
         const worker = new Worker<QueueJobPayload>(
           queueName,
           async (job) => this.processJob(queueName, job),
           {
-            connection: getQueueConnection(),
-            concurrency:
-              queueConcurrencyByName[queueName] ||
-              config.queues.defaultConcurrency,
+            connection: queueConnection,
+            concurrency: getConcurrencyForQueue(queueName),
           },
         )
 
-        worker.on('completed', (job) => {
-          this.metrics.recordProcessed(queueName, getJobLatency(job))
+        worker.on('completed', (job, result) => {
+          const latency = getJobLatency(job)
+          recordQueueJobMetric({
+            queueName,
+            success: true,
+            latencyMs: latency ?? 0,
+          })
+
+          const campaignChannel = toCampaignChannel(queueName)
+          if (campaignChannel) {
+            if (
+              result &&
+              (result as { blockedByCompliance?: boolean }).blockedByCompliance
+            ) {
+              recordCampaignSendMetric({
+                channel: campaignChannel,
+                outcome: 'blockedByCompliance',
+              })
+            } else {
+              recordCampaignSendMetric({
+                channel: campaignChannel,
+                outcome: 'success',
+              })
+            }
+          }
         })
 
         worker.on('failed', async (job, error) => {
           if (!job) return
 
           const attempts = Number(job.opts.attempts || 1)
-          this.metrics.recordFailed(queueName, job.attemptsMade, attempts)
+          const latency = getJobLatency(job)
+
+          recordQueueJobMetric({
+            queueName,
+            success: false,
+            latencyMs: latency ?? 0,
+          })
+
+          const campaignChannel = toCampaignChannel(queueName)
+          if (campaignChannel) {
+            recordCampaignSendMetric({
+              channel: campaignChannel,
+              outcome: 'failure',
+            })
+          }
+
+          if (queueName === QUEUE_NAMES.INTEGRATION_SYNC) {
+            recordIntegrationSyncMetric({
+              provider:
+                typeof job.data.provider === 'string'
+                  ? job.data.provider
+                  : 'unknown',
+              success: false,
+            })
+          }
 
           if (job.attemptsMade >= attempts) {
             await this.moveToDeadLetterQueue(queueName, job, error)
@@ -129,11 +150,13 @@ export class WorkerRuntime {
         })
 
         worker.on('error', (error) => {
-          logger.error({ error, queueName }, 'Worker process error')
+          const taxonomy = resolveTaxonomyFromQueue(queueName)
+          logger.error({ error, queueName }, 'Queue worker failed')
           Sentry.captureException(error, {
             tags: {
               scope: 'worker',
               queue: queueName,
+              taxonomy,
             },
           })
         })
@@ -142,41 +165,116 @@ export class WorkerRuntime {
         this.workers.set(queueName, worker)
       }),
     )
+
+    this.startedAt = new Date().toISOString()
+    logger.info({ queues: ALL_QUEUE_NAMES }, 'Queue workers started')
+  }
+
+  async stop() {
+    await Promise.all(
+      [...this.workers.values()].map(async (worker) => {
+        try {
+          await worker.close()
+        } catch (error) {
+          logger.error({ error }, 'Failed to close queue worker')
+        }
+      }),
+    )
+    this.workers.clear()
+    this.startedAt = null
+    this.lastHeartbeatAt = null
+  }
+
+  async getHealth(): Promise<WorkerRuntimeHealth> {
+    const queueSnapshots = await Promise.all(
+      ALL_QUEUE_NAMES.map(async (queueName) => {
+        const counts = await queueRegistry[queueName].getJobCounts(
+          'waiting',
+          'active',
+          'delayed',
+          'completed',
+          'failed',
+        )
+
+        return {
+          queueName,
+          depth: {
+            waiting: counts.waiting,
+            active: counts.active,
+            delayed: counts.delayed,
+            completed: counts.completed,
+            failed: counts.failed,
+          },
+        }
+      }),
+    )
+
+    return {
+      started: this.workers.size > 0,
+      startedAt: this.startedAt,
+      lastHeartbeatAt: this.lastHeartbeatAt,
+      queueWorkerCount: this.workers.size,
+      queues: queueSnapshots,
+    }
   }
 
   private async processJob(queueName: QueueName, job: Job<QueueJobPayload>) {
-    setRequestContext('requestId', `worker-${job.id}`)
+    this.lastHeartbeatAt = new Date().toISOString()
+    setRequestContext('requestId', `worker-${String(job.id)}`)
     setRequestContext('jobId', String(job.id))
+    setRequestContext('service', 'worker')
+    setRequestContext('operation', `${queueName}:${job.name}`)
+    setRequestContext(
+      'organizationId',
+      typeof job.data.organizationId === 'string'
+        ? job.data.organizationId
+        : undefined,
+    )
+    setRequestContext(
+      'correlationId',
+      typeof job.data.correlationId === 'string'
+        ? job.data.correlationId
+        : `worker-${job.id}`,
+    )
 
     try {
-      const isDuplicate = await this.isDuplicateJob(queueName, job)
-      if (isDuplicate) {
-        logger.warn(
-          {
-            queueName,
-            jobId: job.id,
-            idempotencyKey: job.data.idempotencyKey,
-          },
-          'Skipping duplicate idempotent job',
-        )
-        return { skipped: true }
-      }
-
       switch (queueName) {
-        case QUEUE_NAMES.CAMPAIGN_VOICE:
-          return this.handleCampaignVoiceJob(job)
-        case QUEUE_NAMES.CAMPAIGN_SMS:
-          return this.handleCampaignSmsJob(job)
-        case QUEUE_NAMES.CAMPAIGN_EMAIL:
-          return this.handleCampaignEmailJob(job)
         case QUEUE_NAMES.INTEGRATION_SYNC:
           return this.handleIntegrationSyncJob(job)
+        case QUEUE_NAMES.CAMPAIGN_VOICE:
+        case QUEUE_NAMES.CAMPAIGN_SMS:
+        case QUEUE_NAMES.CAMPAIGN_EMAIL: {
+          if (this.isCampaignBlockedByCompliance(queueName, job)) {
+            return { processed: false, blockedByCompliance: true }
+          }
+
+          logger.info(
+            {
+              queueName,
+              jobId: job.id,
+              jobName: job.name,
+              organizationId: job.data.organizationId,
+            },
+            'Processed campaign queue job',
+          )
+          return { processed: true }
+        }
         case QUEUE_NAMES.WEBHOOK_INGEST:
-          return this.handleWebhookIngestJob(job)
+          logger.info(
+            {
+              queueName,
+              jobId: job.id,
+              jobName: job.name,
+              organizationId: job.data.organizationId,
+            },
+            'Processed webhook ingest job',
+          )
+          return { processed: true }
         default:
           throw new Error(`Unhandled queue name: ${queueName}`)
       }
     } catch (error) {
+      const taxonomy = resolveTaxonomyFromQueue(queueName)
       logger.error(
         {
           queueName,
@@ -193,6 +291,7 @@ export class WorkerRuntime {
           scope: 'worker',
           queue: queueName,
           job_name: job.name,
+          taxonomy,
         },
         extra: {
           jobId: job.id,
@@ -204,173 +303,113 @@ export class WorkerRuntime {
     }
   }
 
-  private async handleCampaignVoiceJob(job: Job<QueueJobPayload>) {
-    if (job.name === READY_ENROLLMENT_JOB_NAME) {
-      return this.handleReadyEnrollmentScan(
-        job as Job<ReadyEnrollmentJobPayload>,
-      )
-    }
-
-    logger.info(
-      {
-        queueName: QUEUE_NAMES.CAMPAIGN_VOICE,
-        jobId: job.id,
-        jobName: job.name,
-        organizationId: job.data.organizationId,
-      },
-      'Processed voice campaign job',
-    )
-
-    return { processed: true }
-  }
-
-  private async handleCampaignSmsJob(job: Job<QueueJobPayload>) {
-    logger.info(
-      {
-        queueName: QUEUE_NAMES.CAMPAIGN_SMS,
-        jobId: job.id,
-        jobName: job.name,
-        organizationId: job.data.organizationId,
-      },
-      'Processed SMS campaign job',
-    )
-
-    return { processed: true }
-  }
-
-  private async handleCampaignEmailJob(job: Job<QueueJobPayload>) {
-    logger.info(
-      {
-        queueName: QUEUE_NAMES.CAMPAIGN_EMAIL,
-        jobId: job.id,
-        jobName: job.name,
-        organizationId: job.data.organizationId,
-      },
-      'Processed email campaign job',
-    )
-
-    return { processed: true }
-  }
-
-  private async handleIntegrationSyncJob(job: Job<QueueJobPayload>) {
-    logger.info(
-      {
-        queueName: QUEUE_NAMES.INTEGRATION_SYNC,
-        jobId: job.id,
-        jobName: job.name,
-        organizationId: job.data.organizationId,
-      },
-      'Processed integration sync job',
-    )
-
-    return { processed: true }
-  }
-
-  private async handleWebhookIngestJob(job: Job<QueueJobPayload>) {
-    logger.info(
-      {
-        queueName: QUEUE_NAMES.WEBHOOK_INGEST,
-        jobId: job.id,
-        jobName: job.name,
-        organizationId: job.data.organizationId,
-      },
-      'Processed webhook ingest job',
-    )
-
-    return { processed: true }
-  }
-
-  private async handleReadyEnrollmentScan(
-    job: Job<ReadyEnrollmentJobPayload>,
-  ): Promise<{ processed: boolean }> {
-    logger.info(
-      {
-        queueName: QUEUE_NAMES.CAMPAIGN_VOICE,
-        jobId: job.id,
-        jobName: job.name,
-        requestedAt: job.data.requestedAt,
-      },
-      'Processed ready-enrollment scheduler job',
-    )
-
-    return { processed: true }
-  }
-
-  private async registerRecurringJobs() {
-    const campaignVoiceQueue = getQueue(QUEUE_NAMES.CAMPAIGN_VOICE)
-    const repeatableJobs = await campaignVoiceQueue.getRepeatableJobs()
-
-    for (const repeatableJob of repeatableJobs) {
-      if (
-        repeatableJob.name === READY_ENROLLMENT_JOB_NAME &&
-        repeatableJob.id !== READY_ENROLLMENT_JOB_ID
-      ) {
-        await campaignVoiceQueue.removeRepeatableByKey(repeatableJob.key)
-      }
-    }
-
-    await campaignVoiceQueue.add(
-      READY_ENROLLMENT_JOB_NAME,
-      {
-        requestedAt: new Date().toISOString(),
-      },
-      {
-        jobId: READY_ENROLLMENT_JOB_ID,
-        repeat: {
-          every: READY_ENROLLMENT_REPEAT_MS,
-        },
-        attempts: 1,
-        removeOnComplete: true,
-        removeOnFail: 100,
-      },
-    )
-  }
-
-  private async startHeartbeatLoop() {
-    await this.publishHeartbeat()
-
-    this.heartbeatTimer = setInterval(() => {
-      void this.publishHeartbeat()
-    }, config.worker.heartbeatIntervalMs)
-
-    this.heartbeatTimer.unref?.()
-  }
-
-  private async publishHeartbeat() {
-    const heartbeatKey = `${WORKER_HEARTBEAT_PREFIX}:${config.deployEnv}`
-    const heartbeatAt = new Date().toISOString()
-
-    await getRedis().set(
-      heartbeatKey,
-      JSON.stringify({
-        heartbeatAt,
-        pid: process.pid,
-        deployEnv: config.deployEnv,
-      }),
-      'EX',
-      Math.max(1, Math.floor(config.worker.heartbeatTtlMs / 1000)),
-    )
-
-    this.lastHeartbeatAt = heartbeatAt
-  }
-
-  private async isDuplicateJob(
+  private isCampaignBlockedByCompliance(
     queueName: QueueName,
     job: Job<QueueJobPayload>,
   ) {
-    const idempotencyKey = job.data.idempotencyKey
-    if (!idempotencyKey) return false
+    const organizationId =
+      typeof job.data.organizationId === 'string'
+        ? job.data.organizationId
+        : null
 
-    const redisKey = `revcenter:idempotency:${queueName}:${idempotencyKey}`
-    const lockResult = await getRedis().set(
-      redisKey,
-      JSON.stringify({ jobId: job.id, at: new Date().toISOString() }),
-      'EX',
-      IDEMPOTENCY_LOCK_TTL_SECONDS,
-      'NX',
+    if (!organizationId) {
+      return false
+    }
+
+    const timezone =
+      typeof job.data.timezone === 'string' ? job.data.timezone : undefined
+    const sendWindowStart =
+      typeof job.data.sendWindowStart === 'string'
+        ? job.data.sendWindowStart
+        : undefined
+    const sendWindowEnd =
+      typeof job.data.sendWindowEnd === 'string'
+        ? job.data.sendWindowEnd
+        : undefined
+
+    if (
+      !isWithinSendWindow({
+        timezone,
+        sendWindowStart,
+        sendWindowEnd,
+      })
+    ) {
+      logger.warn(
+        {
+          queueName,
+          jobId: job.id,
+          organizationId,
+          timezone: timezone || config.timezone,
+          sendWindowStart: sendWindowStart || '09:00',
+          sendWindowEnd: sendWindowEnd || '20:00',
+        },
+        'Blocked campaign send outside local send window',
+      )
+      return true
+    }
+
+    if (queueName === QUEUE_NAMES.CAMPAIGN_SMS) {
+      const phone =
+        typeof job.data.phone === 'string'
+          ? job.data.phone
+          : typeof job.data.to === 'string'
+            ? job.data.to
+            : undefined
+      const email =
+        typeof job.data.email === 'string' ? job.data.email : undefined
+
+      if (
+        isSuppressed({
+          organizationId,
+          phone,
+          email,
+        })
+      ) {
+        logger.warn(
+          {
+            queueName,
+            jobId: job.id,
+            organizationId,
+            phone: phone || null,
+            email: email || null,
+          },
+          'Blocked SMS send due to suppression list match',
+        )
+        return true
+      }
+    }
+
+    return false
+  }
+
+  private async handleIntegrationSyncJob(job: Job<QueueJobPayload>) {
+    const organizationId =
+      typeof job.data.organizationId === 'string'
+        ? job.data.organizationId
+        : null
+    const provider =
+      typeof job.data.provider === 'string' ? job.data.provider : null
+    const direction =
+      job.data.direction === 'pull' || job.data.direction === 'push'
+        ? job.data.direction
+        : 'pull'
+
+    if (!organizationId || !provider) {
+      throw new Error('Invalid integration sync queue payload')
+    }
+
+    const result = startSyncJob(
+      organizationId,
+      provider as Parameters<typeof startSyncJob>[1],
+      direction,
     )
 
-    return lockResult !== 'OK'
+    recordIntegrationSyncMetric({
+      provider,
+      success: true,
+    })
+
+    return result
   }
 
   private async moveToDeadLetterQueue(

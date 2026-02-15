@@ -1,14 +1,12 @@
 import { AuthRequestHandler } from '@/types/handlers'
 import { config } from '@/config'
 import { db } from '@/lib/db'
-import { getOrganizationMember } from '@/repositories/auth.repository'
 import { formatToSlug } from '@/utils'
 import { createOrganization } from '@/repositories/organization.repository'
 import { withId } from '@/repositories/utils'
 import { updateUserLastActiveOrganizationId } from '@/repositories/auth.repository'
 import { AgentExternalType } from '@shared/types/src'
 import { createElevenLabsAgent } from '@/services/agent.service'
-import logger from '@/lib/logger'
 import { z } from 'zod'
 
 export const OrganizationOnboardingSchema = z.object({
@@ -31,8 +29,16 @@ type OrgOnboardingRequest = z.infer<typeof OrganizationOnboardingSchema>
 export const onboardOrganization: AuthRequestHandler<
   OrgOnboardingRequest
 > = async (req, res) => {
-  const { name, domain, industry, services, useCase, website, mainGoal, agent } =
-    req.validated
+  const {
+    name,
+    domain,
+    industry,
+    services,
+    useCase,
+    website,
+    mainGoal,
+    agent,
+  } = req.validated
   const now = new Date()
 
   // Create organization with metadata captured from onboarding
@@ -69,47 +75,33 @@ export const onboardOrganization: AuthRequestHandler<
 
   await updateUserLastActiveOrganizationId(req.user.id, organization.id)
 
-  // Create agent via ElevenLabs API
-  let createdAgent
-  try {
-    createdAgent = await createElevenLabsAgent({
-      organizationId: organization.id,
-      companyName: name,
-      name: agent.name,
-      industry,
-      useCase: useCase || 'customer_support',
-      website,
-      mainGoal,
-      firstMessage: agent.openingLine,
-      services,
-    })
-  } catch (error) {
-    logger.error('Failed to create ElevenLabs agent during onboarding, creating local-only agent:', error)
-    // Fallback: create local agent without ElevenLabs
-    const { createAgent: createAgentRepo } = await import(
-      '@/repositories/agent.repository'
-    )
-    createdAgent = await createAgentRepo({
-      name: agent.name,
-      slug: formatToSlug(agent.name),
-      organizationId: organization.id,
-      phoneNumber: '+15555550123',
-      redirectNumber: '+15555550123',
-      externalId: organization.id,
-      externalType: AgentExternalType.ELEVEN_LABS,
-      industry: industry || null,
-      useCase: useCase || null,
-      website: website || null,
-      mainGoal: mainGoal || null,
-      voiceId: null,
-      status: 'active',
-    })
-  }
+  const createdAgent = await createElevenLabsAgent({
+    organizationId: organization.id,
+    companyName: name,
+    name: agent.name,
+    industry,
+    useCase: useCase || 'customer_support',
+    website,
+    mainGoal,
+    firstMessage: agent.openingLine,
+    services,
+    serviceQuestions: agent.serviceQuestions,
+  })
 
   res.json({
     data: {
       organization,
-      agent: createdAgent,
+      agent: {
+        ...createdAgent,
+        degradedMode: {
+          enabled:
+            createdAgent.externalType === AgentExternalType.LOCAL_FALLBACK,
+          reason:
+            createdAgent.externalType === AgentExternalType.LOCAL_FALLBACK
+              ? 'local_fallback_agent'
+              : null,
+        },
+      },
     },
   })
 }

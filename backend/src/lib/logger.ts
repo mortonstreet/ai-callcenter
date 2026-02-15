@@ -56,8 +56,26 @@ const logger = new Proxy(baseLogger, {
       return (...args: any[]) => {
         const context = getRequestContext()
         if (context) {
-          const { requestId, jobId, userId, sessionId } = context
-          const contextData = { requestId, jobId, userId, sessionId }
+          const {
+            requestId,
+            jobId,
+            userId,
+            sessionId,
+            organizationId,
+            correlationId,
+            service,
+            operation,
+          } = context
+          const contextData = {
+            requestId,
+            jobId,
+            userId,
+            sessionId,
+            organizationId,
+            correlationId,
+            service,
+            operation,
+          }
 
           if (args[0] && typeof args[0] === 'object') {
             args[0] = { ...args[0], ...contextData }

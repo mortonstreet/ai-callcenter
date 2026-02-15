@@ -25,8 +25,8 @@ function SeverityBadge({ severity }: { severity: string }) {
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     open: "bg-red-100 text-red-700",
+    acknowledged: "bg-amber-100 text-amber-700",
     resolved: "bg-green-100 text-green-700",
-    ignored: "bg-muted text-muted-foreground",
   };
   return (
     <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${styles[status] || "bg-muted text-muted-foreground"}`}>
@@ -77,6 +77,25 @@ export default function ErrorLogDetailModal({ errorId, onClose }: Props) {
               <p className="text-sm text-foreground mt-0.5">{error.organizationName || "N/A"}</p>
             </div>
           </div>
+
+          {(error.correlationId || error.correlationLink) && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Correlation</label>
+              <div className="mt-0.5 flex items-center gap-3">
+                <p className="text-sm font-mono text-foreground">{error.correlationId || "N/A"}</p>
+                {error.correlationLink && (
+                  <a
+                    href={error.correlationLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-primary underline underline-offset-2"
+                  >
+                    Open trace
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
 
           {error.stackTrace && (
             <div>

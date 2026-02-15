@@ -1,14 +1,22 @@
-interface AgentTemplate {
+interface AgentTemplateDefinition {
   systemPrompt: string
   firstMessage: string
   suggestedVoiceId: string
+  keyServiceQuestions?: string[]
+}
+
+export interface AgentTemplate {
+  systemPrompt: string
+  firstMessage: string
+  suggestedVoiceId: string
+  keyServiceQuestions: string[]
 }
 
 type TemplateKey = `${string}_${string}`
 
 const DEFAULT_VOICE_ID = 'cgSgspJ2msm6clMCkdW9' // Jessica - professional female voice
 
-const templates: Record<TemplateKey, AgentTemplate> = {
+const templates: Record<TemplateKey, AgentTemplateDefinition> = {
   // Pest Control
   pest_control_customer_support: {
     systemPrompt: `You are a friendly and knowledgeable customer support agent for {companyName}, a pest control company. Your job is to help callers with questions about services, pricing, scheduling, and general pest control advice. Services offered: {services}. Be empathetic about pest issues - callers are often stressed. Always try to book an inspection or service appointment.`,
@@ -145,11 +153,42 @@ const templates: Record<TemplateKey, AgentTemplate> = {
   },
 }
 
+const defaultQuestionsByIndustry: Record<string, string[]> = {
+  hvac: [
+    'What type of unit and age?',
+    'Is it blowing warm air or not turning on?',
+    'Any error codes or strange noises?',
+  ],
+  pest_control: [
+    'Which pests are you seeing and where?',
+    'How long have you noticed the activity?',
+    'Have treatments been tried before?',
+  ],
+  electrical: [
+    'What stopped working? Outlets, lights, or a breaker?',
+    'Any burning smell or visible damage?',
+    "What's the home/business type and panel age?",
+  ],
+  roofing: [
+    'Where is the leak or damage located?',
+    'When was the roof last repaired or replaced?',
+    'Do you see missing shingles or water stains?',
+  ],
+  cleaning_services: [
+    'How many bedrooms and bathrooms?',
+    'Any pets in the home?',
+    'What frequency do you need? (one-time, weekly, bi-weekly)',
+  ],
+}
+
 function interpolateTemplate(
   template: string,
   variables: Record<string, string>,
 ): string {
-  return template.replace(/\{(\w+)\}/g, (_, key) => variables[key] || `{${key}}`)
+  return template.replace(
+    /\{(\w+)\}/g,
+    (_, key) => variables[key] || `{${key}}`,
+  )
 }
 
 export function getAgentTemplate(
@@ -172,6 +211,11 @@ export function getAgentTemplate(
         variables,
       ),
       suggestedVoiceId: DEFAULT_VOICE_ID,
+      keyServiceQuestions: defaultQuestionsByIndustry[industry] || [
+        'What service do you need help with today?',
+        'What is the address or location for service?',
+        'What is the best phone number for follow-up?',
+      ],
     }
   }
 
@@ -179,5 +223,11 @@ export function getAgentTemplate(
     systemPrompt: interpolateTemplate(template.systemPrompt, variables),
     firstMessage: interpolateTemplate(template.firstMessage, variables),
     suggestedVoiceId: template.suggestedVoiceId,
+    keyServiceQuestions: template.keyServiceQuestions ||
+      defaultQuestionsByIndustry[industry] || [
+        'What service do you need help with today?',
+        'What is the address or location for service?',
+        'What is the best phone number for follow-up?',
+      ],
   }
 }

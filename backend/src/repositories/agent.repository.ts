@@ -182,8 +182,13 @@ export const updateAgent = async (
     voiceId: string | null
     status: string
     externalId: string
+    externalType: string
     phoneNumber: string
     redirectNumber: string
+    syncPending: boolean
+    lastSyncAt: Date | null
+    lastSyncError: string | null
+    providerCorrelationKey: string | null
   }>,
 ) => {
   return await db
