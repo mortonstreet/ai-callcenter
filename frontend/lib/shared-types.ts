@@ -508,6 +508,8 @@ export interface ErrorLogItem {
   product: string;
   organizationName: string | null;
   occurredAt: string;
+  correlationId?: string | null;
+  correlationLink?: string | null;
 }
 
 export interface ErrorLogDetail extends ErrorLogItem {

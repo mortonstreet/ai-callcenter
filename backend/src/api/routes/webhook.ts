@@ -1,11 +1,17 @@
 import { Router } from 'express'
-import { withWebhookAuth, withElevenLabsWebhookAuth } from '../middlewares/auth'
+import {
+  withApiKeyAuth,
+  withWebhookAuth,
+  withElevenLabsWebhookAuth,
+} from '../middlewares/auth'
 import { ElevenLabsWebhookSchema } from '@shared/types/src'
 import { agentWebhook, calcomWebhook } from '../controllers/agent.controller'
 import { validateAndMerge } from '../middlewares/validationMiddleware'
 import { validatedRoute } from './utils'
 import express from 'express'
 import logger from '@/lib/logger'
+import { z } from 'zod'
+import { addSuppression } from '@/services/compliance.service'
 
 const router = Router()
 
@@ -67,6 +73,53 @@ router.post(
       logger.error('Cal.com webhook error:', error)
       res.status(500).json({ error: 'Internal server error' })
     }
+  },
+)
+
+const SmsUnsubscribeSchema = z.object({
+  organizationId: z.string(),
+  phone: z.string().min(1),
+  reason: z.string().optional(),
+})
+
+router.post(
+  '/sms/unsubscribe',
+  withApiKeyAuth,
+  express.json(),
+  validateAndMerge(SmsUnsubscribeSchema),
+  async (req, res) => {
+    const { organizationId, phone, reason } = req.validated as {
+      organizationId: string
+      phone: string
+      reason?: string
+    }
+
+    const entry = addSuppression({
+      organizationId,
+      phone,
+      reason: reason || 'sms_unsubscribe',
+    })
+
+    if (!entry) {
+      return res.status(400).json({
+        error: 'SUPPRESSION_INPUT_INVALID',
+        message: 'Valid phone number required for unsubscribe',
+      })
+    }
+
+    logger.info(
+      {
+        organizationId,
+        phone: entry.value,
+        reason: entry.reason,
+      },
+      'SMS contact added to global suppression list',
+    )
+
+    return res.status(202).json({
+      accepted: true,
+      data: entry,
+    })
   },
 )
 

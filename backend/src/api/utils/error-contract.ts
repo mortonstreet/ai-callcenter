@@ -10,9 +10,22 @@ interface SendApiErrorInput {
 }
 
 export const getCorrelationId = (req: Request, res?: Response): string => {
+  const fromResponseCorrelation = res?.getHeader('x-correlation-id')
+  if (
+    typeof fromResponseCorrelation === 'string' &&
+    fromResponseCorrelation.length > 0
+  ) {
+    return fromResponseCorrelation
+  }
+
   const fromResponse = res?.getHeader('x-request-id')
   if (typeof fromResponse === 'string' && fromResponse.length > 0) {
     return fromResponse
+  }
+
+  const fromHeaderCorrelation = req.get('x-correlation-id')
+  if (fromHeaderCorrelation) {
+    return fromHeaderCorrelation
   }
 
   const fromHeaders = req.get('x-request-id')
@@ -20,7 +33,8 @@ export const getCorrelationId = (req: Request, res?: Response): string => {
     return fromHeaders
   }
 
-  const fromContext = getRequestContext()?.requestId
+  const context = getRequestContext()
+  const fromContext = context?.correlationId || context?.requestId
   if (fromContext) {
     return fromContext
   }
