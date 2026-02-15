@@ -10,6 +10,7 @@ import {
 import { config } from '@/config'
 import logger from '@/lib/logger'
 import { getRedis } from '@/lib/redis'
+import { db } from '@/lib/db'
 
 const CALLBACK_FIELDS = [
   'callbackURL',
@@ -272,6 +273,77 @@ const isMagicLinkSignInRequest = (req: Request) =>
 const isMagicLinkVerifyRequest = (req: Request) =>
   req.method === 'GET' && req.path === '/magic-link/verify'
 
+const isEmailSignUpRequest = (req: Request) =>
+  req.method === 'POST' && req.path === '/sign-up/email'
+
+const isAcceptInvitationRequest = (req: Request) =>
+  req.method === 'POST' && req.path === '/organization/accept-invitation'
+
+const extractInviteIdFromCallbackUrl = (
+  callbackUrl: unknown,
+): string | null => {
+  if (typeof callbackUrl !== 'string' || callbackUrl.trim().length === 0) {
+    return null
+  }
+
+  try {
+    const parsed = new URL(callbackUrl, config.frontendUrl)
+    const fromQuery = parsed.searchParams.get('inviteId')
+    if (fromQuery) {
+      return fromQuery
+    }
+
+    const acceptMatch = parsed.pathname.match(/^\/accept-invitation\/([^/]+)$/)
+    if (acceptMatch?.[1]) {
+      return decodeURIComponent(acceptMatch[1])
+    }
+  } catch {
+    return null
+  }
+
+  return null
+}
+
+const findInvitationById = async (invitationId: string) =>
+  db
+    .selectFrom('invitation')
+    .where('id', '=', invitationId)
+    .select([
+      'id',
+      'email',
+      'status',
+      'expiresAt',
+      'organizationId',
+      'inviterId',
+      'role',
+      'createdAt',
+    ])
+    .executeTakeFirst()
+
+const isExpired = (dateValue: Date | string) =>
+  new Date(dateValue).getTime() <= Date.now()
+
+const getInviteErrorCodeForState = (
+  invitation:
+    | {
+        status: string
+        expiresAt: Date | string
+      }
+    | null
+    | undefined,
+): AuthErrorCode => {
+  if (!invitation) {
+    return AUTH_ERROR_CODES.AUTH_INVITE_INVALID
+  }
+  if (isExpired(invitation.expiresAt)) {
+    return AUTH_ERROR_CODES.AUTH_INVITE_EXPIRED
+  }
+  if (invitation.status !== 'pending') {
+    return AUTH_ERROR_CODES.AUTH_INVITE_REPLAYED
+  }
+  return AUTH_ERROR_CODES.AUTH_INVITE_INVALID
+}
+
 const mapAuthCodeFromMessage = (
   message: string | undefined,
 ): AuthErrorCode | undefined => {
@@ -283,11 +355,23 @@ const mapAuthCodeFromMessage = (
   if (lower.includes('recipient of the invitation')) {
     return AUTH_ERROR_CODES.AUTH_INVITE_EMAIL_MISMATCH
   }
+  if (lower.includes('invitation has expired')) {
+    return AUTH_ERROR_CODES.AUTH_INVITE_EXPIRED
+  }
+  if (lower.includes('already used') || lower.includes('already accepted')) {
+    return AUTH_ERROR_CODES.AUTH_INVITE_REPLAYED
+  }
   if (
     lower.includes('invitation not found') ||
     lower.includes('failed to retrieve invitation')
   ) {
     return AUTH_ERROR_CODES.AUTH_INVITE_INVALID
+  }
+  if (
+    lower.includes('sign up is not enabled') ||
+    lower.includes('signup disabled')
+  ) {
+    return AUTH_ERROR_CODES.AUTH_INVITE_REQUIRED
   }
   if (lower.includes('invalid token')) {
     return AUTH_ERROR_CODES.AUTH_TOKEN_INVALID
@@ -552,6 +636,86 @@ export const enforceMagicLinkReplayProtection: RequestHandler = async (
   next()
 }
 
+export const enforceInviteOnlySignUpAndAcceptance: RequestHandler = async (
+  req,
+  res,
+  next,
+) => {
+  const correlationId = getAuthCorrelationId(req, res)
+
+  if (isEmailSignUpRequest(req)) {
+    const body = (req.body || {}) as Record<string, unknown>
+    const inviteId =
+      extractInviteIdFromCallbackUrl(body.callbackURL) ||
+      extractInviteIdFromCallbackUrl(body.newUserCallbackURL) ||
+      extractInviteIdFromCallbackUrl(body.errorCallbackURL)
+
+    if (!inviteId) {
+      return sendAuthError(
+        res,
+        AUTH_ERROR_CODES.AUTH_INVITE_REQUIRED,
+        correlationId,
+      )
+    }
+
+    const invitation = await findInvitationById(inviteId)
+    if (
+      !invitation ||
+      invitation.status !== 'pending' ||
+      isExpired(invitation.expiresAt)
+    ) {
+      return sendAuthError(
+        res,
+        getInviteErrorCodeForState(invitation),
+        correlationId,
+      )
+    }
+
+    const normalizedEmail = String(body.email || '')
+      .trim()
+      .toLowerCase()
+    if (
+      !normalizedEmail ||
+      normalizedEmail !== invitation.email.toLowerCase()
+    ) {
+      return sendAuthError(
+        res,
+        AUTH_ERROR_CODES.AUTH_INVITE_EMAIL_MISMATCH,
+        correlationId,
+      )
+    }
+  }
+
+  if (isAcceptInvitationRequest(req)) {
+    const invitationId = String(
+      (req.body as { invitationId?: string })?.invitationId || '',
+    ).trim()
+
+    if (!invitationId) {
+      return sendAuthError(
+        res,
+        AUTH_ERROR_CODES.AUTH_INVITE_INVALID,
+        correlationId,
+      )
+    }
+
+    const invitation = await findInvitationById(invitationId)
+    if (
+      !invitation ||
+      invitation.status !== 'pending' ||
+      isExpired(invitation.expiresAt)
+    ) {
+      return sendAuthError(
+        res,
+        getInviteErrorCodeForState(invitation),
+        correlationId,
+      )
+    }
+  }
+
+  next()
+}
+
 export const normalizeAuthErrorResponses: RequestHandler = (req, res, next) => {
   const originalWriteHead = res.writeHead.bind(res)
   const originalWrite = res.write.bind(res)
@@ -653,6 +817,7 @@ export const normalizeAuthErrorResponses: RequestHandler = (req, res, next) => {
 export const authHardeningMiddleware: Array<RequestHandler> = [
   attachAuthCorrelationId,
   validateAuthCallbacks,
+  enforceInviteOnlySignUpAndAcceptance,
   enforceMagicLinkAbuseProtection,
   enforceMagicLinkReplayProtection,
   normalizeAuthRedirectErrors,

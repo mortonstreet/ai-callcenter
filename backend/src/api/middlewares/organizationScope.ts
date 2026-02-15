@@ -49,7 +49,9 @@ export const resolveOrganizationScope = async (
 
   const requestedOrganizationId = resolveRequestedOrganizationId(req)
   const sessionOrganizationId =
-    authReq.session.activeOrganizationId || undefined
+    (authReq.session as any)?.activeOrganizationId ||
+    (authReq.session as any)?.session?.activeOrganizationId ||
+    undefined
 
   if (authReq.user.isAdmin) {
     const adminOrganizationId = requestedOrganizationId || sessionOrganizationId

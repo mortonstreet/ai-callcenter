@@ -146,10 +146,6 @@ export const auth = betterAuth({
     sendResetPassword: async ({ user, url }) => {
       await sendResetPasswordEmail(user.email, url)
     },
-    // Uncomment to enable invite-only signups:
-    // signUp: {
-    //   enabled: false, // Disables direct signup - users must be invited
-    // },
   },
   emailVerification: {
     sendVerificationEmail: async ({ user, url }) => {
@@ -162,10 +158,21 @@ export const auth = betterAuth({
     google: {
       clientId: config.providers.google.clientId,
       clientSecret: config.providers.google.clientSecret,
+      disableSignUp: true,
     },
   },
   plugins: [
     organization({
+      allowUserToCreateOrganization: false,
+      requireEmailVerificationOnInvitation: true,
+      organizationHooks: {
+        afterAcceptInvitation: async (data) => {
+          await updateUserLastActiveOrganizationId(
+            data.user.id,
+            data.organization.id,
+          )
+        },
+      },
       async sendInvitationEmail(data) {
         const inviteLink = buildInvitationLink(data.id, data.email)
         await sendOrganizationInvitation({

@@ -5,8 +5,11 @@ export const AUTH_ERROR_CODES = {
   AUTH_TOKEN_CONSUMED: 'AUTH_TOKEN_CONSUMED',
   AUTH_TOKEN_INVALID: 'AUTH_TOKEN_INVALID',
   AUTH_RATE_LIMITED: 'AUTH_RATE_LIMITED',
+  AUTH_INVITE_REQUIRED: 'AUTH_INVITE_REQUIRED',
   AUTH_INVITE_EMAIL_MISMATCH: 'AUTH_INVITE_EMAIL_MISMATCH',
   AUTH_INVITE_INVALID: 'AUTH_INVITE_INVALID',
+  AUTH_INVITE_EXPIRED: 'AUTH_INVITE_EXPIRED',
+  AUTH_INVITE_REPLAYED: 'AUTH_INVITE_REPLAYED',
   AUTH_CALLBACK_REJECTED: 'AUTH_CALLBACK_REJECTED',
   AUTH_ACTIVE_ORG_INVALID: 'AUTH_ACTIVE_ORG_INVALID',
   AUTH_FAILURE_TRANSIENT: 'AUTH_FAILURE_TRANSIENT',
@@ -45,6 +48,12 @@ const AUTH_ERROR_META: Record<AuthErrorCode, AuthErrorMeta> = {
     userMessage:
       'Too many sign-in attempts. Please wait a moment before trying again.',
   },
+  AUTH_INVITE_REQUIRED: {
+    retryable: false,
+    status: 403,
+    userMessage:
+      'This account must be created from an invitation link. Ask your admin to send one.',
+  },
   AUTH_INVITE_EMAIL_MISMATCH: {
     retryable: false,
     status: 403,
@@ -56,6 +65,18 @@ const AUTH_ERROR_META: Record<AuthErrorCode, AuthErrorMeta> = {
     status: 404,
     userMessage:
       'This invitation is invalid or has expired. Ask your admin to send a new invitation.',
+  },
+  AUTH_INVITE_EXPIRED: {
+    retryable: false,
+    status: 410,
+    userMessage:
+      'This invitation has expired. Ask your admin to send a new invitation.',
+  },
+  AUTH_INVITE_REPLAYED: {
+    retryable: false,
+    status: 409,
+    userMessage:
+      'This invitation was already used. Ask your admin to send a new invitation if needed.',
   },
   AUTH_CALLBACK_REJECTED: {
     retryable: false,
@@ -149,9 +170,15 @@ export const normalizeAuthErrorCode = (
     case 'AUTH_INVITE_EMAIL_MISMATCH':
     case 'YOU_ARE_NOT_THE_RECIPIENT_OF_THE_INVITATION':
       return AUTH_ERROR_CODES.AUTH_INVITE_EMAIL_MISMATCH
+    case 'AUTH_INVITE_REQUIRED':
+      return AUTH_ERROR_CODES.AUTH_INVITE_REQUIRED
     case 'AUTH_INVITE_INVALID':
     case 'INVITATION_NOT_FOUND':
       return AUTH_ERROR_CODES.AUTH_INVITE_INVALID
+    case 'AUTH_INVITE_EXPIRED':
+      return AUTH_ERROR_CODES.AUTH_INVITE_EXPIRED
+    case 'AUTH_INVITE_REPLAYED':
+      return AUTH_ERROR_CODES.AUTH_INVITE_REPLAYED
     case 'AUTH_ACTIVE_ORG_INVALID':
       return AUTH_ERROR_CODES.AUTH_ACTIVE_ORG_INVALID
     case 'AUTH_FAILURE_TRANSIENT':

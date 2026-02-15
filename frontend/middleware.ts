@@ -51,6 +51,21 @@ function hasSessionCookie(request: NextRequest): boolean {
   });
 }
 
+function hasInvitationContext(request: NextRequest): boolean {
+  const { pathname, searchParams } = request.nextUrl;
+  const inviteId = searchParams.get('inviteId');
+  if (inviteId && inviteId.trim().length > 0) {
+    return true;
+  }
+
+  if (pathname.startsWith('/accept-invitation/')) {
+    const [, first, second] = pathname.split('/');
+    return first === 'accept-invitation' && !!second;
+  }
+
+  return false;
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const host = request.headers.get('host') || '';
@@ -85,6 +100,11 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL(`https://${mainDomain}${pathname}`, request.url));
     }
 
+    // Invite-only signup: block open signup page access
+    if (pathname.startsWith('/signup') && !hasInvitationContext(request)) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+
     // Dashboard routes - require authentication
     if (pathname.startsWith('/dashboard')) {
       if (!isAuthenticated) {
@@ -99,8 +119,17 @@ export function middleware(request: NextRequest) {
       // Exception: allow accept-invitation and verify with invitation
       const isAcceptInvitation = pathname.startsWith('/accept-invitation');
       const hasInviteParam = request.nextUrl.searchParams.has('inviteId');
+      const isSignup = pathname.startsWith('/signup');
 
-      if (!isAcceptInvitation && !(pathname.startsWith('/verify') && hasInviteParam)) {
+      if (
+        !isAcceptInvitation &&
+        !isSignup &&
+        !(pathname.startsWith('/verify') && hasInviteParam)
+      ) {
+        return NextResponse.redirect(new URL('/dashboard', request.url));
+      }
+
+      if (isSignup) {
         return NextResponse.redirect(new URL('/dashboard', request.url));
       }
     }
@@ -116,7 +145,9 @@ export function middleware(request: NextRequest) {
         // In local dev, just let it through since we can't easily switch subdomains
         return NextResponse.next();
       }
-      return NextResponse.redirect(new URL(`https://${appHost}${pathname}`, request.url));
+      return NextResponse.redirect(
+        new URL(`https://${appHost}${pathname}${request.nextUrl.search}`, request.url),
+      );
     }
   }
 

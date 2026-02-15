@@ -181,13 +181,19 @@ function LoginContent() {
 
             {/* Sign up link */}
             <p className="mt-8 text-center text-sm text-gray-600">
-              Don&apos;t have an account?{" "}
-              <Link
-                href={inviteId ? `/signup?inviteId=${inviteId}` : "/signup"}
-                className="font-medium text-[#1b191a] hover:underline"
-              >
-                Create one
-              </Link>
+              {inviteId ? (
+                <>
+                  Don&apos;t have an account?{" "}
+                  <Link
+                    href={`/signup?inviteId=${inviteId}`}
+                    className="font-medium text-[#1b191a] hover:underline"
+                  >
+                    Create one
+                  </Link>
+                </>
+              ) : (
+                "Need access? Ask your admin to send an invitation."
+              )}
             </p>
           </div>
         </div>

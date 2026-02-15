@@ -6,6 +6,13 @@ import { toast } from "sonner";
 import AuthCard from "@/components/AuthCard";
 import Button from "@/components/ui/Button";
 
+type AuthErrorResponse = {
+  code?: string;
+  message?: string;
+  userMessage?: string;
+  error?: string | { message?: string };
+};
+
 export default function AcceptInvitationPage() {
   return (
     <Suspense>
@@ -30,11 +37,17 @@ function AcceptInvitationContent() {
     // If still loading, do nothing
     if (isPending) return;
 
+    if (!invitationId) {
+      toast.error("Invalid invitation link");
+      router.replace("/login");
+      return;
+    }
+
     // If not logged in, redirect to login with invitation token
     if (!session) {
       setRedirecting(true);
-      const loginUrl = `/signup?inviteId=${invitationId}&email=${email}&redirect=${encodeURIComponent(`/accept-invitation/${invitationId}`)}`;
-      router.push(loginUrl);
+      const loginUrl = `/login?inviteId=${invitationId}&email=${encodeURIComponent(email || "")}&redirect=${encodeURIComponent(`/accept-invitation/${invitationId}`)}`;
+      router.replace(loginUrl);
     }
   }, [session, isPending, invitationId, router, email]);
 
@@ -62,10 +75,27 @@ function AcceptInvitationContent() {
         }
       );
 
-      const result = await response.json();
+      const result = (await response.json()) as AuthErrorResponse;
 
-      if (result.error) {
-        toast.error(result.error.message || "Failed to accept invitation");
+      if (!response.ok || result.error || result.code) {
+        const rawErrorCode =
+          typeof result.error === "string" ? result.error : undefined;
+        const code = result.code || rawErrorCode;
+        const message =
+          result.userMessage ||
+          (typeof result.error === "object" ? result.error?.message : undefined) ||
+          result.message ||
+          "Failed to accept invitation";
+
+        if (code === "AUTH_INVITE_REPLAYED") {
+          toast.info("This invitation was already used. Redirecting to dashboard.");
+          setTimeout(() => {
+            router.push("/dashboard");
+          }, 1200);
+          return;
+        }
+
+        toast.error(message);
       } else {
         setInvitationAccepted(true);
         toast.success("Invitation accepted successfully!");
@@ -93,7 +123,7 @@ function AcceptInvitationContent() {
   if (!session || redirecting) {
     return (
       <div className="min-h-screen grid place-items-center p-6">
-        <div className="text-gray-500">Redirecting to login...</div>
+        <div className="text-gray-500">Redirecting...</div>
       </div>
     );
   }
@@ -150,4 +180,3 @@ function AcceptInvitationContent() {
     </div>
   );
 }
-

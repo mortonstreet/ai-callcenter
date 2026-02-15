@@ -3,7 +3,7 @@
 import Sidebar from "@/components/dashboard/Sidebar";
 import { useSession, signOut } from "@/lib/auth-client";
 import { useRouter, usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   useOrganizations,
@@ -19,6 +19,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { DialerProvider } from "@/components/providers/DialerProvider";
 import { GlobalIncomingCallBanner } from "@/components/dialer/GlobalIncomingCallBanner";
+import {
+  buildLifecycleSnapshotFromOrganization,
+  evaluateDashboardLifecycleGate,
+} from "@/lib/lifecycle-gates";
 
 // Map route paths to page names
 const PAGE_NAMES: Record<string, string> = {
@@ -64,6 +68,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     : organizations?.data || [];
 
   const isLoadingOrgData = isLoadingOrgs || activeOrganization?.isPending;
+  const lifecycleSnapshot = useMemo(
+    () => buildLifecycleSnapshotFromOrganization(activeOrganization?.data || null),
+    [activeOrganization?.data],
+  );
 
   useEffect(() => {
     if (!isPending && !session) {
@@ -73,13 +81,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [session, isPending, router]);
 
   useEffect(() => {
-    if (isPending || !session || isLoadingOrgData) return;
-    if (isAdmin) return;
-    if (activeOrganization?.data?.id) return;
-    if (organizations?.data?.length === 0) {
-      router.push("/onboarding");
+    if (isPending || !session || isLoadingOrgData || isAdmin) return;
+    const decision = evaluateDashboardLifecycleGate(pathname, lifecycleSnapshot);
+    if (!decision.allowed && decision.redirectTo && pathname !== decision.redirectTo) {
+      router.push(decision.redirectTo);
     }
-  }, [isPending, session, isLoadingOrgData, organizations?.data?.length, activeOrganization?.data?.id, isAdmin, router]);
+  }, [isPending, session, isLoadingOrgData, isAdmin, pathname, lifecycleSnapshot, router]);
 
   // Close dropdown on outside click
   useEffect(() => {
