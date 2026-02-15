@@ -219,5 +219,5 @@ Wave execution policy:
 | S07 | `feature/api-contracts-and-route-map` | pending | pending | open |
 | S08 | `feature/operations-security-and-observability` | pending | pending | open |
 | S09 | `feature/launch-readiness-and-go-live` | pending | pending | open |
-| S10 | `feature/implementation-roadmap` | pending | pending | in-progress (branch created locally) |
+| S10 | `feature/implementation-roadmap` | `26ca842` | pending (push branch, open PR) | commit logged (local) |
 | S11 | `feature/omnidial-reuse-migration-map` | pending | pending | open |
