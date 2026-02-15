@@ -9,7 +9,7 @@ import {
 } from '@/repositories/agent.repository'
 import { getAgentTemplate } from '@/utils/agent-templates'
 import { formatToSlug } from '@/utils'
-import { AgentExternalType } from '@shared/types/src'
+import { AgentExternalType, AgentHealthResponse } from '@shared/types/src'
 import logger from '@/lib/logger'
 
 // Voice cache
@@ -256,7 +256,10 @@ export async function deleteElevenLabsAgent(
     await client.deleteAgent(agent.externalId)
     logger.info(`Deleted ElevenLabs agent: ${agent.externalId}`)
   } catch (error) {
-    logger.error(`Failed to delete ElevenLabs agent: ${agent.externalId}`, error)
+    logger.error(
+      `Failed to delete ElevenLabs agent: ${agent.externalId}`,
+      error,
+    )
     // Continue to delete local record even if ElevenLabs delete fails
   }
 
@@ -296,7 +299,12 @@ export async function getAgentAnalytics(
   const agent = await findById(agentId, organizationId)
 
   const [aggregates, timeSeries] = await Promise.all([
-    getRecordingAggregates(organizationId, agent.externalId, startDate, endDate),
+    getRecordingAggregates(
+      organizationId,
+      agent.externalId,
+      startDate,
+      endDate,
+    ),
     getRecordingTimeSeries(organizationId, startDate, endDate, granularity),
   ])
 
@@ -320,4 +328,76 @@ export async function getAgentConversations(
   )
 
   return conversations
+}
+
+export async function getAgentHealth(
+  agentId: string,
+  organizationId: string,
+): Promise<AgentHealthResponse> {
+  const agent = await findById(agentId, organizationId)
+
+  const checkedAt = new Date().toISOString()
+  if (agent.externalType === AgentExternalType.LOCAL_FALLBACK) {
+    return {
+      agentId: agent.id,
+      organizationId: agent.organizationId,
+      status: 'degraded',
+      degradedMode: {
+        enabled: true,
+        reason: 'local_fallback_agent',
+      },
+      checks: {
+        provider: {
+          status: 'degraded',
+          provider: AgentExternalType.ELEVEN_LABS,
+          checkedAt,
+          message: 'Agent is in local fallback mode and not provider-backed.',
+        },
+      },
+    }
+  }
+
+  try {
+    const client = getElevenLabsClient()
+    await client.getAgent(agent.externalId)
+    return {
+      agentId: agent.id,
+      organizationId: agent.organizationId,
+      status: 'healthy',
+      degradedMode: {
+        enabled: false,
+        reason: null,
+      },
+      checks: {
+        provider: {
+          status: 'ok',
+          provider: AgentExternalType.ELEVEN_LABS,
+          checkedAt,
+          message: 'Provider health check succeeded.',
+        },
+      },
+    }
+  } catch (error) {
+    logger.warn(
+      { error, agentId: agent.id },
+      'Agent provider health check failed',
+    )
+    return {
+      agentId: agent.id,
+      organizationId: agent.organizationId,
+      status: 'degraded',
+      degradedMode: {
+        enabled: true,
+        reason: 'provider_unavailable',
+      },
+      checks: {
+        provider: {
+          status: 'degraded',
+          provider: AgentExternalType.ELEVEN_LABS,
+          checkedAt,
+          message: 'Provider health check failed.',
+        },
+      },
+    }
+  }
 }

@@ -7,6 +7,7 @@ import {
 import { RequestHandler } from 'express'
 import { setRequestContext } from '@/lib/context'
 import { DBUser } from '@shared/types/src'
+import { sendApiError } from '../utils/error-contract'
 
 export const validatedRoute = <T>(
   handler: ValidatedRequestHandler<T>,
@@ -22,7 +23,11 @@ export const authenticatedRoute = <T>(
   return (req, res, next) => {
     // At this point, we assume withAuth has already run and attached user
     if (!req.user) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return sendApiError(req, res, 401, {
+        code: 'AUTH_UNAUTHORIZED',
+        message: 'Unauthorized',
+        userMessage: 'Please sign in and retry.',
+      })
     }
     setRequestContext('userId', (req.user as any).id)
     return handler(req as AuthRequest<T>, res, next)
@@ -34,7 +39,11 @@ export const adminOnlyRoute = <T>(
 ): RequestHandler => {
   return authenticatedRoute<T>(async (req, res, next) => {
     if (!(req.user as DBUser).isAdmin) {
-      return res.status(403).json({ error: 'Forbidden' })
+      return sendApiError(req, res, 403, {
+        code: 'AUTH_FORBIDDEN',
+        message: 'Forbidden',
+        userMessage: 'Admin access is required for this action.',
+      })
     }
     return handler(req, res, next)
   })

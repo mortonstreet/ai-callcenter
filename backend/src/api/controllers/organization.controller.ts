@@ -31,8 +31,16 @@ type OrgOnboardingRequest = z.infer<typeof OrganizationOnboardingSchema>
 export const onboardOrganization: AuthRequestHandler<
   OrgOnboardingRequest
 > = async (req, res) => {
-  const { name, domain, industry, services, useCase, website, mainGoal, agent } =
-    req.validated
+  const {
+    name,
+    domain,
+    industry,
+    services,
+    useCase,
+    website,
+    mainGoal,
+    agent,
+  } = req.validated
   const now = new Date()
 
   // Create organization with metadata captured from onboarding
@@ -84,7 +92,10 @@ export const onboardOrganization: AuthRequestHandler<
       services,
     })
   } catch (error) {
-    logger.error('Failed to create ElevenLabs agent during onboarding, creating local-only agent:', error)
+    logger.error(
+      'Failed to create ElevenLabs agent during onboarding, creating local-only agent:',
+      error,
+    )
     // Fallback: create local agent without ElevenLabs
     const { createAgent: createAgentRepo } = await import(
       '@/repositories/agent.repository'
@@ -96,7 +107,7 @@ export const onboardOrganization: AuthRequestHandler<
       phoneNumber: '+15555550123',
       redirectNumber: '+15555550123',
       externalId: organization.id,
-      externalType: AgentExternalType.ELEVEN_LABS,
+      externalType: AgentExternalType.LOCAL_FALLBACK,
       industry: industry || null,
       useCase: useCase || null,
       website: website || null,
@@ -109,7 +120,17 @@ export const onboardOrganization: AuthRequestHandler<
   res.json({
     data: {
       organization,
-      agent: createdAgent,
+      agent: {
+        ...createdAgent,
+        degradedMode: {
+          enabled:
+            createdAgent.externalType === AgentExternalType.LOCAL_FALLBACK,
+          reason:
+            createdAgent.externalType === AgentExternalType.LOCAL_FALLBACK
+              ? 'local_fallback_agent'
+              : null,
+        },
+      },
     },
   })
 }

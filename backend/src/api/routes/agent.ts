@@ -18,6 +18,7 @@ import {
   GetAgentConfigSchema,
   GetAgentAnalyticsSchema,
   GetAgentConversationsSchema,
+  GetAgentHealthSchema,
 } from '@shared/types/src'
 import { z } from 'zod'
 import { authenticatedRoute, validatedRoute } from './utils'
@@ -39,6 +40,7 @@ import {
   listVoices,
   getAgentAnalytics,
   getAgentConversations,
+  getAgentHealth,
 } from '@/api/controllers/agent.controller'
 import {
   validateMemberOfOrganizationOrAdmin,
@@ -69,10 +71,7 @@ const router = Router()
 router.use(withBetterAuth)
 
 // ===== Voices (no org required) =====
-router.get(
-  '/voices',
-  authenticatedRoute(listVoices),
-)
+router.get('/voices', authenticatedRoute(listVoices))
 
 // ===== Agent CRUD =====
 router.get(
@@ -158,6 +157,13 @@ router.get(
     OrganizationRole.OWNER,
   ]),
   authenticatedRoute(getAgentConversations),
+)
+
+router.get(
+  '/:organizationId/:id/health',
+  validateAndMerge(GetAgentHealthSchema),
+  validateMemberOfOrganizationOrAdmin,
+  authenticatedRoute(getAgentHealth),
 )
 
 // ===== Task (Service) CRUD =====

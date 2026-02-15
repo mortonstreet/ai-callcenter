@@ -4,6 +4,7 @@ import logger from '@/lib/logger'
 import { ZodError } from 'zod'
 import { StatusCodes } from 'http-status-codes'
 import { config } from '@/config'
+import { getCorrelationId } from '../utils/error-contract'
 
 interface ErrorWithStatus extends Error {
   status?: number
@@ -60,10 +61,19 @@ export const errorHandler = (
   // Send response
   const isValidationError = err instanceof ZodError
   const isProd = config.nodeEnv === 'production'
+  const correlationId = getCorrelationId(req, res)
+  const code = isValidationError
+    ? 'VALIDATION_FAILED'
+    : statusCode >= 500
+      ? 'INTERNAL_SERVER_ERROR'
+      : err.name || 'REQUEST_FAILED'
 
   res.status(statusCode).json({
     status: 'error',
+    error: code,
+    code,
     message: isValidationError ? 'Validation failed' : err.message,
+    correlationId,
     ...(isValidationError ? { details: err.issues } : {}),
     ...(!isProd && !isValidationError ? { stack: err.stack } : {}),
   })

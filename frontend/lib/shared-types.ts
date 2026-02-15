@@ -8,6 +8,7 @@
 // =============================================================================
 export const AgentExternalType = {
   ELEVEN_LABS: 'eleven_labs',
+  LOCAL_FALLBACK: 'local_fallback',
 } as const;
 export type AgentExternalType = (typeof AgentExternalType)[keyof typeof AgentExternalType];
 

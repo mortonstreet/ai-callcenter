@@ -12,6 +12,7 @@ import { AuthRequest } from '@/types/handlers'
 import { findMember } from '@/repositories/organization.repository'
 import { OrganizationRole, AgentExternalType } from '@shared/types/src'
 import { findAgentByExternalId } from '@/repositories/agent.repository'
+import { sendApiError } from '../utils/error-contract'
 
 // Helper to find provider by slug from env config
 const findProviderBySlug = (slug: string): McpProvider | undefined => {
@@ -65,7 +66,12 @@ export const withApiKeyAuth = (
   const apiKey = req.headers.authorization
   if (!apiKey || apiKey !== config.webhookApiKey) {
     logger.error('Unauthorized request')
-    return res.status(401).json({ error: 'Unauthorized' })
+    return sendApiError(req, res, 401, {
+      code: 'AUTH_UNAUTHORIZED',
+      message: 'Unauthorized',
+      userMessage: 'Authentication failed.',
+      retryable: false,
+    })
   }
   next()
 }
@@ -80,7 +86,12 @@ export const withBetterAuth = async (
   })
 
   if (!session) {
-    return res.status(401).json({ error: 'Unauthorized' })
+    return sendApiError(req, res, 401, {
+      code: 'AUTH_UNAUTHORIZED',
+      message: 'Unauthorized',
+      userMessage: 'Please sign in and retry.',
+      retryable: false,
+    })
   }
 
   // attach to req so handlers can use it
@@ -97,7 +108,12 @@ export const validateIsAdmin = async (
 ) => {
   const authReq = req as AuthRequest<unknown>
   if (!authReq.user?.isAdmin) {
-    return res.status(403).json({ error: 'Admin access required' })
+    return sendApiError(req, res, 403, {
+      code: 'AUTH_FORBIDDEN',
+      message: 'Admin access required',
+      userMessage: 'Admin access is required for this action.',
+      retryable: false,
+    })
   }
   next()
 }
@@ -111,7 +127,12 @@ export const validateMemberOfOrganization = async (
   const { organizationId } = req.validated
   const isMember = await isMemberOfOrganization(authReq.user.id, organizationId)
   if (!isMember) {
-    return res.status(401).json({ error: 'Unauthorized' })
+    return sendApiError(req, res, 401, {
+      code: 'ORG_UNAUTHORIZED',
+      message: 'Unauthorized',
+      userMessage: 'You do not have access to this organization.',
+      retryable: false,
+    })
   }
   next()
 }
@@ -125,7 +146,12 @@ export const validateMemberOfOrganizationOrAdmin = async (
   const { organizationId } = req.validated
   const isMember = await isMemberOfOrganization(authReq.user.id, organizationId)
   if (!isMember && !authReq.user.isAdmin) {
-    return res.status(401).json({ error: 'Unauthorized' })
+    return sendApiError(req, res, 401, {
+      code: 'ORG_UNAUTHORIZED',
+      message: 'Unauthorized',
+      userMessage: 'You do not have access to this organization.',
+      retryable: false,
+    })
   }
   next()
 }
@@ -137,7 +163,12 @@ export const validateMemberOfOrganizationIs =
     const { organizationId } = req.validated
     const member = await findMember(organizationId, authReq.user.id)
     if (!member || !roles.includes(member.role as OrganizationRole)) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return sendApiError(req, res, 401, {
+        code: 'ORG_ROLE_UNAUTHORIZED',
+        message: 'Unauthorized',
+        userMessage: 'You do not have the required role for this organization.',
+        retryable: false,
+      })
     }
     next()
   }
@@ -152,7 +183,12 @@ export const validateMemberOfOrganizationIsOrAdmin =
       (!member || !roles.includes(member.role as OrganizationRole)) &&
       !authReq.user.isAdmin
     ) {
-      return res.status(401).json({ error: 'Unauthorized' })
+      return sendApiError(req, res, 401, {
+        code: 'ORG_ROLE_UNAUTHORIZED',
+        message: 'Unauthorized',
+        userMessage: 'You do not have the required role for this organization.',
+        retryable: false,
+      })
     }
     next()
   }

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express'
 import { z, ZodError } from 'zod'
 import { StatusCodes } from 'http-status-codes'
+import { sendApiError } from '../utils/error-contract'
 
 export const validateAndMerge = (schema: z.ZodSchema) => {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -21,8 +22,10 @@ export const validateAndMerge = (schema: z.ZodSchema) => {
           'Validation errors:',
           JSON.stringify(error.issues, null, 2),
         )
-        return res.status(StatusCodes.BAD_REQUEST).json({
-          error: 'Validation failed',
+        return sendApiError(req, res, StatusCodes.BAD_REQUEST, {
+          code: 'VALIDATION_FAILED',
+          message: 'Validation failed',
+          userMessage: 'Request validation failed.',
           details: error.issues,
         })
       }

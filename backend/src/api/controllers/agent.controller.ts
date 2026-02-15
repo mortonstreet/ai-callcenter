@@ -14,6 +14,8 @@ import {
   GetAgentConfigRequest,
   GetAgentAnalyticsRequest,
   GetAgentConversationsRequest,
+  GetAgentHealthRequest,
+  AgentDegradedModeMetadata,
 } from '@shared/types/src'
 import {
   findAllByOrganizationId,
@@ -37,6 +39,7 @@ import {
   getVoices as getVoicesService,
   getAgentAnalytics as getAgentAnalyticsService,
   getAgentConversations as getAgentConversationsService,
+  getAgentHealth as getAgentHealthService,
 } from '@/services/agent.service'
 import { formatTaskFields } from '@/utils/task'
 import logger from '@/lib/logger'
@@ -115,13 +118,35 @@ const classifyCallQuality = (
   }
 }
 
+const getAgentDegradedModeMetadata = (agent: {
+  externalType: string
+}): AgentDegradedModeMetadata => {
+  if (agent.externalType === AgentExternalType.LOCAL_FALLBACK) {
+    return {
+      enabled: true,
+      reason: 'local_fallback_agent',
+    }
+  }
+  return {
+    enabled: false,
+    reason: null,
+  }
+}
+
+const withAgentContractMetadata = <T extends { externalType: string }>(
+  agent: T,
+) => ({
+  ...agent,
+  degradedMode: getAgentDegradedModeMetadata(agent),
+})
+
 export const getAgents: AuthRequestHandler<GetAgentsRequest> = async (
   req,
   res,
 ) => {
   const { organizationId } = req.validated
   const agents = await findAllByOrganizationId(organizationId)
-  res.json(agents)
+  res.json(agents.map((agent) => withAgentContractMetadata(agent)))
 }
 
 export const getAgent: AuthRequestHandler<GetAgentRequest> = async (
@@ -130,7 +155,7 @@ export const getAgent: AuthRequestHandler<GetAgentRequest> = async (
 ) => {
   const { id, organizationId } = req.validated
   const agent = await findAgentById(id, organizationId)
-  res.json(agent)
+  res.json(withAgentContractMetadata(agent))
 }
 
 export const createTask: AuthRequestHandler<CreateTaskRequest> = async (
@@ -379,8 +404,17 @@ export const getAgentMcpConfig: AuthRequestHandler<{
 export const createElevenLabsAgent: AuthRequestHandler<
   CreateElevenLabsAgentRequest
 > = async (req, res) => {
-  const { organizationId, name, industry, useCase, website, mainGoal, voiceId, firstMessage, systemPrompt } =
-    req.validated
+  const {
+    organizationId,
+    name,
+    industry,
+    useCase,
+    website,
+    mainGoal,
+    voiceId,
+    firstMessage,
+    systemPrompt,
+  } = req.validated
 
   try {
     // Get org name for template interpolation
@@ -397,7 +431,7 @@ export const createElevenLabsAgent: AuthRequestHandler<
       systemPrompt,
     })
 
-    res.json(agent)
+    res.json(withAgentContractMetadata(agent))
   } catch (error) {
     logger.error('Failed to create ElevenLabs agent:', error)
     res.status(500).json({ error: 'Failed to create agent' })
@@ -410,8 +444,12 @@ export const updateElevenLabsAgent: AuthRequestHandler<
   const { id, organizationId, ...updates } = req.validated
 
   try {
-    const agent = await updateElevenLabsAgentService(id, organizationId, updates)
-    res.json(agent)
+    const agent = await updateElevenLabsAgentService(
+      id,
+      organizationId,
+      updates,
+    )
+    res.json(withAgentContractMetadata(agent))
   } catch (error) {
     logger.error('Failed to update ElevenLabs agent:', error)
     res.status(500).json({ error: 'Failed to update agent' })
@@ -424,8 +462,12 @@ export const ownerUpdateAgent: AuthRequestHandler<
   const { id, organizationId, ...updates } = req.validated
 
   try {
-    const agent = await updateElevenLabsAgentService(id, organizationId, updates)
-    res.json(agent)
+    const agent = await updateElevenLabsAgentService(
+      id,
+      organizationId,
+      updates,
+    )
+    res.json(withAgentContractMetadata(agent))
   } catch (error) {
     logger.error('Failed to update agent (owner):', error)
     res.status(500).json({ error: 'Failed to update agent' })
@@ -446,9 +488,10 @@ export const deleteElevenLabsAgent: AuthRequestHandler<
   }
 }
 
-export const getAgentConfig: AuthRequestHandler<
-  GetAgentConfigRequest
-> = async (req, res) => {
+export const getAgentConfig: AuthRequestHandler<GetAgentConfigRequest> = async (
+  req,
+  res,
+) => {
   const { id, organizationId } = req.validated
 
   try {
@@ -509,6 +552,21 @@ export const getAgentConversations: AuthRequestHandler<
   } catch (error) {
     logger.error('Failed to get agent conversations:', error)
     res.status(500).json({ error: 'Failed to get conversations' })
+  }
+}
+
+export const getAgentHealth: AuthRequestHandler<GetAgentHealthRequest> = async (
+  req,
+  res,
+) => {
+  const { id, organizationId } = req.validated
+
+  try {
+    const health = await getAgentHealthService(id, organizationId)
+    return res.json(health)
+  } catch (error) {
+    logger.error('Failed to get agent health:', error)
+    return res.status(500).json({ error: 'Failed to get agent health' })
   }
 }
 

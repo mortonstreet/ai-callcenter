@@ -217,6 +217,11 @@ export const GetAgentConversationsSchema = z.object({
   pageSize: z.coerce.number().optional().default(50),
 })
 
+export const GetAgentHealthSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+})
+
 export type GetAgentsRequest = z.infer<typeof GetAgentsRequestSchema>
 export type GetAgentRequest = z.infer<typeof GetAgentRequestSchema>
 export type AgentWebhookRequest = z.infer<typeof AgentWebhookSchema>
@@ -228,4 +233,24 @@ export type DeleteElevenLabsAgentRequest = z.infer<typeof DeleteElevenLabsAgentS
 export type GetAgentConfigRequest = z.infer<typeof GetAgentConfigSchema>
 export type GetAgentAnalyticsRequest = z.infer<typeof GetAgentAnalyticsSchema>
 export type GetAgentConversationsRequest = z.infer<typeof GetAgentConversationsSchema>
+export type GetAgentHealthRequest = z.infer<typeof GetAgentHealthSchema>
 
+export interface AgentDegradedModeMetadata {
+  enabled: boolean
+  reason: 'local_fallback_agent' | 'provider_unavailable' | null
+}
+
+export interface AgentHealthResponse {
+  agentId: string
+  organizationId: string
+  status: 'healthy' | 'degraded'
+  degradedMode: AgentDegradedModeMetadata
+  checks: {
+    provider: {
+      status: 'ok' | 'degraded'
+      provider: string
+      checkedAt: string
+      message: string
+    }
+  }
+}
