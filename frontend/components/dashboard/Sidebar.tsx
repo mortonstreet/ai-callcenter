@@ -4,7 +4,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, Users, Video, Settings, LayoutDashboard, Calendar, Kanban, Headphones, Shield, Menu, X } from "lucide-react";
+import { Bot, Users, Video, Settings, LayoutDashboard, Calendar, Kanban, Headphones, Shield, Menu, X, Megaphone } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { DBUser } from "@/lib/shared-types";
 
@@ -13,6 +13,7 @@ const nav = [
   { href: "/dashboard/admin/call-center", label: "Call Center", icon: Headphones },
   { href: "/dashboard/agents", label: "Agents", icon: Bot },
   { href: "/dashboard/leads", label: "Leads", icon: Users },
+  { href: "/dashboard/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/dashboard/schedule", label: "Schedule", icon: Calendar },
   { href: "/dashboard/pipeline", label: "Pipeline", icon: Kanban },
   { href: "/dashboard/recordings", label: "Recordings", icon: Video },

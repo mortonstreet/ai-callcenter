@@ -20,6 +20,19 @@ export type Account = {
   createdAt: Generated<Timestamp>
   updatedAt: Timestamp
 }
+export type AdminAuditLog = {
+  id: string
+  organizationId: string | null
+  actorUserId: string | null
+  action: string
+  resourceType: string
+  resourceId: string | null
+  before: unknown | null
+  after: unknown | null
+  ipAddress: string | null
+  userAgent: string | null
+  createdAt: Generated<Timestamp>
+}
 export type Agent = {
   id: string
   name: string
@@ -37,9 +50,69 @@ export type Agent = {
   mainGoal: string | null
   voiceId: string | null
   status: Generated<string>
+  syncPending: Generated<boolean>
+  lastSyncAt: Timestamp | null
+  lastSyncError: string | null
+  providerCorrelationKey: string | null
   mcpApiKey: string | null
   webhookSecret: string | null
   mcpEndpointUrl: string | null
+}
+export type AgentEmailConfig = {
+  id: string
+  agentId: string
+  organizationId: string
+  provider: string
+  fromEmail: string | null
+  fromName: string | null
+  replyToEmail: string | null
+  accessToken: string | null
+  refreshToken: string | null
+  tokenExpiresAt: Timestamp | null
+  smtpHost: string | null
+  smtpPort: number | null
+  smtpSecure: boolean | null
+  smtpUsername: string | null
+  smtpPassword: string | null
+  isEnabled: Generated<boolean>
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
+}
+export type AgentMessage = {
+  id: string
+  organizationId: string
+  agentId: string
+  leadId: string | null
+  campaignId: string | null
+  emailConfigId: string | null
+  messageType: Generated<string>
+  direction: Generated<string>
+  status: Generated<string>
+  subject: string | null
+  body: string
+  providerMessageId: string | null
+  threadId: string | null
+  metadata: unknown | null
+  queuedAt: Generated<Timestamp>
+  sentAt: Timestamp | null
+  deliveredAt: Timestamp | null
+  openedAt: Timestamp | null
+  clickedAt: Timestamp | null
+  failedAt: Timestamp | null
+  errorMessage: string | null
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
+}
+export type AgentWorkflow = {
+  id: string
+  agentId: string
+  organizationId: string
+  name: string
+  status: Generated<string>
+  definition: unknown | null
+  isDefault: Generated<boolean>
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
 }
 export type CallDisposition = {
   id: string
@@ -71,9 +144,138 @@ export type CallLog = {
   createdAt: Generated<Timestamp>
   updatedAt: Timestamp
 }
+export type Campaign = {
+  id: string
+  organizationId: string
+  name: string
+  description: string | null
+  channel: Generated<string>
+  status: Generated<string>
+  startAt: Timestamp | null
+  endAt: Timestamp | null
+  launchedAt: Timestamp | null
+  archivedAt: Timestamp | null
+  createdByUserId: string | null
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
+}
+export type CampaignLead = {
+  id: string
+  campaignId: string
+  leadId: string
+  organizationId: string
+  status: Generated<string>
+  enrolledAt: Generated<Timestamp>
+  completedAt: Timestamp | null
+  lastActivityAt: Timestamp | null
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
+}
+export type CampaignList = {
+  id: string
+  campaignId: string
+  listId: string
+  organizationId: string
+  source: string | null
+  filter: unknown | null
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
+}
+export type CampaignOrchestration = {
+  id: string
+  campaignId: string
+  organizationId: string
+  status: Generated<string>
+  version: Generated<number>
+  state: unknown | null
+  activatedAt: Timestamp | null
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
+}
+export type CampaignUser = {
+  id: string
+  campaignId: string
+  userId: string
+  organizationId: string
+  role: Generated<string>
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
+}
+export type ErrorLog = {
+  id: string
+  organizationId: string | null
+  source: string
+  severity: Generated<string>
+  code: string | null
+  message: string
+  context: unknown | null
+  resolvedAt: Timestamp | null
+  resolvedByUserId: string | null
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
+}
 export type Example = {
   id: string
   name: string
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
+}
+export type Integration = {
+  id: string
+  organizationId: string
+  provider: string
+  status: Generated<string>
+  displayName: string | null
+  config: unknown | null
+  accessToken: string | null
+  refreshToken: string | null
+  tokenExpiresAt: Timestamp | null
+  scopes: string | null
+  externalAccountId: string | null
+  lastSyncAt: Timestamp | null
+  lastSyncStatus: string | null
+  lastSyncMessage: string | null
+  createdByUserId: string | null
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
+}
+export type IntegrationSyncJob = {
+  id: string
+  integrationId: string
+  organizationId: string
+  provider: string
+  jobType: Generated<string>
+  status: Generated<string>
+  startedAt: Timestamp | null
+  completedAt: Timestamp | null
+  lastCursor: string | null
+  recordsSynced: Generated<number>
+  errorMessage: string | null
+  payload: unknown | null
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
+}
+export type IntegrationSyncLog = {
+  id: string
+  integrationId: string
+  syncJobId: string | null
+  organizationId: string
+  level: Generated<string>
+  message: string
+  metadata: unknown | null
+  createdAt: Generated<Timestamp>
+}
+export type IntegrationWebhookEvent = {
+  id: string
+  integrationId: string | null
+  organizationId: string
+  provider: string
+  eventId: string
+  eventType: string | null
+  payload: unknown
+  status: Generated<string>
+  processedAt: Timestamp | null
+  errorMessage: string | null
   createdAt: Generated<Timestamp>
   updatedAt: Timestamp
 }
@@ -155,6 +357,70 @@ export type Session = {
   userAgent: string | null
   userId: string
   activeOrganizationId: string | null
+}
+export type SmsCampaign = {
+  id: string
+  campaignId: string
+  organizationId: string
+  name: string
+  status: Generated<string>
+  fromNumber: string | null
+  timezone: string | null
+  sendWindowStart: string | null
+  sendWindowEnd: string | null
+  dailySendLimit: number | null
+  createdByUserId: string | null
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
+}
+export type SmsCampaignEnrollment = {
+  id: string
+  campaignId: string
+  leadId: string
+  status: Generated<string>
+  currentStepNumber: Generated<number>
+  nextSendAt: Timestamp | null
+  lastMessageAt: Timestamp | null
+  completedAt: Timestamp | null
+  errorMessage: string | null
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
+}
+export type SmsCampaignList = {
+  id: string
+  campaignId: string
+  listId: string
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
+}
+export type SmsCampaignMessage = {
+  id: string
+  campaignId: string
+  enrollmentId: string
+  leadId: string
+  stepNumber: number
+  direction: Generated<string>
+  status: Generated<string>
+  body: string
+  twilioMessageSid: string | null
+  providerMessageId: string | null
+  errorMessage: string | null
+  queuedAt: Generated<Timestamp>
+  sentAt: Timestamp | null
+  deliveredAt: Timestamp | null
+  failedAt: Timestamp | null
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
+}
+export type SmsCampaignStep = {
+  id: string
+  campaignId: string
+  stepNumber: number
+  delayMinutes: Generated<number>
+  messageTemplate: string
+  isActive: Generated<boolean>
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
 }
 export type Subscription = {
   id: string
@@ -244,10 +510,24 @@ export type Verification = {
 }
 export type DB = {
   account: Account
+  admin_audit_log: AdminAuditLog
   agent: Agent
+  agent_email_config: AgentEmailConfig
+  agent_message: AgentMessage
+  agent_workflow: AgentWorkflow
   call_disposition: CallDisposition
   call_log: CallLog
+  campaign: Campaign
+  campaign_lead: CampaignLead
+  campaign_list: CampaignList
+  campaign_orchestration: CampaignOrchestration
+  campaign_user: CampaignUser
+  error_log: ErrorLog
   example: Example
+  integration: Integration
+  integration_sync_job: IntegrationSyncJob
+  integration_sync_log: IntegrationSyncLog
+  integration_webhook_event: IntegrationWebhookEvent
   invitation: Invitation
   lead: Lead
   member: Member
@@ -255,6 +535,11 @@ export type DB = {
   pipeline_stage: PipelineStage
   recording: Recording
   session: Session
+  sms_campaign: SmsCampaign
+  sms_campaign_enrollment: SmsCampaignEnrollment
+  sms_campaign_list: SmsCampaignList
+  sms_campaign_message: SmsCampaignMessage
+  sms_campaign_step: SmsCampaignStep
   subscription: Subscription
   task: Task
   task_instance: TaskInstance

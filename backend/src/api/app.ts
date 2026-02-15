@@ -9,6 +9,8 @@ import bodyParser from 'body-parser'
 import { config } from '@/config'
 import Sentry from '@/lib/sentry'
 import webhookRoutes from './routes/webhook'
+import integrationWebhookRoutes from './routes/webhooks-integrations'
+import campaignWebhookRoutes from './routes/webhooks-campaigns'
 
 const app = express()
 
@@ -28,12 +30,15 @@ app.use(
   }),
 )
 
+app.use(requestLogger)
 app.use('/api/auth', authRoutes)
 app.use('/api/webhook', webhookRoutes)
+app.use('/api/webhooks/integrations', integrationWebhookRoutes)
+app.use('/api/webhooks/campaigns', campaignWebhookRoutes)
+app.use('/api/campaigns/webhooks', campaignWebhookRoutes)
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: false }))
-app.use(requestLogger)
 app.use(bodyParser.json())
 
 // Routes

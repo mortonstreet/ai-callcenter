@@ -40,4 +40,12 @@ export const QUERY_KEYS = {
   voices: () => ['voices'] as const,
   agentAnalytics: (orgId?: string, agentId?: string, startDate?: string, endDate?: string) => ['agentAnalytics', orgId, agentId, startDate, endDate] as const,
   agentConversations: (orgId?: string, agentId?: string) => ['agentConversations', orgId, agentId] as const,
+  integrations: (orgId?: string) => ['integrations', orgId] as const,
+  integrationStatus: (orgId?: string, provider?: string) => ['integrationStatus', orgId, provider] as const,
+  integrationSyncJobs: (orgId?: string, provider?: string) => ['integrationSyncJobs', orgId, provider] as const,
+  campaigns: (orgId?: string, channel?: string) => ['campaigns', orgId, channel] as const,
+  campaign: (orgId?: string, campaignId?: string) => ['campaign', orgId, campaignId] as const,
+  campaignEnrollments: (orgId?: string, campaignId?: string) => ['campaignEnrollments', orgId, campaignId] as const,
+  campaignStats: (orgId?: string, campaignId?: string) => ['campaignStats', orgId, campaignId] as const,
+  campaignEvents: (orgId?: string, campaignId?: string) => ['campaignEvents', orgId, campaignId] as const,
 };

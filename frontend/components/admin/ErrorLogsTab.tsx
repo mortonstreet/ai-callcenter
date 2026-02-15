@@ -8,7 +8,7 @@ import ErrorLogDetailModal from "./ErrorLogDetailModal";
 import { AlertTriangle, AlertCircle, Info, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 
 type SeverityFilter = "all" | "error" | "warning" | "info";
-type StatusFilter = "" | "open" | "resolved" | "ignored";
+type StatusFilter = "" | "open" | "acknowledged" | "resolved";
 
 const SEVERITY_FILTERS: { id: SeverityFilter; label: string }[] = [
   { id: "all", label: "All" },
@@ -46,8 +46,8 @@ function SeverityBadge({ severity }: { severity: string }) {
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     open: "bg-red-100 text-red-700",
+    acknowledged: "bg-amber-100 text-amber-700",
     resolved: "bg-green-100 text-green-700",
-    ignored: "bg-muted text-muted-foreground",
   };
   return (
     <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${styles[status] || "bg-muted text-muted-foreground"}`}>
@@ -114,8 +114,8 @@ export default function ErrorLogsTab() {
         >
           <option value="">All Status</option>
           <option value="open">Open</option>
+          <option value="acknowledged">Acknowledged</option>
           <option value="resolved">Resolved</option>
-          <option value="ignored">Ignored</option>
         </select>
 
         {/* Search */}
@@ -159,6 +159,7 @@ export default function ErrorLogsTab() {
                 <th className="text-left py-3 px-4 font-medium text-foreground/80">Message</th>
                 <th className="text-left py-3 px-4 font-medium text-foreground/80">Severity</th>
                 <th className="text-left py-3 px-4 font-medium text-foreground/80">Status</th>
+                <th className="text-left py-3 px-4 font-medium text-foreground/80">Correlation</th>
                 <th className="text-left py-3 px-4 font-medium text-foreground/80">Product</th>
                 <th className="text-left py-3 px-4 font-medium text-foreground/80">Organization</th>
                 <th className="text-left py-3 px-4 font-medium text-foreground/80">Time</th>
@@ -181,6 +182,21 @@ export default function ErrorLogsTab() {
                   </td>
                   <td className="py-3 px-4">
                     <StatusBadge status={error.status} />
+                  </td>
+                  <td className="py-3 px-4">
+                    {error.correlationLink ? (
+                      <a
+                        href={error.correlationLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-primary underline underline-offset-2"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        Trace
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className="py-3 px-4 text-muted-foreground">{error.product}</td>
                   <td className="py-3 px-4 text-muted-foreground">{error.organizationName || "—"}</td>

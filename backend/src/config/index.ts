@@ -67,6 +67,7 @@ const envSchema = z.object({
     }),
   BACKEND_URL: z.string().url().default('http://localhost:8000'),
   FRONTEND_URL: z.string().url(),
+  COOKIE_DOMAIN: z.string().default('localhost'),
   DATABASE_URL: z.string().url(),
   DB_HOST: z.string(),
   DB_PORT: z.coerce.number(),
@@ -78,6 +79,7 @@ const envSchema = z.object({
   BETTERSTACK_HOST: z.string(),
   SENTRY_DSN: z.string(),
   JWT_SECRET: z.string(),
+  BETTER_AUTH_SECRET: z.string().default('revcenter-dev-better-auth-secret'),
   WEBHOOK_API_KEY: z.string(),
   GOOGLE_CLIENT_ID: z.string(),
   GOOGLE_CLIENT_SECRET: z.string(),
@@ -113,6 +115,10 @@ const mcpProviders = parseMcpProviders()
 export const config = {
   timezone: env.TIMEZONE,
   webhookApiKey: env.WEBHOOK_API_KEY,
+  betterAuth: {
+    secret: env.BETTER_AUTH_SECRET,
+    cookieDomain: env.COOKIE_DOMAIN,
+  },
   jwt: {
     secret: env.JWT_SECRET,
   },

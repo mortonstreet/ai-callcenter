@@ -1,5 +1,6 @@
 export const AgentExternalType = {
   ELEVEN_LABS: 'eleven_labs',
+  LOCAL_FALLBACK: 'local_fallback',
 } as const
 
 export type AgentExternalType = (typeof AgentExternalType)[keyof typeof AgentExternalType]
@@ -25,9 +26,11 @@ export const UseCase = {
 export type UseCase = (typeof UseCase)[keyof typeof UseCase]
 
 export const AgentStatus = {
+  DRAFT: 'draft',
   ACTIVE: 'active',
   PAUSED: 'paused',
   ARCHIVED: 'archived',
+  ERROR: 'error',
 } as const
 
 export type AgentStatus = (typeof AgentStatus)[keyof typeof AgentStatus]
