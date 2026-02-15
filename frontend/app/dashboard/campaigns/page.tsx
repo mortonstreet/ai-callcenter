@@ -194,7 +194,7 @@ export default function CampaignsPage() {
 
   const campaigns = data?.data || [];
 
-  const createChannels = useMemo(() => {
+  const createChannels = useMemo<CampaignChannel[]>(() => {
     if (creationMode === "quick") {
       return [quickChannel];
     }
