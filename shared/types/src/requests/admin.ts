@@ -1,8 +1,13 @@
 import { z } from 'zod';
 
 export const AdminCreateOrganizationRequestSchema = z.object({
-  name: z.string(),
-  ownerEmail: z.string(),
+  name: z.string().trim().min(1),
+  ownerEmail: z.string().trim().email(),
+  slug: z
+    .string()
+    .trim()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    .optional(),
 })
 
 export const AdminCreateAgentRequestSchema = z.object({

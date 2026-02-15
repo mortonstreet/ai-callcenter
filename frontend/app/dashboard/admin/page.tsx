@@ -137,6 +137,7 @@ export default function AdminPage() {
   const [resetPasswordModal, setResetPasswordModal] = useState<AdminUser | null>(null);
   const [createOrgModal, setCreateOrgModal] = useState(false);
   const [newOrgName, setNewOrgName] = useState("");
+  const [newOrgOwnerEmail, setNewOrgOwnerEmail] = useState("");
   const [newOrgSlug, setNewOrgSlug] = useState("");
   const [viewMembersOrg, setViewMembersOrg] = useState<AdminOrganization | null>(null);
   const [addCreditsOrg, setAddCreditsOrg] = useState<AdminOrganization | null>(null);
@@ -250,17 +251,23 @@ export default function AdminPage() {
   };
 
   const handleCreateOrg = () => {
-    if (!newOrgName.trim() || !newOrgSlug.trim()) {
-      toast.error("Please fill in all fields");
+    if (!newOrgName.trim() || !newOrgOwnerEmail.trim()) {
+      toast.error("Organization name and owner email are required");
       return;
     }
+
     createOrgMutation.mutate(
-      { name: newOrgName.trim(), slug: newOrgSlug.trim() },
+      {
+        name: newOrgName.trim(),
+        ownerEmail: newOrgOwnerEmail.trim(),
+        ...(newOrgSlug.trim() ? { slug: newOrgSlug.trim() } : {}),
+      },
       {
         onSuccess: () => {
           toast.success(`Organization "${newOrgName}" created`);
           setCreateOrgModal(false);
           setNewOrgName("");
+          setNewOrgOwnerEmail("");
           setNewOrgSlug("");
         },
         onError: () => toast.error("Failed to create organization"),
@@ -486,7 +493,7 @@ export default function AdminPage() {
                 placeholder="Search by name or slug..."
               />
             </div>
-            <Button onClick={() => setCreateOrgModal(true)}>
+            <Button onClick={() => { setCreateOrgModal(true); setNewOrgOwnerEmail(session?.user?.email || ""); }}>
               <Plus className="h-4 w-4 mr-1.5" />
               Create Organization
             </Button>
@@ -716,7 +723,7 @@ export default function AdminPage() {
       {/* Create Organization Modal */}
       <Modal
         isOpen={createOrgModal}
-        onClose={() => { setCreateOrgModal(false); setNewOrgName(""); setNewOrgSlug(""); }}
+        onClose={() => { setCreateOrgModal(false); setNewOrgName(""); setNewOrgOwnerEmail(""); setNewOrgSlug(""); }}
         title="Create Organization"
         subtitle="Create a new organization"
       >
@@ -731,22 +738,29 @@ export default function AdminPage() {
             }}
           />
           <Input
-            label="Slug"
+            label="Owner Email"
+            type="email"
+            placeholder="owner@acme.com"
+            value={newOrgOwnerEmail}
+            onChange={(e) => setNewOrgOwnerEmail(e.target.value)}
+          />
+          <Input
+            label="Slug (Optional)"
             placeholder="acme-corp"
             value={newOrgSlug}
             onChange={(e) => setNewOrgSlug(e.target.value)}
           />
           <p className="text-xs text-muted-foreground">
-            Slug must be lowercase letters, numbers, and hyphens only.
+            Slug can be left blank and will be generated automatically.
           </p>
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="outline" onClick={() => { setCreateOrgModal(false); setNewOrgName(""); setNewOrgSlug(""); }}>
+            <Button variant="outline" onClick={() => { setCreateOrgModal(false); setNewOrgName(""); setNewOrgOwnerEmail(""); setNewOrgSlug(""); }}>
               Cancel
             </Button>
             <Button
               onClick={handleCreateOrg}
               loading={createOrgMutation.isPending}
-              disabled={!newOrgName.trim() || !newOrgSlug.trim()}
+              disabled={!newOrgName.trim() || !newOrgOwnerEmail.trim()}
             >
               Create Organization
             </Button>

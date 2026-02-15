@@ -13,8 +13,6 @@ import {
 import { z } from 'zod'
 import { validateAndMerge } from '@/api/middlewares/validationMiddleware'
 import {
-  AdminCreateOrganizationRequest,
-  AdminCreateOrganizationRequestSchema,
   AdminCreateAgentRequest,
   AdminCreateAgentRequestSchema,
 } from '@shared/types/src'
@@ -63,8 +61,7 @@ router.get(
 router.post(
   '/organizations',
   withBetterAuth,
-  validateAndMerge(AdminCreateOrganizationRequestSchema),
-  adminOnlyRoute<AdminCreateOrganizationRequest>(createOrganization),
+  adminOnlyRoute<Record<string, unknown>>(createOrganization),
 )
 router.post(
   '/agents',

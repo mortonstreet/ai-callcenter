@@ -1,15 +1,17 @@
 import { AuthRequestHandler } from '@/types/handlers'
 import { db } from '@/lib/db'
-import {
-  AdminCreateOrganizationRequest,
-  AdminCreateAgentRequest,
-} from '@shared/types/src'
+import { AdminCreateAgentRequest } from '@shared/types/src'
 import { formatToSlug } from '@/utils'
 import { createOrganizationWithInvite } from '@/services/organization.service'
 import { createAgent as createAgentRepo } from '@/repositories/agent.repository'
 import { AgentExternalType } from '@shared/types/src'
 import { createAdminAuditLog } from '@/repositories/governance.repository'
 import logger from '@/lib/logger'
+import { sendApiError } from '@/api/utils/error-contract'
+import {
+  buildAdminCreateOrganizationResponse,
+  parseAdminCreateOrganizationPayload,
+} from '@/api/controllers/admin-create-organization.contract'
 
 const writeAdminAudit = async (input: {
   organizationId?: string | null
@@ -83,13 +85,19 @@ export const getAdminOrganizations: AuthRequestHandler<{}> = async (
 }
 
 export const createOrganization: AuthRequestHandler<
-  AdminCreateOrganizationRequest
+  Record<string, unknown>
 > = async (req, res) => {
-  const { name, ownerEmail } = req.validated
+  const parsed = parseAdminCreateOrganizationPayload(req.body)
+  if (!parsed.ok) {
+    return sendApiError(req, res, parsed.error.status, parsed.error)
+  }
+
+  const { name, ownerEmail, slug } = parsed.data
   const organization = await createOrganizationWithInvite(
     req.user,
     name,
     ownerEmail,
+    slug,
   )
 
   await writeAdminAudit({
@@ -107,7 +115,9 @@ export const createOrganization: AuthRequestHandler<
     userAgent: req.get('user-agent') || null,
   })
 
-  res.json({ data: organization })
+  res.json({
+    data: buildAdminCreateOrganizationResponse(organization, ownerEmail),
+  })
 }
 
 export const createAgent: AuthRequestHandler<AdminCreateAgentRequest> = async (

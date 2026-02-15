@@ -423,6 +423,14 @@ export interface GetAgentRequest {
 export interface AdminCreateOrganizationRequest {
   name: string;
   ownerEmail: string;
+  slug?: string;
+}
+
+export interface AdminCreateOrganizationResponse {
+  organization: DBOrganization;
+  owner: {
+    email: string;
+  };
 }
 
 // Admin Create Agent Request

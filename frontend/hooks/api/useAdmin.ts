@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { get, post, patch, del } from "@/lib/api";
 import {
   AdminCreateOrganizationRequest,
+  AdminCreateOrganizationResponse,
   AdminCreateAgentRequest,
   DBOrganization,
   DBAgent,
@@ -14,6 +15,8 @@ interface AdminStats {
   users: number;
   organizations: number;
 }
+
+export type AdminCreateOrganizationMutationInput = AdminCreateOrganizationRequest;
 
 export function useAdminStats() {
   return useQuery({
@@ -99,8 +102,13 @@ export function useAdminResetPassword() {
 export function useAdminCreateOrganization() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { name: string; slug: string }) => {
-      return post<{ data: DBOrganization }>("/admin/organizations", data);
+    mutationFn: async (data: AdminCreateOrganizationMutationInput) => {
+      const slug = data.slug?.trim();
+      return post<{ data: AdminCreateOrganizationResponse }>("/admin/organizations", {
+        name: data.name.trim(),
+        ownerEmail: data.ownerEmail.trim(),
+        ...(slug ? { slug } : {}),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "organizations"] });

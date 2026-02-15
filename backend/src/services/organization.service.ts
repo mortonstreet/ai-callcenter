@@ -11,10 +11,11 @@ export const createOrganizationWithInvite = async (
   admin: DBUser,
   name: string,
   ownerEmail: string,
+  slug?: string,
 ) => {
   const organization = await createOrganization({
     name,
-    slug: formatToSlug(name),
+    slug: formatToSlug(slug || name),
     createdAt: new Date(),
   })
   await createOwnerInvitation(admin, organization, ownerEmail)
