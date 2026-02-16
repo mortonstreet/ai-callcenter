@@ -33,7 +33,10 @@ import {
 import { randomBytes } from 'crypto'
 import { Request, Response } from 'express'
 import { formatToSlug } from '@/utils'
-import { getElevenLabsClient, initElevenLabsClient } from '@/clients/elevenlabs.client'
+import {
+  getElevenLabsClient,
+  initElevenLabsClient,
+} from '@/clients/elevenlabs.client'
 import { config } from '@/config'
 
 // Call quality classification thresholds
@@ -122,8 +125,11 @@ export const createAgentWithDefaultVoice: AuthRequestHandler<{
 }> = async (req, res) => {
   const { organizationId, name, phoneNumber, redirectNumber } = req.validated
   const defaultVoice =
-    process.env.ELEVEN_LABS_DEFAULT_VOICE_ID || config.elevenLabs?.defaultVoiceId || ''
-  const elevenApiKey = config.elevenLabs?.apiKey || process.env.ELEVEN_LABS_API_KEY
+    process.env.ELEVEN_LABS_DEFAULT_VOICE_ID ||
+    config.elevenLabs?.defaultVoiceId ||
+    ''
+  const elevenApiKey =
+    config.elevenLabs?.apiKey || process.env.ELEVEN_LABS_API_KEY
   const twilioSid = process.env.TWILIO_ACCOUNT_SID || config.twilio.accountSid
   const twilioToken = process.env.TWILIO_AUTH_TOKEN || config.twilio.authToken
 
@@ -151,12 +157,19 @@ export const createAgentWithDefaultVoice: AuthRequestHandler<{
         },
       })
       elevenAgentId = created.agent_id
-      logger.info('[elevenlabs] created agent', { elevenAgentId, voice: defaultVoice })
+      logger.info('[elevenlabs] created agent', {
+        elevenAgentId,
+        voice: defaultVoice,
+      })
     } catch (err: any) {
-      logger.error('[elevenlabs] failed to create agent', { error: err?.message || String(err) })
+      logger.error('[elevenlabs] failed to create agent', {
+        error: err?.message || String(err),
+      })
     }
   } else {
-    logger.warn('[elevenlabs] skipping agent creation: missing voice or api key')
+    logger.warn(
+      '[elevenlabs] skipping agent creation: missing voice or api key',
+    )
   }
 
   // Attempt to attach Twilio number to ElevenLabs
@@ -186,10 +199,14 @@ export const createAgentWithDefaultVoice: AuthRequestHandler<{
         phone: phonePayload.phone_number,
       })
     } catch (err: any) {
-      logger.error('[elevenlabs] failed to attach phone', { error: err?.message || String(err) })
+      logger.error('[elevenlabs] failed to attach phone', {
+        error: err?.message || String(err),
+      })
     }
   } else {
-    logger.warn('[elevenlabs] skipping phone attach: missing api key or twilio creds')
+    logger.warn(
+      '[elevenlabs] skipping phone attach: missing api key or twilio creds',
+    )
   }
 
   const agent = await createAgentRepository({

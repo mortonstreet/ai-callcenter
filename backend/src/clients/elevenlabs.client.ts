@@ -256,10 +256,13 @@ export class ElevenLabsClient {
   async createPhoneNumber(
     payload: CreatePhoneNumberRequest,
   ): Promise<CreatePhoneNumberResponse> {
-    return this.request<CreatePhoneNumberResponse>('/convai/phone_numbers/create', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    })
+    return this.request<CreatePhoneNumberResponse>(
+      '/convai/phone_numbers/create',
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    )
   }
 }
 
