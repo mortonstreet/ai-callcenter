@@ -6,9 +6,11 @@ import {
   QueueJobPayload,
   QueueName,
 } from '@/types/queues'
-
-const DEFAULT_ATTEMPTS = 5
-const DEFAULT_BACKOFF_DELAY_MS = 2000
+import {
+  QueueRetryPolicy,
+  listQueueRetryPolicies,
+  resolveQueueRetryPolicy,
+} from './retry-policy'
 
 const queueConnection = {
   url: config.redis.url,
@@ -19,17 +21,31 @@ const queueConnection = {
   }),
 }
 
-const createQueue = (name: string) =>
+const toJobOptions = (policy: QueueRetryPolicy): JobsOptions => {
+  return {
+    attempts: policy.attempts,
+    backoff: {
+      type: 'exponential',
+      delay: policy.backoffDelayMs,
+    },
+    removeOnComplete: policy.removeOnComplete,
+    removeOnFail: policy.removeOnFail,
+  }
+}
+
+const createQueue = (queueName: QueueName) =>
+  new Queue<QueueJobPayload>(queueName, {
+    connection: queueConnection,
+    defaultJobOptions: toJobOptions(resolveQueueRetryPolicy(queueName)),
+  })
+
+const createDeadLetterQueue = (name: string) =>
   new Queue<QueueJobPayload>(name, {
     connection: queueConnection,
     defaultJobOptions: {
-      attempts: DEFAULT_ATTEMPTS,
-      backoff: {
-        type: 'exponential',
-        delay: DEFAULT_BACKOFF_DELAY_MS,
-      },
-      removeOnComplete: 500,
-      removeOnFail: 500,
+      attempts: 1,
+      removeOnComplete: 1000,
+      removeOnFail: 1000,
     },
   })
 
@@ -45,11 +61,17 @@ export const deadLetterQueueRegistry: Record<
   QueueName,
   Queue<QueueJobPayload>
 > = {
-  campaign_voice: createQueue(`campaign_voice_${DEAD_LETTER_QUEUE_SUFFIX}`),
-  campaign_sms: createQueue(`campaign_sms_${DEAD_LETTER_QUEUE_SUFFIX}`),
-  campaign_email: createQueue(`campaign_email_${DEAD_LETTER_QUEUE_SUFFIX}`),
-  integration_sync: createQueue(`integration_sync_${DEAD_LETTER_QUEUE_SUFFIX}`),
-  webhook_ingest: createQueue(`webhook_ingest_${DEAD_LETTER_QUEUE_SUFFIX}`),
+  campaign_voice: createDeadLetterQueue(
+    `campaign_voice_${DEAD_LETTER_QUEUE_SUFFIX}`,
+  ),
+  campaign_sms: createDeadLetterQueue(`campaign_sms_${DEAD_LETTER_QUEUE_SUFFIX}`),
+  campaign_email: createDeadLetterQueue(
+    `campaign_email_${DEAD_LETTER_QUEUE_SUFFIX}`,
+  ),
+  integration_sync: createDeadLetterQueue(
+    `integration_sync_${DEAD_LETTER_QUEUE_SUFFIX}`,
+  ),
+  webhook_ingest: createDeadLetterQueue(`webhook_ingest_${DEAD_LETTER_QUEUE_SUFFIX}`),
 }
 
 export const getQueue = (queueName: QueueName): Queue<QueueJobPayload> => {
@@ -74,17 +96,21 @@ export const enqueueQueueJob = async (
       ? `${jobName}:${payload.idempotencyKey}`
       : undefined
 
-  return queue.add(jobName, payload, {
-    attempts: DEFAULT_ATTEMPTS,
-    backoff: {
-      type: 'exponential',
-      delay: DEFAULT_BACKOFF_DELAY_MS,
+  const retryPolicy = resolveQueueRetryPolicy(queueName, jobName)
+
+  return queue.add(
+    jobName,
+    payload,
+    {
+      ...toJobOptions(retryPolicy),
+      ...options,
+      ...(derivedJobId ? { jobId: derivedJobId } : {}),
     },
-    removeOnComplete: 500,
-    removeOnFail: 500,
-    ...options,
-    ...(derivedJobId ? { jobId: derivedJobId } : {}),
-  })
+  )
+}
+
+export const getQueueRetryPolicies = () => {
+  return listQueueRetryPolicies()
 }
 
 export const closeAllQueues = async () => {

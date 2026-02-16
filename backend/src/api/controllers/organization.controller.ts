@@ -7,6 +7,7 @@ import { withId } from '@/repositories/utils'
 import { updateUserLastActiveOrganizationId } from '@/repositories/auth.repository'
 import { AgentExternalType } from '@shared/types/src'
 import { createElevenLabsAgent } from '@/services/agent.service'
+import { emitTransitionAuditEvent } from '@/services/lifecycle-transition-audit.service'
 import { z } from 'zod'
 
 export const OrganizationOnboardingSchema = z.object({
@@ -74,6 +75,33 @@ export const onboardOrganization: AuthRequestHandler<
     .executeTakeFirst()
 
   await updateUserLastActiveOrganizationId(req.user.id, organization.id)
+
+  await emitTransitionAuditEvent({
+    organizationId: organization.id,
+    domain: 'lifecycle',
+    fromState: 'account_created',
+    toState: 'onboarding_completed',
+    source: 'api',
+    actorUserId: req.user.id,
+    reason: 'organization_onboarding_submitted',
+    metadata: {
+      organizationName: organization.name,
+      ownerUserId: req.user.id,
+    },
+  })
+
+  await emitTransitionAuditEvent({
+    organizationId: organization.id,
+    domain: 'billing',
+    fromState: 'onboarding_completed',
+    toState: 'payment_required',
+    source: 'api',
+    actorUserId: req.user.id,
+    reason: 'awaiting_payment_verification',
+    metadata: {
+      organizationName: organization.name,
+    },
+  })
 
   const createdAgent = await createElevenLabsAgent({
     organizationId: organization.id,

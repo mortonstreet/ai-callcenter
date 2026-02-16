@@ -3,7 +3,12 @@ import { config } from '@/config'
 import { setRequestContext } from '@/lib/context'
 import logger from '@/lib/logger'
 import Sentry from '@/lib/sentry'
-import { getDeadLetterQueue, queueRegistry } from '@/queues'
+import {
+  enqueueQueueJob,
+  getDeadLetterQueue,
+  getQueueRetryPolicies,
+  queueRegistry,
+} from '@/queues'
 import { resolveTaxonomyFromQueue } from '@/lib/error-taxonomy'
 import {
   recordCampaignSendMetric,
@@ -17,7 +22,25 @@ import {
   QueueName,
   QUEUE_NAMES,
 } from '@/types/queues'
-import { startSyncJob } from '@/services/integration-contract.service'
+import {
+  processQueuedIntegrationSyncJob,
+  startSyncJob,
+} from '@/services/integration-contract.service'
+import {
+  AGENT_PROVISION_RETRY_JOB_NAME,
+  AGENT_UPDATE_RETRY_JOB_NAME,
+  AgentProvisionRetryPayload,
+  AgentUpdateRetryPayload,
+  retryAgentProvision,
+  retryAgentUpdateSync,
+} from '@/services/agent.service'
+import {
+  buildDeadLetterPayload,
+  extractDeadLetterMetadata,
+  stripDeadLetterEnvelope,
+} from './dead-letter'
+import { isProvisioningRetryJobName } from './retry-policy'
+import { emitTransitionAuditEvent } from '@/services/lifecycle-transition-audit.service'
 
 const DEFAULT_QUEUE_CONCURRENCY = 5
 const INTEGRATION_SYNC_CONCURRENCY = 4
@@ -47,6 +70,22 @@ const toCampaignChannel = (
   return null
 }
 
+const asString = (value: unknown): string | null => {
+  if (typeof value !== 'string') {
+    return null
+  }
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+const toDateSortValue = (value: string | null): number => {
+  if (!value) {
+    return 0
+  }
+  const parsed = Date.parse(value)
+  return Number.isNaN(parsed) ? 0 : parsed
+}
+
 interface WorkerQueueHealthSnapshot {
   queueName: QueueName
   depth: {
@@ -64,6 +103,75 @@ export interface WorkerRuntimeHealth {
   lastHeartbeatAt: string | null
   queueWorkerCount: number
   queues: WorkerQueueHealthSnapshot[]
+}
+
+export interface DeadLetterQueueJobSnapshot {
+  queueName: QueueName
+  deadLetterJobId: string
+  deadLetterJobName: string
+  originalJobName: string
+  organizationId: string | null
+  correlationId: string | null
+  failedJobId: string | null
+  failedAt: string | null
+  deadLetteredAt: string | null
+  attemptsMade: number | null
+  maxAttempts: number | null
+  errorMessage: string | null
+  payload: QueueJobPayload
+}
+
+interface ListDeadLetterJobsInput {
+  queueName?: QueueName
+  organizationId?: string
+  limit?: number
+}
+
+interface ReplayDeadLetterJobInput {
+  queueName: QueueName
+  deadLetterJobId: string
+  actorUserId?: string | null
+  reason?: string
+}
+
+export interface ReplayDeadLetterJobResult {
+  queueName: QueueName
+  deadLetterJobId: string
+  replayJobId: string
+  originalJobName: string
+  organizationId: string | null
+  correlationId: string | null
+}
+
+const toDeadLetterSnapshot = (
+  queueName: QueueName,
+  job: Job<QueueJobPayload>,
+): DeadLetterQueueJobSnapshot => {
+  const metadata = extractDeadLetterMetadata(job.data)
+  const originalPayload = stripDeadLetterEnvelope(job.data)
+  const organizationId = asString(originalPayload.organizationId)
+
+  return {
+    queueName,
+    deadLetterJobId: String(job.id),
+    deadLetterJobName: job.name,
+    originalJobName:
+      metadata?.originalJobName || job.name.replace(/:dead-letter$/, ''),
+    organizationId,
+    correlationId:
+      asString(originalPayload.correlationId) || metadata?.correlationId || null,
+    failedJobId: metadata?.failedJobId || asString(job.data.failedJobId),
+    failedAt: metadata?.failedAt || asString(job.data.failedAt),
+    deadLetteredAt: metadata?.deadLetteredAt || null,
+    attemptsMade:
+      metadata?.attemptsMade ||
+      (typeof job.attemptsMade === 'number' ? job.attemptsMade : null),
+    maxAttempts:
+      metadata?.maxAttempts ||
+      (typeof job.opts.attempts === 'number' ? job.opts.attempts : null),
+    errorMessage: metadata?.errorMessage || asString(job.data.errorMessage),
+    payload: originalPayload,
+  }
 }
 
 export class WorkerRuntime {
@@ -145,7 +253,7 @@ export class WorkerRuntime {
           }
 
           if (job.attemptsMade >= attempts) {
-            await this.moveToDeadLetterQueue(queueName, job, error)
+            await this.moveToDeadLetterQueue(queueName, job, error, attempts)
           }
         })
 
@@ -215,6 +323,114 @@ export class WorkerRuntime {
       lastHeartbeatAt: this.lastHeartbeatAt,
       queueWorkerCount: this.workers.size,
       queues: queueSnapshots,
+    }
+  }
+
+  getRetryPolicySummary() {
+    return getQueueRetryPolicies()
+  }
+
+  async listDeadLetterJobs(
+    input: ListDeadLetterJobsInput = {},
+  ): Promise<DeadLetterQueueJobSnapshot[]> {
+    const limit = Math.max(1, Math.min(200, input.limit || 50))
+    const queueNames = input.queueName ? [input.queueName] : ALL_QUEUE_NAMES
+
+    const jobsByQueue = await Promise.all(
+      queueNames.map(async (queueName) => {
+        const deadLetterQueue = getDeadLetterQueue(queueName)
+        const jobs = await deadLetterQueue.getJobs(
+          ['waiting', 'active', 'delayed', 'completed', 'failed'],
+          0,
+          limit - 1,
+        )
+        return jobs.map((job) => toDeadLetterSnapshot(queueName, job))
+      }),
+    )
+
+    let snapshots = jobsByQueue.flat()
+
+    const organizationId = asString(input.organizationId)
+    if (organizationId) {
+      snapshots = snapshots.filter(
+        (snapshot) => snapshot.organizationId === organizationId,
+      )
+    }
+
+    snapshots.sort((a, b) => {
+      const aTime = Math.max(
+        toDateSortValue(a.deadLetteredAt),
+        toDateSortValue(a.failedAt),
+      )
+      const bTime = Math.max(
+        toDateSortValue(b.deadLetteredAt),
+        toDateSortValue(b.failedAt),
+      )
+      return bTime - aTime
+    })
+
+    return snapshots.slice(0, limit)
+  }
+
+  async replayDeadLetterJob(
+    input: ReplayDeadLetterJobInput,
+  ): Promise<ReplayDeadLetterJobResult | null> {
+    const deadLetterQueue = getDeadLetterQueue(input.queueName)
+    const deadLetterJob = await deadLetterQueue.getJob(input.deadLetterJobId)
+
+    if (!deadLetterJob) {
+      return null
+    }
+
+    const deadLetterMetadata = extractDeadLetterMetadata(deadLetterJob.data)
+    const originalJobName =
+      deadLetterMetadata?.originalJobName ||
+      deadLetterJob.name.replace(/:dead-letter$/, '')
+    const replayPayload = stripDeadLetterEnvelope(deadLetterJob.data)
+
+    const replayedJob = await enqueueQueueJob(
+      input.queueName,
+      originalJobName,
+      replayPayload,
+      {
+        jobId: `replay:${input.queueName}:${input.deadLetterJobId}:${Date.now()}`,
+      },
+    )
+
+    await deadLetterJob.remove()
+
+    const organizationId = asString(replayPayload.organizationId)
+    const correlationId =
+      asString(replayPayload.correlationId) ||
+      deadLetterMetadata?.correlationId ||
+      null
+
+    if (organizationId && isProvisioningRetryJobName(originalJobName)) {
+      await emitTransitionAuditEvent({
+        organizationId,
+        domain: 'provisioning',
+        fromState: 'failed',
+        toState: 'retry_queued',
+        source: 'admin',
+        actorUserId: input.actorUserId || null,
+        correlationId,
+        reason: input.reason || 'operator_replay',
+        metadata: {
+          queueName: input.queueName,
+          deadLetterJobId: input.deadLetterJobId,
+          replayJobId: replayedJob.id,
+          originalJobName,
+        },
+      })
+    }
+
+    return {
+      queueName: input.queueName,
+      deadLetterJobId: input.deadLetterJobId,
+      replayJobId: String(replayedJob.id),
+      originalJobName,
+      organizationId,
+      correlationId,
     }
   }
 
@@ -383,6 +599,26 @@ export class WorkerRuntime {
   }
 
   private async handleIntegrationSyncJob(job: Job<QueueJobPayload>) {
+    if (job.name === AGENT_PROVISION_RETRY_JOB_NAME) {
+      const result = await retryAgentProvision(
+        job.data as AgentProvisionRetryPayload,
+      )
+      recordIntegrationSyncMetric({
+        provider: 'elevenlabs',
+        success: true,
+      })
+      return result
+    }
+
+    if (job.name === AGENT_UPDATE_RETRY_JOB_NAME) {
+      const result = await retryAgentUpdateSync(job.data as AgentUpdateRetryPayload)
+      recordIntegrationSyncMetric({
+        provider: 'elevenlabs',
+        success: true,
+      })
+      return result
+    }
+
     const organizationId =
       typeof job.data.organizationId === 'string'
         ? job.data.organizationId
@@ -393,12 +629,34 @@ export class WorkerRuntime {
       job.data.direction === 'pull' || job.data.direction === 'push'
         ? job.data.direction
         : 'pull'
+    const correlationId = asString(job.data.correlationId)
+
+    if (typeof job.data.integrationJobId === 'string' && provider) {
+      if (!organizationId) {
+        throw new Error('Integration sync queue payload is missing organizationId')
+      }
+
+      const result = await processQueuedIntegrationSyncJob({
+        integrationJobId: job.data.integrationJobId,
+        organizationId,
+        provider: provider as Parameters<typeof startSyncJob>[1],
+        direction,
+        correlationId: correlationId || undefined,
+      })
+
+      recordIntegrationSyncMetric({
+        provider,
+        success: true,
+      })
+
+      return result
+    }
 
     if (!organizationId || !provider) {
       throw new Error('Invalid integration sync queue payload')
     }
 
-    const result = startSyncJob(
+    const result = await startSyncJob(
       organizationId,
       provider as Parameters<typeof startSyncJob>[1],
       direction,
@@ -416,22 +674,56 @@ export class WorkerRuntime {
     queueName: QueueName,
     job: Job<QueueJobPayload>,
     error: Error,
+    maxAttempts: number,
   ) {
+    const failedAt = new Date().toISOString()
+    const correlationId = asString(job.data.correlationId)
+
     try {
       await getDeadLetterQueue(queueName).add(
         `${job.name}:dead-letter`,
-        {
-          ...job.data,
-          failedJobId: job.id,
-          failedAt: new Date().toISOString(),
+        buildDeadLetterPayload({
+          queueName,
+          originalJobName: job.name,
+          payload: job.data,
+          failedJobId: job.id ? String(job.id) : null,
+          failedAt,
           errorMessage: error.message,
-        },
+          attemptsMade: job.attemptsMade,
+          maxAttempts,
+          correlationId,
+        }),
         {
           attempts: 1,
           removeOnComplete: 1000,
           removeOnFail: 1000,
         },
       )
+
+      const organizationId = asString(job.data.organizationId)
+      if (
+        organizationId &&
+        queueName === QUEUE_NAMES.INTEGRATION_SYNC &&
+        isProvisioningRetryJobName(job.name)
+      ) {
+        await emitTransitionAuditEvent({
+          organizationId,
+          domain: 'provisioning',
+          fromState: 'retrying',
+          toState: 'failed',
+          source: 'worker',
+          reason: 'retry_attempts_exhausted',
+          correlationId,
+          metadata: {
+            queueName,
+            jobName: job.name,
+            jobId: job.id,
+            attemptsMade: job.attemptsMade,
+            maxAttempts,
+            errorMessage: error.message,
+          },
+        })
+      }
     } catch (deadLetterError) {
       logger.error(
         {

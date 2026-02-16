@@ -6,6 +6,7 @@ import {
 import { sendOrganizationInvitation } from '@/clients/email.client'
 import { DBOrganization, DBUser } from '@shared/db/src'
 import { buildInvitationLink } from '@/utils/invitation.utils'
+import { emitTransitionAuditEvent } from './lifecycle-transition-audit.service'
 
 export const createOrganizationWithInvite = async (
   admin: DBUser,
@@ -18,6 +19,20 @@ export const createOrganizationWithInvite = async (
     createdAt: new Date(),
   })
   await createOwnerInvitation(admin, organization, ownerEmail)
+
+  await emitTransitionAuditEvent({
+    organizationId: organization.id,
+    domain: 'lifecycle',
+    fromState: 'invited',
+    toState: 'account_created',
+    source: 'admin',
+    actorUserId: admin.id,
+    reason: 'admin_created_organization_and_owner_invite',
+    metadata: {
+      ownerEmail,
+      organizationName: organization.name,
+    },
+  })
 
   return organization
 }

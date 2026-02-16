@@ -21,10 +21,12 @@ import {
 } from "@/hooks/api/useAdmin";
 import { useSession } from "@/lib/auth-client";
 import ErrorLogsTab from "@/components/admin/ErrorLogsTab";
+import ProvisioningOpsTab from "@/components/admin/ProvisioningOpsTab";
 import {
   Users,
   Building2,
   AlertTriangle,
+  Activity,
   Search,
   ChevronLeft,
   ChevronRight,
@@ -39,12 +41,13 @@ import {
 import { toast } from "sonner";
 import { AdminUser, AdminOrganization } from "@/lib/shared-types";
 
-type Tab = "users" | "organizations" | "error-logs";
+type Tab = "users" | "organizations" | "error-logs" | "provisioning-ops";
 
 const TABS: { id: Tab; label: string; icon: typeof Users }[] = [
   { id: "users", label: "Users", icon: Users },
   { id: "organizations", label: "Organizations", icon: Building2 },
   { id: "error-logs", label: "Error Logs", icon: AlertTriangle },
+  { id: "provisioning-ops", label: "Provisioning Ops", icon: Activity },
 ];
 
 function Pagination({
@@ -578,6 +581,7 @@ export default function AdminPage() {
 
       {/* ===== ERROR LOGS TAB ===== */}
       {activeTab === "error-logs" && <ErrorLogsTab />}
+      {activeTab === "provisioning-ops" && <ProvisioningOpsTab />}
 
       {/* ===== MODALS ===== */}
 

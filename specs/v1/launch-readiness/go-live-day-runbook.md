@@ -28,7 +28,9 @@ Contributors: Platform, backend, frontend, QA, product
 | Frontend smoke check | QA | dashboard login + key route check | pending | pending | pending |
 | Auth smoke | QA | signup/login + invite accept | pending | pending | pending |
 | Onboarding smoke | QA | org + first agent setup | pending | pending | pending |
+| Transition audit smoke | QA + Ops | verify `organizationId` + `correlationId` in `/api/admin/operations/lifecycle-transitions` | pending | pending | pending |
 | Agent create smoke | AI platform | create/manual edit/check voice config | pending | pending | pending |
+| Provisioning retry drill | Ops | force one provisioning failure and verify DLQ placement + replay | pending | pending | pending |
 | Integrations status smoke | Integrations | provider status + sync check | pending | pending | pending |
 | Campaign activation smoke | Campaign team | activate test campaign and confirm safeguards | pending | pending | pending |
 | Heightened monitoring window start | Ops | 2-hour high-alert posture | pending | pending | pending |
@@ -41,6 +43,8 @@ Contributors: Platform, backend, frontend, QA, product
 3. Auth failure and invite flow errors.
 4. Integration sync failures by provider.
 5. Campaign send failures and unsubscribe enforcement signals.
+6. Provisioning transition audit continuity (`organizationId` + `correlationId`).
+7. Dead-letter queue growth for provisioning retry jobs.
 
 ## 4. Launch Success Declaration
 
@@ -51,3 +55,24 @@ Contributors: Platform, backend, frontend, QA, product
 | Open P0 count | pending |
 | Open P1 count | pending |
 | Customer onboarding validated | pending |
+
+## 5. Lifecycle Gate Drills (Stage And Production Canary)
+
+Paid path drill:
+
+1. Trigger `account_created -> onboarding_completed -> payment_required`.
+2. Complete payment verification to advance paid tenant path.
+3. Force provisioning retry once, confirm transition to DLQ on exhaustion, then replay via `/api/admin/operations/provisioning/failures/:queueName/:deadLetterJobId/replay`.
+4. Confirm terminal `provisioning` transition reaches `completed`.
+
+Demo path drill:
+
+1. Trigger demo onboarding path with admin approval gate.
+2. Validate `billing` transition records demo bypass decision.
+3. Force one provisioning failure and replay; confirm transition trace continuity.
+4. Confirm demo tenant reaches active workspace state and can access expected routes.
+
+Alerting validation:
+
+1. Ensure P0 backlog and P1 failure-rate alerts fire for synthetic queue stress.
+2. Verify incident channel receives alert payload containing queue name and correlation handle.

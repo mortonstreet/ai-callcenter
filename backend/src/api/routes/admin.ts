@@ -24,11 +24,18 @@ import logger from '@/lib/logger'
 import { getOperationsMetricsSnapshot } from '@/services/operations-metrics.service'
 import { workerRuntime } from '@/queues/workers'
 import { createAdminAuditLog } from '@/repositories/governance.repository'
+import { QUEUE_NAMES, QueueName } from '@/types/queues'
 import {
   addSuppression,
   listSuppressions,
   removeSuppression,
 } from '@/services/compliance.service'
+import {
+  listTransitionAuditEvents,
+  TRANSITION_DOMAINS,
+  TransitionDomain,
+} from '@/services/lifecycle-transition-audit.service'
+import { isProvisioningRetryJobName } from '@/queues/retry-policy'
 
 const router = Router()
 
@@ -52,6 +59,11 @@ const resolveWorkflowStatus = (
   }
   return errorWorkflowStore.get(id)?.status || 'open'
 }
+
+const transitionDomainValues = Object.values(
+  TRANSITION_DOMAINS,
+) as [TransitionDomain, ...TransitionDomain[]]
+const queueNameValues = Object.values(QUEUE_NAMES) as [QueueName, ...QueueName[]]
 
 router.get('/stats', withBetterAuth, adminOnlyRoute<{}>(getAdminStats))
 router.get('/users', withBetterAuth, adminOnlyRoute<{}>(getAdminUsers))
@@ -267,9 +279,13 @@ router.get(
   '/operations/metrics',
   withBetterAuth,
   adminOnlyRoute<{}>(async (_req, res) => {
-    const [workerHealth, opsMetrics] = await Promise.all([
+    const [workerHealth, opsMetrics, deadLetters] = await Promise.all([
       workerRuntime.getHealth(),
       Promise.resolve(getOperationsMetricsSnapshot()),
+      workerRuntime.listDeadLetterJobs({
+        queueName: QUEUE_NAMES.INTEGRATION_SYNC,
+        limit: 100,
+      }),
     ])
 
     const queueBacklogP0 = workerHealth.queues.filter(
@@ -283,11 +299,19 @@ router.get(
         queueName,
         ...snapshot,
       }))
+    const provisioningDeadLetters = deadLetters.filter((snapshot) =>
+      isProvisioningRetryJobName(snapshot.originalJobName),
+    )
 
     return res.json({
       data: {
         worker: workerHealth,
         metrics: opsMetrics,
+        retryPolicies: workerRuntime.getRetryPolicySummary(),
+        provisioning: {
+          deadLetterFailures: provisioningDeadLetters.length,
+          failedTransitions: provisioningDeadLetters,
+        },
         alerts: {
           p0: queueBacklogP0.map((snapshot) => ({
             queue: snapshot.queueName,
@@ -303,6 +327,132 @@ router.get(
           })),
         },
       },
+    })
+  }),
+)
+
+const ListTransitionEventsSchema = z.object({
+  organizationId: z.string().optional(),
+  correlationId: z.string().optional(),
+  domain: z.enum(transitionDomainValues).optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+})
+
+router.get(
+  '/operations/lifecycle-transitions',
+  withBetterAuth,
+  validateAndMerge(ListTransitionEventsSchema),
+  adminOnlyRoute<{
+    organizationId?: string
+    correlationId?: string
+    domain?: TransitionDomain
+    limit?: number
+  }>(async (req, res) => {
+    const events = await listTransitionAuditEvents({
+      organizationId: req.validated.organizationId,
+      correlationId: req.validated.correlationId,
+      domain: req.validated.domain,
+      limit: req.validated.limit || 100,
+    })
+
+    return res.json({ data: events })
+  }),
+)
+
+const ListProvisioningFailuresSchema = z.object({
+  queueName: z.enum(queueNameValues).optional(),
+  organizationId: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+})
+
+router.get(
+  '/operations/provisioning/failures',
+  withBetterAuth,
+  validateAndMerge(ListProvisioningFailuresSchema),
+  adminOnlyRoute<{
+    queueName?: QueueName
+    organizationId?: string
+    limit?: number
+  }>(async (req, res) => {
+    const deadLetters = await workerRuntime.listDeadLetterJobs({
+      queueName: req.validated.queueName,
+      organizationId: req.validated.organizationId,
+      limit: req.validated.limit || 100,
+    })
+
+    const provisioningFailures = deadLetters.filter(
+      (snapshot) =>
+        snapshot.queueName === QUEUE_NAMES.INTEGRATION_SYNC &&
+        isProvisioningRetryJobName(snapshot.originalJobName),
+    )
+
+    return res.json({
+      data: provisioningFailures,
+      policies: workerRuntime.getRetryPolicySummary(),
+    })
+  }),
+)
+
+const ReplayProvisioningFailureSchema = z.object({
+  queueName: z.enum(queueNameValues),
+  deadLetterJobId: z.string(),
+  reason: z.string().optional(),
+})
+
+router.post(
+  '/operations/provisioning/failures/:queueName/:deadLetterJobId/replay',
+  withBetterAuth,
+  validateAndMerge(ReplayProvisioningFailureSchema),
+  adminOnlyRoute<{
+    queueName: QueueName
+    deadLetterJobId: string
+    reason?: string
+  }>(async (req, res) => {
+    if (req.validated.queueName !== QUEUE_NAMES.INTEGRATION_SYNC) {
+      return res.status(400).json({
+        error: 'PROVISIONING_QUEUE_REQUIRED',
+        message:
+          'Provisioning replay is only supported for integration_sync dead-letter jobs',
+      })
+    }
+
+    const replayed = await workerRuntime.replayDeadLetterJob({
+      queueName: req.validated.queueName,
+      deadLetterJobId: req.validated.deadLetterJobId,
+      actorUserId: req.user.id,
+      reason: req.validated.reason,
+    })
+
+    if (!replayed) {
+      return res.status(404).json({
+        error: 'DLQ_JOB_NOT_FOUND',
+        message: 'Dead-letter job could not be found',
+      })
+    }
+
+    await createAdminAuditLog({
+      organizationId: replayed.organizationId,
+      actorUserId: req.user.id,
+      action: 'operations.provisioning.failure.replay',
+      resourceType: 'queue_dead_letter',
+      resourceId: replayed.deadLetterJobId,
+      before: {
+        queueName: replayed.queueName,
+        deadLetterJobId: replayed.deadLetterJobId,
+        reason: req.validated.reason || null,
+      },
+      after: {
+        replayJobId: replayed.replayJobId,
+        originalJobName: replayed.originalJobName,
+        correlationId: replayed.correlationId,
+      },
+      ipAddress: req.ip || null,
+      userAgent: req.get('user-agent') || null,
+    })
+
+    return res.json({
+      success: true,
+      data: replayed,
     })
   }),
 )

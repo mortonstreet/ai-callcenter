@@ -14,6 +14,8 @@ import { AgentExternalType, AgentHealthResponse } from '@shared/types/src'
 import logger from '@/lib/logger'
 import { enqueueQueueJob } from '@/queues'
 import { QUEUE_NAMES, QueueJobPayload } from '@/types/queues'
+import { getRequestContext } from '@/lib/context'
+import { emitTransitionAuditEvent } from '@/services/lifecycle-transition-audit.service'
 
 // Voice cache
 let voicesCache: { data: any; timestamp: number } | null = null
@@ -252,11 +254,18 @@ const buildElevenLabsUpdatePayload = (updates: UpdateElevenLabsAgentParams) => {
 export async function enqueueAgentProvisionRetry(
   payload: AgentProvisionRetryPayload,
 ) {
+  const correlationId =
+    (typeof payload.correlationId === 'string' && payload.correlationId) ||
+    getRequestContext()?.correlationId ||
+    payload.providerCorrelationKey
+
   return enqueueQueueJob(
     QUEUE_NAMES.INTEGRATION_SYNC,
     AGENT_PROVISION_RETRY_JOB_NAME,
     {
       ...payload,
+      provider: 'elevenlabs',
+      correlationId,
       idempotencyKey:
         payload.idempotencyKey ||
         `agent-provision:${payload.providerCorrelationKey}`,
@@ -267,11 +276,18 @@ export async function enqueueAgentProvisionRetry(
 export async function enqueueAgentUpdateRetry(
   payload: AgentUpdateRetryPayload,
 ) {
+  const correlationId =
+    (typeof payload.correlationId === 'string' && payload.correlationId) ||
+    getRequestContext()?.correlationId ||
+    null
+
   return enqueueQueueJob(
     QUEUE_NAMES.INTEGRATION_SYNC,
     AGENT_UPDATE_RETRY_JOB_NAME,
     {
       ...payload,
+      provider: 'elevenlabs',
+      correlationId,
       idempotencyKey:
         payload.idempotencyKey ||
         getUpdateIdempotencyKey(payload.agentId, payload.updates),
@@ -298,6 +314,7 @@ export async function createElevenLabsAgent(params: CreateAgentParams) {
   const providerCorrelationKey =
     params.providerCorrelationKey ||
     `${organizationId}:${formatToSlug(name)}:${randomUUID()}`
+  const correlationId = getRequestContext()?.correlationId || providerCorrelationKey
 
   const { prompt, greeting, suggestedVoice } = resolvePromptAndVoice({
     companyName,
@@ -312,6 +329,20 @@ export async function createElevenLabsAgent(params: CreateAgentParams) {
   })
 
   const client = getElevenLabsClient()
+
+  await emitTransitionAuditEvent({
+    organizationId,
+    domain: 'provisioning',
+    fromState: 'pending',
+    toState: 'running',
+    source: 'api',
+    correlationId,
+    reason: 'agent_provision_requested',
+    metadata: {
+      provider: 'elevenlabs',
+      providerCorrelationKey,
+    },
+  })
 
   try {
     const elevenLabsAgent = await client.createAgent({
@@ -336,7 +367,7 @@ export async function createElevenLabsAgent(params: CreateAgentParams) {
       `Created ElevenLabs agent: ${elevenLabsAgent.agent_id} for org ${organizationId}`,
     )
 
-    return await createAgentRepo({
+    const persistedAgent = await createAgentRepo({
       name,
       slug: formatToSlug(name),
       organizationId,
@@ -355,6 +386,24 @@ export async function createElevenLabsAgent(params: CreateAgentParams) {
       lastSyncError: null,
       providerCorrelationKey,
     })
+
+    await emitTransitionAuditEvent({
+      organizationId,
+      domain: 'provisioning',
+      fromState: 'running',
+      toState: 'completed',
+      source: 'api',
+      correlationId,
+      reason: 'provider_agent_created',
+      metadata: {
+        provider: 'elevenlabs',
+        agentId: persistedAgent.id,
+        externalId: persistedAgent.externalId,
+        externalType: persistedAgent.externalType,
+      },
+    })
+
+    return persistedAgent
   } catch (error) {
     const errorMessage = getErrorMessage(error)
 
@@ -387,6 +436,22 @@ export async function createElevenLabsAgent(params: CreateAgentParams) {
       providerCorrelationKey,
     })
 
+    await emitTransitionAuditEvent({
+      organizationId,
+      domain: 'provisioning',
+      fromState: 'running',
+      toState: 'retry_queued',
+      source: 'api',
+      correlationId,
+      reason: 'provider_unavailable_local_fallback',
+      metadata: {
+        provider: 'elevenlabs',
+        agentId: fallbackAgent.id,
+        fallbackExternalId: fallbackAgent.externalId,
+        errorMessage,
+      },
+    })
+
     try {
       await enqueueAgentProvisionRetry({
         agentId: fallbackAgent.id,
@@ -403,6 +468,7 @@ export async function createElevenLabsAgent(params: CreateAgentParams) {
         services,
         serviceQuestions,
         providerCorrelationKey,
+        correlationId,
       })
     } catch (queueError) {
       logger.error(
@@ -465,8 +531,7 @@ export async function retryAgentProvision(payload: AgentProvisionRetryPayload) {
     },
     'Recovered fallback agent with ElevenLabs provider',
   )
-
-  return updateAgentRepo(payload.agentId, payload.organizationId, {
+  const updatedAgent = await updateAgentRepo(payload.agentId, payload.organizationId, {
     externalId: elevenLabsAgent.agent_id,
     externalType: AgentExternalType.ELEVEN_LABS,
     voiceId: suggestedVoice || null,
@@ -476,6 +541,25 @@ export async function retryAgentProvision(payload: AgentProvisionRetryPayload) {
     lastSyncError: null,
     providerCorrelationKey: payload.providerCorrelationKey,
   })
+
+  await emitTransitionAuditEvent({
+    organizationId: payload.organizationId,
+    domain: 'provisioning',
+    fromState: 'retry_queued',
+    toState: 'completed',
+    source: 'worker',
+    correlationId:
+      (typeof payload.correlationId === 'string' && payload.correlationId) ||
+      payload.providerCorrelationKey,
+    reason: 'retry_recovered_provider_agent',
+    metadata: {
+      agentId: updatedAgent.id,
+      externalId: updatedAgent.externalId,
+      provider: 'elevenlabs',
+    },
+  })
+
+  return updatedAgent
 }
 
 export async function updateElevenLabsAgent(
@@ -529,6 +613,25 @@ export async function updateElevenLabsAgent(
         serviceQuestions: [],
         providerCorrelationKey:
           agent.providerCorrelationKey || `${organizationId}:${agentId}`,
+        correlationId:
+          getRequestContext()?.correlationId ||
+          agent.providerCorrelationKey ||
+          `${organizationId}:${agentId}`,
+      })
+
+      await emitTransitionAuditEvent({
+        organizationId,
+        domain: 'provisioning',
+        fromState: 'completed',
+        toState: 'retry_queued',
+        source: options.fromRetryJob ? 'worker' : 'api',
+        correlationId:
+          getRequestContext()?.correlationId || agent.providerCorrelationKey,
+        reason: 'fallback_agent_requires_reprovision',
+        metadata: {
+          agentId,
+          provider: 'elevenlabs',
+        },
       })
     } catch (queueError) {
       logger.error(
