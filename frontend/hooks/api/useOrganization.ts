@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { organization, useActiveOrganization, useSession } from '@/lib/auth-client';
 import { QUERY_KEYS } from '@/lib/config';
-import { post } from '@/lib/api';
+import { get, post } from '@/lib/api';
 import { toast } from 'sonner';
 
 export { useActiveOrganization };
@@ -42,6 +42,49 @@ export function useCreateOrganization() {
 
 export function useOnboardOrganization() {
   const queryClient = useQueryClient();
+
+  type OnboardingQualification = {
+    teamSize?: string;
+    monthlyLeadVolume?: string;
+    rolloutTimeline?: string;
+    notes?: string;
+  };
+
+  type OnboardingProvisioningStatus = {
+    organization: {
+      id: string;
+      name: string;
+      planType: string;
+      lifecycleStatus: string;
+      provisioningStatus: string;
+    };
+    latestJob: {
+      id: string;
+      status: string;
+      idempotencyKey: string;
+      correlationId: string;
+      lifecycleTarget: string | null;
+      attempts: number;
+      errorMessage: string | null;
+      queuedAt: string | null;
+      startedAt: string | null;
+      completedAt: string | null;
+      createdAt: string | null;
+      updatedAt: string | null;
+    } | null;
+    events: Array<{
+      id: string;
+      level: string;
+      eventType: string;
+      message: string;
+      correlationId: string;
+      metadata: unknown | null;
+      createdAt: string | null;
+    }>;
+    canRetry: boolean;
+    nextAction: 'workspace_ready' | 'payment_required' | 'retry_available' | 'provisioning';
+  };
+
   return useMutation({
     mutationFn: async (params: {
       name: string;
@@ -51,26 +94,91 @@ export function useOnboardOrganization() {
       useCase?: string;
       website?: string;
       mainGoal?: string;
+      businessRole?: string;
+      demoIntent?: boolean;
+      qualification?: OnboardingQualification;
+      idempotencyKey?: string;
       agent: {
         name: string;
         openingLine?: string;
         serviceQuestions?: string[];
       };
     }) => {
-      return await post<{ data: any }>('/organization/onboarding', params);
+      const { idempotencyKey, ...payload } = params;
+      return await post<{ data: { organizationId: string; idempotent: boolean; provisioning: OnboardingProvisioningStatus } }>(
+        '/organization/onboarding',
+        { ...payload, idempotencyKey },
+        idempotencyKey
+          ? {
+              headers: {
+                'x-idempotency-key': idempotencyKey,
+              },
+            }
+          : undefined,
+      );
     },
     onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.organizations() });
-      if (result?.data?.agent?.degradedMode?.enabled) {
-        toast.warning(
-          'Organization onboarded. Initial agent is in degraded mode while provider provisioning retries in the background.',
-        );
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.onboardingProvisioningStatus() });
+
+      const nextAction = result?.data?.provisioning?.nextAction;
+      if (nextAction === 'payment_required') {
+        toast.info('Onboarding submitted. Payment verification is required before workspace activation.');
+      } else if (nextAction === 'retry_available') {
+        toast.warning('Onboarding submitted, but provisioning failed. You can retry from the provisioning status page.');
       } else {
-        toast.success('Organization onboarded');
+        toast.success('Onboarding submitted. Provisioning is now in progress.');
       }
     },
     onError: (error: any) => {
       toast.error(error?.message || 'Failed to onboard organization');
+    },
+  });
+}
+
+export function useOnboardingProvisioningStatus(
+  organizationId?: string,
+  options?: {
+    enabled?: boolean;
+    refetchInterval?: number | false;
+  },
+) {
+  return useQuery({
+    queryKey: QUERY_KEYS.onboardingProvisioningStatus(organizationId),
+    queryFn: async () => {
+      const query = organizationId
+        ? `?organizationId=${encodeURIComponent(organizationId)}`
+        : '';
+      return get<{ data: any }>(
+        `/organization/onboarding/provisioning-status${query}`,
+      );
+    },
+    enabled: options?.enabled,
+    refetchInterval: options?.refetchInterval,
+  });
+}
+
+export function useRetryOnboardingProvisioning() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params?: { organizationId?: string }) => {
+      return post<{ data: any }>(
+        '/organization/onboarding/provisioning/retry',
+        params?.organizationId ? { organizationId: params.organizationId } : {},
+      );
+    },
+    onSuccess: (_result, variables) => {
+      toast.success('Provisioning retry submitted.');
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.onboardingProvisioningStatus(
+          variables?.organizationId,
+        ),
+      });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.organizations() });
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to retry provisioning');
     },
   });
 }

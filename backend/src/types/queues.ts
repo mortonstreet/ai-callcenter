@@ -4,6 +4,7 @@ export const QUEUE_NAMES = {
   CAMPAIGN_EMAIL: 'campaign_email',
   INTEGRATION_SYNC: 'integration_sync',
   WEBHOOK_INGEST: 'webhook_ingest',
+  ONBOARDING_PROVISIONING: 'onboarding_provisioning',
 } as const
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES]

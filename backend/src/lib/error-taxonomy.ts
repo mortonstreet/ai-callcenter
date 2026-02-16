@@ -4,6 +4,7 @@ import { QueueName, QUEUE_NAMES } from '@/types/queues'
 export type ErrorTaxonomyTag =
   | 'auth'
   | 'integration'
+  | 'onboarding'
   | 'campaigns_sms'
   | 'campaigns_voice'
   | 'campaigns_email'
@@ -20,6 +21,9 @@ export const resolveTaxonomyFromRequest = (
   }
   if (path.includes('/integrations')) {
     return 'integration'
+  }
+  if (path.includes('/onboarding')) {
+    return 'onboarding'
   }
   if (path.includes('/sms-campaign') || path.includes('/campaigns/sms')) {
     return 'campaigns_sms'
@@ -43,6 +47,8 @@ export const resolveTaxonomyFromQueue = (
   switch (queueName) {
     case QUEUE_NAMES.INTEGRATION_SYNC:
       return 'integration'
+    case QUEUE_NAMES.ONBOARDING_PROVISIONING:
+      return 'onboarding'
     case QUEUE_NAMES.CAMPAIGN_SMS:
       return 'campaigns_sms'
     case QUEUE_NAMES.CAMPAIGN_EMAIL:

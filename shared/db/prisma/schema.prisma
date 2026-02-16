@@ -46,6 +46,7 @@ model User {
   createdSmsCampaigns SmsCampaign[]   @relation("sms_campaign_created_by_user")
   resolvedErrorLogs   ErrorLog[]      @relation("error_log_resolved_by_user")
   adminAuditEntries   AdminAuditLog[] @relation("admin_audit_actor_user")
+  onboardingProvisioningJobs OnboardingProvisioningJob[]
 
   @@unique([email])
   @@map("user")
@@ -104,6 +105,14 @@ model Organization {
   logo                     String?
   createdAt                DateTime
   metadata                 String?
+  lifecycleStatus          String                    @default("workspace_active")
+  planType                 String                    @default("paid")
+  provisioningStatus       String                    @default("completed")
+  onboardingIdempotencyKey String?                   @unique
+  onboardingBusinessRole   String?
+  onboardingDemoIntent     Boolean                   @default(false)
+  onboardingQualification  Json?
+  onboardingCompletedAt    DateTime?
   members                  Member[]
   invitations              Invitation[]
   agents                   Agent[]
@@ -130,6 +139,8 @@ model Organization {
   agentWorkflows           AgentWorkflow[]
   errorLogs                ErrorLog[]
   adminAuditLogs           AdminAuditLog[]
+  onboardingProvisioningJobs OnboardingProvisioningJob[]
+  onboardingProvisioningEvents OnboardingProvisioningEvent[]
 
   @@unique([slug])
   @@map("organization")
@@ -519,6 +530,53 @@ model IntegrationWebhookEvent {
   @@index([organizationId, createdAt])
   @@index([status, createdAt])
   @@map("integration_webhook_event")
+}
+
+model OnboardingProvisioningJob {
+  id              String   @id @default(uuid())
+  organizationId  String
+  submittedByUserId String
+  correlationId   String
+  idempotencyKey  String   @unique
+  status          String   @default("pending")
+  lifecycleTarget String?
+  errorMessage    String?
+  payload         Json?
+  attempts        Int      @default(0)
+  queuedAt        DateTime @default(now())
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  submittedBy  User                         @relation(fields: [submittedByUserId], references: [id], onDelete: Cascade)
+  events       OnboardingProvisioningEvent[]
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, status, createdAt])
+  @@index([correlationId])
+  @@map("onboarding_provisioning_job")
+}
+
+model OnboardingProvisioningEvent {
+  id                String   @id @default(uuid())
+  provisioningJobId String
+  organizationId    String
+  correlationId     String
+  level             String   @default("info")
+  eventType         String
+  message           String
+  metadata          Json?
+  createdAt         DateTime @default(now())
+
+  job          OnboardingProvisioningJob @relation(fields: [provisioningJobId], references: [id], onDelete: Cascade)
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([provisioningJobId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([correlationId])
+  @@map("onboarding_provisioning_event")
 }
 
 model Campaign {

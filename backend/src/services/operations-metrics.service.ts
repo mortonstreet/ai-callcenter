@@ -102,6 +102,14 @@ const queueMetrics: Record<QueueName, QueueMetric> = {
     recentLatenciesMs: [],
     lastSeenAt: null,
   },
+  [QUEUE_NAMES.ONBOARDING_PROVISIONING]: {
+    processed: 0,
+    failed: 0,
+    totalLatencyMs: 0,
+    maxLatencyMs: 0,
+    recentLatenciesMs: [],
+    lastSeenAt: null,
+  },
 }
 
 const integrationMetrics = new Map<string, IntegrationMetric>()
@@ -324,6 +332,9 @@ export const getOperationsMetricsSnapshot = () => {
     ),
     [QUEUE_NAMES.WEBHOOK_INGEST]: summarizeQueueMetric(
       queueMetrics[QUEUE_NAMES.WEBHOOK_INGEST],
+    ),
+    [QUEUE_NAMES.ONBOARDING_PROVISIONING]: summarizeQueueMetric(
+      queueMetrics[QUEUE_NAMES.ONBOARDING_PROVISIONING],
     ),
   }
 

@@ -43,6 +43,7 @@ export const QUERY_KEYS = {
   integrations: (orgId?: string) => ['integrations', orgId] as const,
   integrationStatus: (orgId?: string, provider?: string) => ['integrationStatus', orgId, provider] as const,
   integrationSyncJobs: (orgId?: string, provider?: string) => ['integrationSyncJobs', orgId, provider] as const,
+  onboardingProvisioningStatus: (orgId?: string) => ['organization', 'onboardingProvisioningStatus', orgId] as const,
   campaigns: (orgId?: string, channel?: string) => ['campaigns', orgId, channel] as const,
   campaign: (orgId?: string, campaignId?: string) => ['campaign', orgId, campaignId] as const,
   campaignEnrollments: (orgId?: string, campaignId?: string) => ['campaignEnrollments', orgId, campaignId] as const,

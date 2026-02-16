@@ -187,6 +187,14 @@ export interface DBOrganization {
   logo: string | null;
   createdAt: Timestamp;
   metadata: string | null;
+  lifecycleStatus: string;
+  planType: string;
+  provisioningStatus: string;
+  onboardingIdempotencyKey: string | null;
+  onboardingBusinessRole: string | null;
+  onboardingDemoIntent: boolean;
+  onboardingQualification: unknown | null;
+  onboardingCompletedAt: Timestamp | null;
 }
 
 export interface DBAgent {

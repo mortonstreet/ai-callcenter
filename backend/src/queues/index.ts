@@ -39,6 +39,7 @@ export const queueRegistry: Record<QueueName, Queue<QueueJobPayload>> = {
   campaign_email: createQueue('campaign_email'),
   integration_sync: createQueue('integration_sync'),
   webhook_ingest: createQueue('webhook_ingest'),
+  onboarding_provisioning: createQueue('onboarding_provisioning'),
 }
 
 export const deadLetterQueueRegistry: Record<
@@ -50,6 +51,9 @@ export const deadLetterQueueRegistry: Record<
   campaign_email: createQueue(`campaign_email_${DEAD_LETTER_QUEUE_SUFFIX}`),
   integration_sync: createQueue(`integration_sync_${DEAD_LETTER_QUEUE_SUFFIX}`),
   webhook_ingest: createQueue(`webhook_ingest_${DEAD_LETTER_QUEUE_SUFFIX}`),
+  onboarding_provisioning: createQueue(
+    `onboarding_provisioning_${DEAD_LETTER_QUEUE_SUFFIX}`,
+  ),
 }
 
 export const getQueue = (queueName: QueueName): Queue<QueueJobPayload> => {
