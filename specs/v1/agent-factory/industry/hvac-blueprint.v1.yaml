@@ -1,0 +1,281 @@
+meta:
+  blueprint_version: "v1"
+  industry_pack_version: "v1.0.0"
+  created_by: "agent_factory_system"
+  approved_by_admin: false
+
+governance:
+  core_tabs_profile_ref: "specs/v1/agent-factory/core-tabs/hvac-core-tabs-profile.v1.yaml"
+  workflow_profile_ref: "specs/v1/agent-factory/industry/hvac-workflow.v1.yaml"
+  owner_editable_fields:
+    - "greeting.first_message"
+    - "voice.curated_voice_id"
+    - "voice.params.stability"
+    - "voice.params.similarity_boost"
+    - "voice.params.speed"
+  admin_locked_tabs:
+    - "workflow"
+    - "branches"
+    - "knowledge_base"
+    - "analysis"
+    - "tools"
+    - "tests"
+    - "widget"
+    - "security"
+    - "advanced"
+
+workspace:
+  organization_id: "<org_id>"
+  organization_name: "<org_name>"
+  domain: "<domain>"
+  industry: "hvac"
+  services_selected:
+    - "heating_repair"
+    - "cooling_repair"
+    - "preventive_maintenance"
+    - "system_replacement_estimate"
+
+agent_identity:
+  agent_name: "<org_name> Service Assistant"
+  language:
+    primary: "en"
+    supported:
+      - "en"
+
+prompt:
+  system_prompt_template_id: "support.hvac.core.v1"
+  compiled_prompt_ref: "specs/v1/agent-factory/industry/hvac-system-prompt.v1.md"
+  system_prompt_fragments:
+    core:
+      - "core.customer-service.dispatch-first.v1"
+    industry:
+      - "industry.hvac.customer-support.v1"
+      - "compliance.hvac.safety-scope.v1"
+    services:
+      - "service.hvac.heating-repair.v1"
+      - "service.hvac.cooling-repair.v1"
+      - "service.hvac.maintenance.v1"
+      - "service.hvac.replacement-estimate.v1"
+    escalation:
+      - "escalation.hvac.safety-or-dispatch.v1"
+  owner_editable: false
+
+tool_configuration:
+  mode: "tool_ids_and_built_in_tools"
+  tool_ids:
+    - "<tool_id_lookup_customer>"
+    - "<tool_id_book_appointment>"
+    - "<tool_id_create_task>"
+  built_in_tools:
+    - name: "end_call"
+      enabled: true
+    - name: "language_detection"
+      enabled: true
+    - name: "transfer_to_number"
+      enabled: false
+
+greeting:
+  first_message: "Hi, thanks for calling <org_name>! I can help with heating and cooling service, scheduling, and urgent issues. What do you need help with today?"
+  owner_editable: true
+
+voice:
+  curated_voice_id: "cgSgspJ2msm6clMCkdW9"
+  voice_profile: "professional_warm_v1"
+  params:
+    stability: 0.7
+    similarity_boost: 0.8
+    speed: 1.0
+  owner_editable: true
+
+knowledge_base:
+  firecrawl:
+    enabled: true
+    source_domain: "<https://example-hvac.com>"
+    include_paths:
+      - "/"
+      - "/services"
+      - "/heating"
+      - "/cooling"
+      - "/maintenance"
+      - "/repair"
+      - "/financing"
+      - "/service-area"
+      - "/contact"
+    exclude_paths:
+      - "/privacy"
+      - "/terms"
+      - "/careers"
+      - "/wp-admin"
+      - "/cart"
+      - "/checkout"
+    max_pages: 200
+  ingest:
+    strategy: "urls"
+    fallback_documents: []
+    status: "pending"
+
+post_call_webhook:
+  enabled: true
+  endpoint_url: "<https://api.revcenter.ai/webhooks/elevenlabs/post-call>"
+  signing:
+    enabled: true
+    secret_ref: "<post_call_secret_ref>"
+
+mcp:
+  enabled: true
+  server:
+    endpoint: "<https://api.revcenter.ai/mcp/sse>"
+    api_key_ref: "<mcp_api_key_ref>"
+  tools:
+    - name: "book_appointment"
+      enabled: true
+    - name: "create_task"
+      enabled: true
+    - name: "lookup_customer"
+      enabled: true
+  approval_policy:
+    mode: "auto_for_safe_tools"
+
+data_collection:
+  fields:
+    - key: "resolution_status"
+      type: "enum"
+      required: true
+    - key: "follow_up_status"
+      type: "enum"
+      required: true
+    - key: "customer_sentiment"
+      type: "enum"
+      required: true
+    - key: "urgency_level"
+      type: "enum"
+      required: true
+    - key: "service_type"
+      type: "enum"
+      required: true
+    - key: "system_type"
+      type: "enum"
+      required: false
+    - key: "system_age_years"
+      type: "integer"
+      required: false
+    - key: "issue_summary"
+      type: "string"
+      required: true
+    - key: "service_address"
+      type: "string"
+      required: true
+    - key: "preferred_time_window"
+      type: "string"
+      required: false
+    - key: "financing_interest"
+      type: "boolean"
+      required: false
+    - key: "escalation_reason"
+      type: "string"
+      required: false
+    - key: "agent_notes"
+      type: "string"
+      required: false
+
+evaluation_criteria:
+  - id: "safety_triage_accuracy"
+    threshold: 0.98
+  - id: "intent_routing_accuracy"
+    threshold: 0.92
+  - id: "knowledge_grounding_accuracy"
+    threshold: 0.9
+  - id: "booking_completeness"
+    threshold: 0.92
+  - id: "escalation_quality"
+    threshold: 0.93
+  - id: "empathy_and_tone"
+    threshold: 0.85
+  - id: "compliance_guardrails"
+    threshold: 0.97
+  - id: "data_capture_completeness"
+    threshold: 0.95
+
+workflow:
+  definition_ref: "specs/v1/agent-factory/industry/hvac-workflow.v1.yaml"
+  branch_utilization:
+    enabled: true
+    max_branch_depth: 4
+  intents:
+    - name: "safety_emergency"
+    - name: "urgent_outage_no_heat_no_cooling"
+    - name: "routine_repair_request"
+    - name: "maintenance_plan_interest"
+    - name: "replacement_quote_request"
+    - name: "indoor_air_quality_request"
+    - name: "pricing_or_financing_question"
+    - name: "reschedule_or_cancel"
+    - name: "warranty_or_repeat_issue"
+    - name: "human_agent_request"
+    - name: "out_of_scope_request"
+  fallback_behavior: "fallback_general_information"
+
+widget:
+  enabled: false
+  mode: "voice"
+  allowed_domains: []
+  signed_url_required: true
+  owner_editable: false
+
+security:
+  private_agent: true
+  auth_token_enabled: true
+  allowed_origins:
+    - "https://app.revcenter.ai"
+  signed_url_required: true
+  webhook_signing_required: true
+  owner_editable: false
+
+advanced:
+  call_limits:
+    max_concurrent: 10
+    daily_cap: 1000
+  conversation:
+    max_duration_seconds: 3600
+    silence_end_call_timeout: 30
+    turn_timeout: 10
+    text_only_mode: false
+  privacy:
+    recording_retention: "90"
+  webhooks:
+    post_call_url: "https://api.revcenter.ai/webhooks/elevenlabs/post-call"
+    events:
+      - "post_call_transcription"
+      - "post_call_audio"
+      - "call_initiation_failure"
+  owner_editable: false
+
+tests:
+  baseline:
+    - "hvac.greeting.default"
+    - "hvac.intent.safety_emergency"
+    - "hvac.intent.urgent_outage"
+    - "hvac.workflow.repair_booking"
+    - "hvac.workflow.maintenance_booking"
+    - "hvac.workflow.replacement_qualification"
+    - "hvac.kb.service_area_lookup"
+    - "hvac.kb.financing_policy"
+    - "hvac.escalation.human_handoff"
+    - "hvac.negative.no_unsafe_advice"
+    - "hvac.negative.no_false_guarantees"
+    - "hvac.post_call.payload_schema"
+  admin_only_updates: true
+  run_schedule:
+    development: "on_change"
+    daily: "0 6 * * *"
+
+health_checks:
+  provider_connectivity: true
+  webhook_delivery: true
+  mcp_tool_ping: true
+  test_pass_rate_threshold: 0.95
+
+release:
+  activation_policy: "block_if_required_checks_fail"
+  degraded_mode_allowed: true
+  degraded_mode_requires_admin_note: true

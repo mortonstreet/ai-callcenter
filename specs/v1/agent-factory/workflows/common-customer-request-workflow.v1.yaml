@@ -1,0 +1,249 @@
+meta:
+  workflow_version: "v1"
+  name: "common_customer_request_workflow"
+  owner: "agent_ops"
+  scope: "all_home_service_industries"
+  approved_by_admin: false
+
+defaults:
+  fallback_node: "fallback_general_information"
+  escalate_on_low_confidence: true
+  low_confidence_threshold: 0.65
+  max_hops_before_handoff: 4
+
+request_types:
+  - id: "safety_or_life_emergency"
+    examples:
+      - "gas smell"
+      - "sparking panel"
+      - "fire alarm impairment"
+      - "carbon monoxide alert"
+    route:
+      entry_node: "triage_safety_emergency"
+      escalation_required: true
+      fallback_node: "route_live_dispatch"
+  - id: "urgent_service_outage_or_incident"
+    examples:
+      - "no cooling in heat wave"
+      - "active leak"
+      - "door stuck open"
+      - "sewer backup"
+    route:
+      entry_node: "triage_urgent_service"
+      escalation_required: true
+      fallback_node: "schedule_priority_service"
+  - id: "routine_repair_or_service_booking"
+    examples:
+      - "schedule repair"
+      - "book maintenance"
+      - "inspection request"
+    route:
+      entry_node: "collect_service_intake"
+      escalation_required: false
+      fallback_node: "schedule_standard_service"
+  - id: "pricing_quote_plan_inquiry"
+    examples:
+      - "replacement quote"
+      - "plan pricing"
+      - "financing options"
+    route:
+      entry_node: "pricing_quote_information"
+      escalation_required: false
+      fallback_node: "route_estimate_queue"
+  - id: "reschedule_or_cancel"
+    examples:
+      - "change appointment"
+      - "cancel appointment"
+    route:
+      entry_node: "appointment_change_flow"
+      escalation_required: false
+      fallback_node: "route_dispatch_queue"
+  - id: "warranty_or_dispute"
+    examples:
+      - "warranty callback"
+      - "billing dispute"
+      - "repeat service complaint"
+    route:
+      entry_node: "warranty_dispute_flow"
+      escalation_required: true
+      fallback_node: "route_service_manager"
+  - id: "human_handoff_request"
+    examples:
+      - "talk to person"
+      - "operator please"
+    route:
+      entry_node: "human_handoff"
+      escalation_required: true
+      fallback_node: "human_handoff"
+  - id: "out_of_scope_request"
+    examples:
+      - "unsupported specialty service"
+      - "non-service inquiry"
+    route:
+      entry_node: "out_of_scope_response"
+      escalation_required: false
+      fallback_node: "fallback_general_information"
+
+nodes:
+  - id: "triage_safety_emergency"
+    type: "triage"
+    required_fields:
+      - "service_address"
+      - "callback_phone"
+      - "urgency_level"
+      - "escalation_reason"
+    allowed_tools: []
+    next:
+      on_success: "route_live_dispatch"
+      on_failure: "route_live_dispatch"
+  - id: "triage_urgent_service"
+    type: "triage"
+    required_fields:
+      - "service_address"
+      - "callback_phone"
+      - "urgency_level"
+      - "issue_summary"
+    allowed_tools:
+      - "lookup_customer"
+    next:
+      on_success: "schedule_priority_service"
+      on_failure: "route_dispatch_queue"
+  - id: "collect_service_intake"
+    type: "discovery"
+    required_fields:
+      - "service_type"
+      - "service_address"
+      - "callback_phone"
+      - "issue_summary"
+    allowed_tools:
+      - "lookup_customer"
+    next:
+      on_success: "schedule_standard_service"
+      on_failure: "fallback_general_information"
+  - id: "schedule_priority_service"
+    type: "booking"
+    required_fields:
+      - "service_type"
+      - "service_address"
+      - "preferred_time_window"
+    allowed_tools:
+      - "book_appointment"
+      - "create_task"
+    next:
+      on_success: "end_call_success"
+      on_failure: "route_dispatch_queue"
+  - id: "schedule_standard_service"
+    type: "booking"
+    required_fields:
+      - "service_type"
+      - "service_address"
+      - "preferred_time_window"
+    allowed_tools:
+      - "book_appointment"
+      - "create_task"
+    next:
+      on_success: "end_call_success"
+      on_failure: "route_dispatch_queue"
+  - id: "pricing_quote_information"
+    type: "information"
+    required_fields:
+      - "service_type"
+    allowed_tools:
+      - "lookup_customer"
+    next:
+      on_success: "route_estimate_queue"
+      on_failure: "route_service_manager"
+  - id: "appointment_change_flow"
+    type: "schedule_change"
+    required_fields:
+      - "callback_phone"
+    allowed_tools:
+      - "lookup_customer"
+      - "create_task"
+    next:
+      on_success: "end_call_success"
+      on_failure: "route_dispatch_queue"
+  - id: "warranty_dispute_flow"
+    type: "escalation"
+    required_fields:
+      - "service_address"
+      - "callback_phone"
+      - "escalation_reason"
+    allowed_tools:
+      - "lookup_customer"
+      - "create_task"
+    next:
+      on_success: "route_service_manager"
+      on_failure: "route_service_manager"
+  - id: "human_handoff"
+    type: "handoff"
+    required_fields:
+      - "escalation_reason"
+    allowed_tools:
+      - "create_task"
+    next:
+      on_success: "end_call_handoff"
+      on_failure: "end_call_handoff"
+  - id: "out_of_scope_response"
+    type: "fallback"
+    required_fields: []
+    allowed_tools: []
+    next:
+      on_success: "end_call_no_action"
+      on_failure: "fallback_general_information"
+  - id: "fallback_general_information"
+    type: "fallback"
+    required_fields: []
+    allowed_tools: []
+    next:
+      on_success: "end_call_no_action"
+      on_failure: "route_service_manager"
+  - id: "route_live_dispatch"
+    type: "escalation"
+    required_fields:
+      - "escalation_reason"
+    allowed_tools:
+      - "create_task"
+    next:
+      on_success: "end_call_handoff"
+      on_failure: "end_call_handoff"
+  - id: "route_dispatch_queue"
+    type: "queue"
+    required_fields:
+      - "escalation_reason"
+    allowed_tools:
+      - "create_task"
+    next:
+      on_success: "end_call_handoff"
+      on_failure: "end_call_handoff"
+  - id: "route_estimate_queue"
+    type: "queue"
+    required_fields:
+      - "service_type"
+      - "callback_phone"
+    allowed_tools:
+      - "create_task"
+    next:
+      on_success: "end_call_success"
+      on_failure: "route_service_manager"
+  - id: "route_service_manager"
+    type: "escalation"
+    required_fields:
+      - "escalation_reason"
+    allowed_tools:
+      - "create_task"
+    next:
+      on_success: "end_call_handoff"
+      on_failure: "end_call_handoff"
+  - id: "end_call_success"
+    type: "terminal"
+    required_fields: []
+    allowed_tools: []
+  - id: "end_call_handoff"
+    type: "terminal"
+    required_fields: []
+    allowed_tools: []
+  - id: "end_call_no_action"
+    type: "terminal"
+    required_fields: []
+    allowed_tools: []

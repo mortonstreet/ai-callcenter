@@ -1,0 +1,228 @@
+meta:
+  profile_version: "v1"
+  profile_name: "hvac_core_tabs_profile"
+  owner: "platform_admin"
+  approved_by_admin: false
+  applies_to_industries:
+    - "hvac"
+  references:
+    industry_pack_ref: "specs/v1/agent-factory/industry/hvac.md"
+    system_prompt_ref: "specs/v1/agent-factory/industry/hvac-system-prompt.v1.md"
+    workflow_ref: "specs/v1/agent-factory/industry/hvac-workflow.v1.yaml"
+    docs_alignment:
+      - "https://elevenlabs.io/docs/agents-platform/system-prompt"
+      - "https://elevenlabs.io/docs/agents-platform/conversation-flow"
+      - "https://elevenlabs.io/docs/agents-platform/tools"
+      - "https://elevenlabs.io/docs/agents-platform/authentication"
+      - "https://elevenlabs.io/docs/agents-platform/testing"
+      - "https://elevenlabs.io/docs/agents-platform/versioning"
+
+governance:
+  owner_editable_fields:
+    - "conversation_config.agent.first_message"
+    - "conversation_config.tts.voice_id"
+    - "conversation_config.tts.stability"
+    - "conversation_config.tts.similarity_boost"
+    - "conversation_config.tts.speed"
+  owner_blocked_tabs:
+    - "Workflow"
+    - "Branches"
+    - "Knowledge Base"
+    - "Analysis"
+    - "Tools"
+    - "Tests"
+    - "Widget"
+    - "Security"
+    - "Advanced"
+
+tabs:
+  agent:
+    prompt:
+      llm: "gpt-4o"
+      temperature: 0.7
+      max_tokens: 1024
+      owner_editable: false
+      system_prompt_ref: "specs/v1/agent-factory/industry/hvac-system-prompt.v1.md"
+      dynamic_variables:
+        enforce_known_variables_only: true
+        reserved_prefixes:
+          - "system__"
+          - "agent__"
+        allowed_system_variables:
+          - "system__agent_id"
+          - "system__conversation_id"
+          - "system__caller_id"
+    language: "en"
+    greeting:
+      owner_editable: true
+      max_length: 280
+      first_message_mode: "assistant_speaks_first"
+    conversation_flow:
+      disable_interruptions: false
+      max_interruptions: 2
+      min_relevant_input_duration_seconds: 0.4
+      inactivity_timeout_seconds: 15
+      conversation_turn_timeout_seconds: 7
+    voice:
+      curated_only: true
+      owner_editable: true
+      ranges:
+        stability: [0.55, 0.85]
+        similarity_boost: [0.65, 0.9]
+        speed: [0.95, 1.08]
+
+  workflow:
+    admin_locked: true
+    definition_ref: "specs/v1/agent-factory/industry/hvac-workflow.v1.yaml"
+    fallback_behavior: "fallback_general_information"
+    max_branch_depth: 4
+    support_workflow_overrides: true
+
+  branches:
+    admin_locked: true
+    low_confidence_threshold: 0.65
+    escalate_on_low_confidence: true
+    primary_branch: "main"
+    staging_branch: "staging"
+
+  knowledge_base:
+    admin_locked: true
+    rag_enabled: true
+    firecrawl:
+      enabled: true
+      max_pages: 200
+      include_paths:
+        - "/"
+        - "/services"
+        - "/heating"
+        - "/cooling"
+        - "/maintenance"
+        - "/repair"
+        - "/financing"
+        - "/service-area"
+        - "/about"
+        - "/contact"
+      exclude_paths:
+        - "/privacy"
+        - "/terms"
+        - "/careers"
+        - "/wp-admin"
+        - "/cart"
+        - "/checkout"
+    ingest:
+      strategy: "urls"
+      allow_owner_manual_additions: false
+
+  analysis:
+    admin_locked: true
+    data_collection_schema_ref: "specs/v1/agent-factory/industry/hvac.md#8-data-collection-schema"
+    evaluation_criteria_ref: "specs/v1/agent-factory/industry/hvac.md#9-evaluation-criteria"
+    thresholds_locked: true
+    max_evaluation_criteria: 10
+
+  tools:
+    admin_locked: true
+    prompt_tool_config:
+      mode: "tool_ids_and_built_in_tools"
+      legacy_tools_array_enabled: false
+    built_in_tools:
+      - name: "end_call"
+        enabled: true
+      - name: "language_detection"
+        enabled: true
+      - name: "transfer_to_number"
+        enabled: false
+    server_tools:
+      default_approval_mode: "manual"
+      default_response_timeout_seconds: 9.5
+      max_response_timeout_seconds: 20
+      tools:
+        - name: "lookup_customer"
+          approval_mode: "auto"
+          endpoint_url: "https://api.revcenter.ai/elevenlabs/tools/lookup-customer"
+        - name: "book_appointment"
+          approval_mode: "manual"
+          endpoint_url: "https://api.revcenter.ai/elevenlabs/tools/book-appointment"
+        - name: "create_task"
+          approval_mode: "manual"
+          endpoint_url: "https://api.revcenter.ai/elevenlabs/tools/create-task"
+    mcp:
+      enabled: true
+      endpoint: "https://api.revcenter.ai/mcp/sse"
+      approval_policy: "auto_for_safe_tools"
+    webhook_tools:
+      allow_owner_create: false
+
+  tests:
+    admin_locked: true
+    baseline_suite:
+      - "hvac.greeting.default"
+      - "hvac.intent.safety_emergency"
+      - "hvac.intent.urgent_outage"
+      - "hvac.workflow.repair_booking"
+      - "hvac.workflow.maintenance_booking"
+      - "hvac.workflow.replacement_qualification"
+      - "hvac.kb.service_area_lookup"
+      - "hvac.kb.financing_policy"
+      - "hvac.escalation.human_handoff"
+      - "hvac.negative.no_unsafe_advice"
+      - "hvac.negative.no_false_guarantees"
+      - "hvac.post_call.payload_schema"
+    scenario_generation:
+      enabled: true
+      require_admin_approval: true
+    block_activation_on_failures: true
+    run_schedule:
+      development: "on_change"
+      daily: "0 6 * * *"
+
+  widget:
+    admin_locked: true
+    enabled: false
+    mode: "voice"
+    allowed_domains: []
+    authentication:
+      private_agent: true
+      signed_url_required: true
+    branding_locked: true
+
+  security:
+    admin_locked: true
+    private_agent: true
+    auth_token_enabled: true
+    allowed_origins:
+      - "https://app.revcenter.ai"
+    signed_url:
+      enabled: true
+      token_ttl_seconds: 300
+    webhook_signing_required: true
+    secret_rotation_days: 90
+
+  advanced:
+    admin_locked: true
+    call_limits:
+      max_concurrent: 10
+      daily_cap: 1000
+    conversation:
+      max_duration_seconds: 3600
+      silence_end_call_timeout: 30
+      turn_timeout: 10
+      inactivity_timeout_seconds: 15
+      conversation_turn_timeout_seconds: 7
+      text_only_mode: false
+    privacy:
+      recording_retention_days: 90
+    webhooks:
+      post_call_url: "https://api.revcenter.ai/webhooks/elevenlabs/post-call"
+      events:
+        - "post_call_transcription"
+        - "post_call_audio"
+        - "call_initiation_failure"
+
+versioning:
+  admin_locked: true
+  branches_enabled: true
+  protected_branches:
+    - "main"
+  rollout_branch: "staging"
+  rollback_via_version_restore: true

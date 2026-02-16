@@ -1,0 +1,365 @@
+meta:
+  workflow_version: "v1"
+  industry: "electrical"
+  pack_version: "v1.0.0"
+  owner: "agent_ops"
+  approved_by_admin: false
+  references:
+    industry_pack_ref: "specs/v1/agent-factory/industry/electrical.md"
+    system_prompt_ref: "specs/v1/agent-factory/industry/electrical-system-prompt.v1.md"
+    docs_alignment:
+      - "https://elevenlabs.io/docs/agents-platform/workflows"
+      - "https://elevenlabs.io/docs/agents-platform/tools/server-tools"
+      - "https://elevenlabs.io/docs/agents-platform/testing"
+      - "https://elevenlabs.io/docs/agents-platform/versioning"
+
+defaults:
+  fallback_node: "fallback_general_information"
+  escalate_on_low_confidence: true
+  low_confidence_threshold: 0.65
+  max_hops_before_handoff: 4
+  workflow_overrides_supported: true
+
+intents:
+  - id: "safety_emergency"
+    description: "safety emergency"
+    entry_node: "triage_safety_emergency"
+    fallback_node: "route_live_dispatch"
+    escalation_required: true
+  - id: "power_loss_urgent"
+    description: "power loss urgent"
+    entry_node: "triage_outage_urgent"
+    fallback_node: "schedule_priority_service"
+    escalation_required: true
+  - id: "routine_repair_request"
+    description: "routine repair request"
+    entry_node: "collect_repair_details"
+    fallback_node: "schedule_standard_service"
+    escalation_required: false
+  - id: "panel_upgrade_or_load_question"
+    description: "panel upgrade or load question"
+    entry_node: "panel_upgrade_discovery"
+    fallback_node: "route_estimate_queue"
+    escalation_required: false
+  - id: "ev_charger_inquiry"
+    description: "ev charger inquiry"
+    entry_node: "ev_charger_discovery"
+    fallback_node: "schedule_ev_consultation"
+    escalation_required: false
+  - id: "inspection_or_code_question"
+    description: "inspection or code question"
+    entry_node: "inspection_code_information"
+    fallback_node: "route_service_manager"
+    escalation_required: true
+  - id: "pricing_or_warranty_question"
+    description: "pricing or warranty question"
+    entry_node: "pricing_warranty_information"
+    fallback_node: "route_service_manager"
+    escalation_required: true
+  - id: "reschedule_or_cancel"
+    description: "reschedule or cancel"
+    entry_node: "appointment_change_flow"
+    fallback_node: "route_dispatch_queue"
+    escalation_required: false
+  - id: "human_agent_request"
+    description: "human agent request"
+    entry_node: "human_handoff"
+    fallback_node: "fallback_general_information"
+    escalation_required: true
+  - id: "out_of_scope_request"
+    description: "out of scope request"
+    entry_node: "out_of_scope_response"
+    fallback_node: "fallback_general_information"
+    escalation_required: false
+
+nodes:
+  - id: "triage_safety_emergency"
+    type: "triage"
+    required_fields:
+      - "service_address"
+      - "callback_phone"
+      - "urgency_level"
+      - "escalation_reason"
+    allowed_tools:
+      - "create_task"
+    next:
+      on_success: "route_live_dispatch"
+      on_failure: "route_live_dispatch"
+
+  - id: "route_live_dispatch"
+    type: "escalation"
+    required_fields:
+      - "service_address"
+      - "callback_phone"
+      - "escalation_reason"
+    allowed_tools:
+      - "create_task"
+    next:
+      on_success: "end_call_handoff"
+      on_failure: "end_call_handoff"
+
+  - id: "triage_outage_urgent"
+    type: "triage"
+    required_fields:
+      - "service_address"
+      - "callback_phone"
+      - "urgency_level"
+      - "issue_summary"
+    allowed_tools:
+      - "lookup_customer"
+    next:
+      on_success: "schedule_priority_service"
+      on_failure: "schedule_priority_service"
+
+  - id: "schedule_priority_service"
+    type: "booking"
+    required_fields:
+      - "service_type"
+      - "service_address"
+      - "callback_phone"
+      - "preferred_time_window"
+    allowed_tools:
+      - "book_appointment"
+      - "create_task"
+    next:
+      on_success: "end_call_success"
+      on_failure: "route_dispatch_queue"
+
+  - id: "collect_repair_details"
+    type: "discovery"
+    required_fields:
+      - "service_type"
+      - "service_address"
+      - "callback_phone"
+      - "issue_summary"
+    allowed_tools:
+      - "lookup_customer"
+    next:
+      on_success: "schedule_standard_service"
+      on_failure: "schedule_standard_service"
+
+  - id: "schedule_standard_service"
+    type: "booking"
+    required_fields:
+      - "service_type"
+      - "service_address"
+      - "callback_phone"
+      - "preferred_time_window"
+    allowed_tools:
+      - "book_appointment"
+      - "create_task"
+    next:
+      on_success: "end_call_success"
+      on_failure: "route_dispatch_queue"
+
+  - id: "panel_upgrade_discovery"
+    type: "discovery"
+    required_fields:
+      - "service_type"
+      - "service_address"
+      - "callback_phone"
+      - "issue_summary"
+    allowed_tools:
+      - "lookup_customer"
+    next:
+      on_success: "route_estimate_queue"
+      on_failure: "route_estimate_queue"
+
+  - id: "route_estimate_queue"
+    type: "queue"
+    required_fields:
+      - "service_type"
+      - "callback_phone"
+    allowed_tools:
+      - "create_task"
+    next:
+      on_success: "end_call_handoff"
+      on_failure: "end_call_handoff"
+
+  - id: "ev_charger_discovery"
+    type: "discovery"
+    required_fields:
+      - "service_type"
+      - "service_address"
+      - "callback_phone"
+      - "issue_summary"
+    allowed_tools:
+      - "lookup_customer"
+    next:
+      on_success: "schedule_ev_consultation"
+      on_failure: "schedule_ev_consultation"
+
+  - id: "schedule_ev_consultation"
+    type: "booking"
+    required_fields:
+      - "service_type"
+      - "service_address"
+      - "callback_phone"
+      - "preferred_time_window"
+    allowed_tools:
+      - "book_appointment"
+      - "create_task"
+    next:
+      on_success: "end_call_success"
+      on_failure: "route_dispatch_queue"
+
+  - id: "inspection_code_information"
+    type: "information"
+    required_fields:
+      - "service_type"
+      - "service_address"
+      - "callback_phone"
+      - "issue_summary"
+    allowed_tools:
+      - "lookup_customer"
+    next:
+      on_success: "route_service_manager"
+      on_failure: "route_service_manager"
+
+  - id: "route_service_manager"
+    type: "escalation"
+    required_fields:
+      - "service_address"
+      - "callback_phone"
+      - "escalation_reason"
+    allowed_tools:
+      - "create_task"
+    next:
+      on_success: "end_call_handoff"
+      on_failure: "end_call_handoff"
+
+  - id: "pricing_warranty_information"
+    type: "information"
+    required_fields:
+      - "service_type"
+      - "service_address"
+      - "callback_phone"
+      - "issue_summary"
+    allowed_tools:
+      - "lookup_customer"
+    next:
+      on_success: "route_service_manager"
+      on_failure: "route_service_manager"
+
+  - id: "appointment_change_flow"
+    type: "schedule_change"
+    required_fields:
+      - "callback_phone"
+      - "service_address"
+    allowed_tools:
+      - "lookup_customer"
+      - "create_task"
+    next:
+      on_success: "route_dispatch_queue"
+      on_failure: "route_dispatch_queue"
+
+  - id: "route_dispatch_queue"
+    type: "queue"
+    required_fields:
+      - "escalation_reason"
+      - "callback_phone"
+    allowed_tools:
+      - "create_task"
+    next:
+      on_success: "end_call_handoff"
+      on_failure: "end_call_handoff"
+
+  - id: "human_handoff"
+    type: "handoff"
+    required_fields:
+      - "escalation_reason"
+    allowed_tools:
+      - "create_task"
+    next:
+      on_success: "end_call_handoff"
+      on_failure: "end_call_handoff"
+
+  - id: "fallback_general_information"
+    type: "fallback"
+    required_fields: []
+    allowed_tools: []
+    next:
+      on_success: "end_call_no_action"
+      on_failure: "fallback_general_information"
+
+  - id: "out_of_scope_response"
+    type: "fallback"
+    required_fields: []
+    allowed_tools: []
+    next:
+      on_success: "fallback_general_information"
+      on_failure: "fallback_general_information"
+
+  - id: "end_call_success"
+    type: "terminal"
+    required_fields: []
+    allowed_tools:
+      - "end_call"
+
+  - id: "end_call_handoff"
+    type: "terminal"
+    required_fields: []
+    allowed_tools:
+      - "transfer_to_number"
+
+  - id: "end_call_no_action"
+    type: "terminal"
+    required_fields: []
+    allowed_tools:
+      - "end_call"
+
+tooling:
+  built_in_tools:
+    - name: "end_call"
+      enabled: true
+    - name: "language_detection"
+      enabled: true
+    - name: "transfer_to_number"
+      enabled: false
+      enabled_when:
+        - "explicit_handoff_policy_permits_transfer"
+  server_tools:
+    default_approval_mode: "manual"
+    default_response_timeout_seconds: 9.5
+    max_response_timeout_seconds: 20
+    definitions:
+      - name: "lookup_customer"
+        approval_mode: "auto"
+      - name: "book_appointment"
+        approval_mode: "manual"
+      - name: "create_task"
+        approval_mode: "manual"
+
+versioning:
+  branches_enabled: true
+  protected_branch: "main"
+  staging_branch: "staging"
+  rollback_via_versions_api: true
+
+tests:
+  baseline:
+    - id: "electrical.greeting.default"
+      expected_node: "fallback_general_information"
+    - id: "electrical.intent.safety_emergency"
+      expected_node: "fallback_general_information"
+    - id: "electrical.intent.power_loss_urgent"
+      expected_node: "fallback_general_information"
+    - id: "electrical.workflow.repair_booking"
+      expected_node: "fallback_general_information"
+    - id: "electrical.workflow.panel_upgrade"
+      expected_node: "fallback_general_information"
+    - id: "electrical.workflow.ev_charger_consult"
+      expected_node: "fallback_general_information"
+    - id: "electrical.kb.permitting_policy"
+      expected_node: "fallback_general_information"
+    - id: "electrical.kb.warranty_policy"
+      expected_node: "fallback_general_information"
+    - id: "electrical.escalation.human_handoff"
+      expected_node: "fallback_general_information"
+    - id: "electrical.negative.no_unsafe_advice"
+      expected_node: "fallback_general_information"
+    - id: "electrical.negative.no_false_guarantees"
+      expected_node: "fallback_general_information"
+    - id: "electrical.post_call.payload_schema"
+      expected_node: "fallback_general_information"
+  daily_regression_enabled: true

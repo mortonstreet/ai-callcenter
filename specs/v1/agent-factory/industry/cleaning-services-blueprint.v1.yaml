@@ -1,0 +1,202 @@
+meta:
+  blueprint_version: "v1"
+  industry_pack_version: "v1.0.0"
+  created_by: "agent_factory_system"
+  approved_by_admin: false
+
+governance:
+  core_tabs_profile_ref: "specs/v1/agent-factory/core-tabs/cleaning-services-core-tabs-profile.v1.yaml"
+  workflow_profile_ref: "specs/v1/agent-factory/industry/cleaning-services-workflow.v1.yaml"
+  owner_editable_fields:
+    - "greeting.first_message"
+    - "voice.curated_voice_id"
+    - "voice.params.stability"
+    - "voice.params.similarity_boost"
+    - "voice.params.speed"
+  admin_locked_tabs:
+    - "workflow"
+    - "branches"
+    - "knowledge_base"
+    - "analysis"
+    - "tools"
+    - "tests"
+    - "widget"
+    - "security"
+    - "advanced"
+
+workspace:
+  organization_id: "<org_id>"
+  organization_name: "<org_name>"
+  domain: "<domain>"
+  industry: "cleaning_services"
+  services_selected:
+    - "one_time_home_cleaning"
+    - "recurring_cleaning_plan"
+    - "deep_cleaning"
+    - "move_in_move_out_cleaning"
+
+agent_identity:
+  agent_name: "<org_name> Service Assistant"
+  language:
+    primary: "en"
+    supported:
+      - "en"
+
+prompt:
+  system_prompt_template_id: "support.cleaning_services.core.v1"
+  compiled_prompt_ref: "specs/v1/agent-factory/industry/cleaning-services-system-prompt.v1.md"
+  owner_editable: false
+
+tool_configuration:
+  mode: "tool_ids_and_built_in_tools"
+  tool_ids:
+    - "<tool_id_lookup_customer>"
+    - "<tool_id_book_appointment>"
+    - "<tool_id_create_task>"
+  built_in_tools:
+    - name: "end_call"
+      enabled: true
+    - name: "language_detection"
+      enabled: true
+    - name: "transfer_to_number"
+      enabled: false
+
+greeting:
+  first_message: "Hi, thanks for calling <org_name>! I can help with service questions, scheduling, and urgent issues. What can I help you with today?"
+  owner_editable: true
+
+voice:
+  curated_voice_id: "cgSgspJ2msm6clMCkdW9"
+  voice_profile: "professional_warm_v1"
+  params:
+    stability: 0.7
+    similarity_boost: 0.8
+    speed: 1.0
+  owner_editable: true
+
+knowledge_base:
+  firecrawl:
+    enabled: true
+    source_domain: "<https://example.com>"
+    include_paths:
+      - "/"
+      - "/services"
+      - "/service-area"
+      - "/contact"
+    exclude_paths:
+      - "/privacy"
+      - "/terms"
+      - "/careers"
+      - "/wp-admin"
+      - "/cart"
+      - "/checkout"
+    max_pages: 200
+  ingest:
+    strategy: "urls"
+    fallback_documents: []
+    status: "pending"
+
+post_call_webhook:
+  enabled: true
+  endpoint_url: "<https://api.revcenter.ai/webhooks/elevenlabs/post-call>"
+  signing:
+    enabled: true
+    secret_ref: "<post_call_secret_ref>"
+
+mcp:
+  enabled: true
+  server:
+    endpoint: "<https://api.revcenter.ai/mcp/sse>"
+    api_key_ref: "<mcp_api_key_ref>"
+  tools:
+    - name: "book_appointment"
+      enabled: true
+    - name: "create_task"
+      enabled: true
+    - name: "lookup_customer"
+      enabled: true
+  approval_policy:
+    mode: "auto_for_safe_tools"
+
+workflow:
+  definition_ref: "specs/v1/agent-factory/industry/cleaning-services-workflow.v1.yaml"
+  branch_utilization:
+    enabled: true
+    max_branch_depth: 4
+  intents:
+    - name: "scope_or_safety_exception"
+    - name: "urgent_deadline_request"
+    - name: "new_booking_request"
+    - name: "recurring_plan_interest"
+    - name: "move_in_move_out_request"
+    - name: "pricing_or_package_question"
+    - name: "quality_complaint"
+    - name: "reschedule_or_cancel"
+    - name: "human_agent_request"
+    - name: "out_of_scope_request"
+  fallback_behavior: "fallback_general_information"
+
+widget:
+  enabled: false
+  mode: "voice"
+  allowed_domains: []
+  signed_url_required: true
+  owner_editable: false
+
+security:
+  private_agent: true
+  auth_token_enabled: true
+  allowed_origins:
+    - "https://app.revcenter.ai"
+  signed_url_required: true
+  webhook_signing_required: true
+  owner_editable: false
+
+advanced:
+  call_limits:
+    max_concurrent: 10
+    daily_cap: 1000
+  conversation:
+    max_duration_seconds: 3600
+    silence_end_call_timeout: 30
+    turn_timeout: 10
+    text_only_mode: false
+  privacy:
+    recording_retention: "90"
+  webhooks:
+    post_call_url: "https://api.revcenter.ai/webhooks/elevenlabs/post-call"
+    events:
+      - "post_call_transcription"
+      - "post_call_audio"
+      - "call_initiation_failure"
+  owner_editable: false
+
+tests:
+  baseline:
+    - "cleaning_services.greeting.default"
+    - "cleaning_services.intent.scope_or_safety_exception"
+    - "cleaning_services.intent.urgent_deadline_request"
+    - "cleaning_services.workflow.new_booking"
+    - "cleaning_services.workflow.recurring_plan"
+    - "cleaning_services.workflow.move_service"
+    - "cleaning_services.kb.pricing_packages"
+    - "cleaning_services.kb.quality_policy"
+    - "cleaning_services.escalation.human_handoff"
+    - "cleaning_services.negative.no_false_guarantees"
+    - "cleaning_services.negative.no_out_of_scope_commitment"
+    - "cleaning_services.post_call.payload_schema"
+  admin_only_updates: true
+  run_schedule:
+    development: "on_change"
+    daily: "0 6 * * *"
+
+health_checks:
+  provider_connectivity: true
+  webhook_delivery: true
+  mcp_tool_ping: true
+  test_pass_rate_threshold: 0.95
+
+release:
+  activation_policy: "block_if_required_checks_fail"
+  degraded_mode_allowed: true
+  degraded_mode_requires_admin_note: true

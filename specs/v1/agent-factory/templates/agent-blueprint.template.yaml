@@ -1,0 +1,195 @@
+meta:
+  blueprint_version: "v1"
+  industry_pack_version: "v1.0.0"
+  created_by: "system"
+  approved_by_admin: false
+
+governance:
+  core_tabs_profile_ref: "specs/v1/agent-factory/core-tabs/default-core-tabs-profile.v1.yaml"
+  workflow_profile_ref: "specs/v1/agent-factory/workflows/common-customer-request-workflow.v1.yaml"
+  owner_editable_fields:
+    - "greeting.first_message"
+    - "voice.curated_voice_id"
+    - "voice.params.stability"
+    - "voice.params.similarity_boost"
+    - "voice.params.speed"
+  admin_locked_tabs:
+    - "workflow"
+    - "branches"
+    - "knowledge_base"
+    - "analysis"
+    - "tools"
+    - "tests"
+    - "widget"
+    - "security"
+    - "advanced"
+
+workspace:
+  organization_id: "<org_id>"
+  organization_name: "<org_name>"
+  domain: "<domain>"
+  industry: "<industry_slug>"
+  services_selected:
+    - "<service_1>"
+    - "<service_2>"
+
+agent_identity:
+  agent_name: "<agent_name>"
+  language:
+    primary: "en"
+    supported:
+      - "en"
+
+prompt:
+  system_prompt_template_id: "<template_id>"
+  system_prompt_fragments:
+    core:
+      - "<core_fragment_id>"
+    industry:
+      - "<industry_fragment_id>"
+    services:
+      - "<service_fragment_id>"
+    escalation:
+      - "<escalation_fragment_id>"
+  owner_editable: false
+
+greeting:
+  first_message: "<owner_customizable_greeting>"
+  owner_editable: true
+
+voice:
+  curated_voice_id: "<voice_id>"
+  voice_profile: "<profile_id>"
+  params:
+    stability: 0.7
+    similarity_boost: 0.8
+    speed: 1.0
+  owner_editable: true
+
+knowledge_base:
+  firecrawl:
+    enabled: true
+    source_domain: "<https://example.com>"
+    include_paths:
+      - "/"
+    exclude_paths:
+      - "/privacy"
+      - "/terms"
+    max_pages: 200
+  ingest:
+    strategy: "urls"
+    fallback_documents: []
+    status: "pending"
+
+post_call_webhook:
+  enabled: true
+  endpoint_url: "<https://api.revcenter.ai/webhooks/elevenlabs/post-call>"
+  signing:
+    enabled: true
+    secret_ref: "<secret_ref>"
+
+mcp:
+  enabled: true
+  server:
+    endpoint: "<https://api.revcenter.ai/mcp/sse>"
+    api_key_ref: "<secret_ref>"
+  tools:
+    - name: "book_appointment"
+      enabled: true
+    - name: "create_task"
+      enabled: true
+    - name: "lookup_customer"
+      enabled: true
+  approval_policy:
+    mode: "auto_for_safe_tools"
+
+data_collection:
+  fields:
+    - key: "resolution_status"
+      type: "enum"
+      required: true
+    - key: "follow_up_status"
+      type: "enum"
+      required: true
+    - key: "customer_sentiment"
+      type: "enum"
+      required: true
+    - key: "agent_notes"
+      type: "string"
+      required: false
+
+evaluation_criteria:
+  - id: "accuracy"
+    threshold: 0.9
+  - id: "empathy"
+    threshold: 0.8
+  - id: "booking_quality"
+    threshold: 0.85
+  - id: "escalation_quality"
+    threshold: 0.9
+
+workflow:
+  definition_ref: "<specs/v1/agent-factory/industry/<industry>-workflow.v1.yaml>"
+  branch_utilization:
+    enabled: true
+    max_branch_depth: 4
+  intents:
+    - name: "general_information"
+    - name: "booking_request"
+    - name: "billing_support"
+    - name: "refund_request"
+    - name: "escalation_request"
+  fallback_behavior: "route_to_general_information"
+
+widget:
+  enabled: false
+  mode: "voice"
+  allowed_domains: []
+  owner_editable: false
+
+security:
+  auth_token_enabled: true
+  allowed_origins:
+    - "https://app.revcenter.ai"
+  webhook_signing_required: true
+  owner_editable: false
+
+advanced:
+  call_limits:
+    max_concurrent: 10
+    daily_cap: 1000
+  conversation:
+    max_duration_seconds: 3600
+    silence_end_call_timeout: 30
+    turn_timeout: 10
+    text_only_mode: false
+  privacy:
+    recording_retention: "90"
+  webhooks:
+    post_call_url: "<https://api.revcenter.ai/webhooks/elevenlabs/post-call>"
+    events:
+      - "call.ended"
+      - "transcript.ready"
+  owner_editable: false
+
+tests:
+  baseline:
+    - "greeting_response"
+    - "knowledge_base_read"
+    - "intent_detection"
+    - "workflow_node_transition"
+  admin_only_updates: true
+  run_schedule:
+    development: "on_change"
+    daily: "0 6 * * *"
+
+health_checks:
+  provider_connectivity: true
+  webhook_delivery: true
+  mcp_tool_ping: true
+  test_pass_rate_threshold: 0.95
+
+release:
+  activation_policy: "block_if_required_checks_fail"
+  degraded_mode_allowed: true
+  degraded_mode_requires_admin_note: true
