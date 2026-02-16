@@ -1,8 +1,15 @@
 import { AuthRequestHandler } from '@/types/handlers'
 import { db } from '@/lib/db'
 import {
-  AdminCreateOrganizationRequest,
+  AdminApproveDemoTenantRequest,
+  AdminConvertDemoTenantRequest,
   AdminCreateAgentRequest,
+  AdminCreateDemoTenantRequest,
+  AdminCreateOrganizationRequest,
+  AdminExtendDemoTenantRequest,
+  AdminHandoffDemoTenantOwnerRequest,
+  AdminListDemoTenantsRequest,
+  AdminSuspendDemoTenantRequest,
 } from '@shared/types/src'
 import { formatToSlug } from '@/utils'
 import { createOrganizationWithInvite } from '@/services/organization.service'
@@ -10,6 +17,15 @@ import { createAgent as createAgentRepo } from '@/repositories/agent.repository'
 import { AgentExternalType } from '@shared/types/src'
 import { createAdminAuditLog } from '@/repositories/governance.repository'
 import logger from '@/lib/logger'
+import {
+  approveDemoTenant,
+  convertDemoTenant,
+  createDemoTenant,
+  extendDemoTenant,
+  handoffDemoTenantOwner,
+  listDemoTenants,
+  suspendDemoTenant,
+} from '@/services/admin-demo.service'
 
 const writeAdminAudit = async (input: {
   organizationId?: string | null
@@ -37,6 +53,27 @@ const writeAdminAudit = async (input: {
   } catch (error) {
     logger.warn({ error, input }, 'Failed to persist admin audit log')
   }
+}
+
+const sendDemoError = (res: any, error: unknown) => {
+  const message =
+    error instanceof Error ? error.message : 'Demo tenant request failed'
+  const normalized = message.toLowerCase()
+
+  if (normalized.includes('not found')) {
+    return res.status(404).json({ error: message })
+  }
+
+  if (
+    normalized.includes('demo tenant') ||
+    normalized.includes('already') ||
+    normalized.includes('must') ||
+    normalized.includes('valid')
+  ) {
+    return res.status(400).json({ error: message })
+  }
+
+  return res.status(500).json({ error: message })
 }
 
 export const getAdminStats: AuthRequestHandler<{}> = async (req, res) => {
@@ -82,6 +119,19 @@ export const getAdminOrganizations: AuthRequestHandler<{}> = async (
   res.json({ data: organizations })
 }
 
+export const getAdminDemoTenants: AuthRequestHandler<
+  AdminListDemoTenantsRequest
+> = async (req, res) => {
+  try {
+    const data = await listDemoTenants({
+      status: req.validated.status,
+    })
+    return res.json({ data })
+  } catch (error) {
+    return sendDemoError(res, error)
+  }
+}
+
 export const createOrganization: AuthRequestHandler<
   AdminCreateOrganizationRequest
 > = async (req, res) => {
@@ -108,6 +158,219 @@ export const createOrganization: AuthRequestHandler<
   })
 
   res.json({ data: organization })
+}
+
+export const createDemoOrganization: AuthRequestHandler<
+  AdminCreateDemoTenantRequest
+> = async (req, res) => {
+  const {
+    name,
+    ownerEmail,
+    ownerName,
+    expiresAt,
+    usageLimits,
+    onboarding,
+    approvalNotes,
+  } = req.validated
+
+  try {
+    const result = await createDemoTenant({
+      name,
+      ownerEmail,
+      ownerName,
+      actorUserId: req.user.id,
+      expiresAt,
+      usageLimits,
+      onboarding,
+      approvalNotes,
+    })
+
+    await writeAdminAudit({
+      organizationId: result.organization.id,
+      actorUserId: req.user.id,
+      action: 'demo_tenant.created',
+      resourceType: 'organization',
+      resourceId: result.organization.id,
+      before: null,
+      after: {
+        summary: result.summary,
+        invitationId: result.invitation.id,
+      },
+      ipAddress: req.ip || null,
+      userAgent: req.get('user-agent') || null,
+    })
+
+    return res.status(201).json({
+      data: result.summary,
+      invitationId: result.invitation.id,
+    })
+  } catch (error) {
+    return sendDemoError(res, error)
+  }
+}
+
+export const approveDemoOrganization: AuthRequestHandler<
+  AdminApproveDemoTenantRequest
+> = async (req, res) => {
+  const { organizationId, expiresAt, usageLimits, approvalNotes } =
+    req.validated
+
+  try {
+    const result = await approveDemoTenant({
+      organizationId,
+      actorUserId: req.user.id,
+      expiresAt,
+      usageLimits,
+      approvalNotes,
+    })
+
+    await writeAdminAudit({
+      organizationId,
+      actorUserId: req.user.id,
+      action: 'demo_tenant.approved',
+      resourceType: 'organization',
+      resourceId: organizationId,
+      before: result.before,
+      after: result.after,
+      ipAddress: req.ip || null,
+      userAgent: req.get('user-agent') || null,
+    })
+
+    return res.json({ data: result.after })
+  } catch (error) {
+    return sendDemoError(res, error)
+  }
+}
+
+export const extendDemoOrganization: AuthRequestHandler<
+  AdminExtendDemoTenantRequest
+> = async (req, res) => {
+  const { organizationId, expiresAt, extensionReason } = req.validated
+
+  try {
+    const result = await extendDemoTenant({
+      organizationId,
+      actorUserId: req.user.id,
+      expiresAt,
+      extensionReason,
+    })
+
+    await writeAdminAudit({
+      organizationId,
+      actorUserId: req.user.id,
+      action: 'demo_tenant.extended',
+      resourceType: 'organization',
+      resourceId: organizationId,
+      before: result.before,
+      after: result.after,
+      ipAddress: req.ip || null,
+      userAgent: req.get('user-agent') || null,
+    })
+
+    return res.json({ data: result.after })
+  } catch (error) {
+    return sendDemoError(res, error)
+  }
+}
+
+export const suspendDemoOrganization: AuthRequestHandler<
+  AdminSuspendDemoTenantRequest
+> = async (req, res) => {
+  const { organizationId, reason } = req.validated
+
+  try {
+    const result = await suspendDemoTenant({
+      organizationId,
+      actorUserId: req.user.id,
+      reason,
+    })
+
+    await writeAdminAudit({
+      organizationId,
+      actorUserId: req.user.id,
+      action: 'demo_tenant.suspended',
+      resourceType: 'organization',
+      resourceId: organizationId,
+      before: result.before,
+      after: result.after,
+      ipAddress: req.ip || null,
+      userAgent: req.get('user-agent') || null,
+    })
+
+    return res.json({ data: result.after })
+  } catch (error) {
+    return sendDemoError(res, error)
+  }
+}
+
+export const convertDemoOrganization: AuthRequestHandler<
+  AdminConvertDemoTenantRequest
+> = async (req, res) => {
+  const { organizationId, reason } = req.validated
+
+  try {
+    const result = await convertDemoTenant({
+      organizationId,
+      actorUserId: req.user.id,
+      reason,
+    })
+
+    await writeAdminAudit({
+      organizationId,
+      actorUserId: req.user.id,
+      action: 'demo_tenant.converted',
+      resourceType: 'organization',
+      resourceId: organizationId,
+      before: result.before,
+      after: result.after,
+      ipAddress: req.ip || null,
+      userAgent: req.get('user-agent') || null,
+    })
+
+    return res.json({ data: result.after })
+  } catch (error) {
+    return sendDemoError(res, error)
+  }
+}
+
+export const handoffDemoOrganizationOwner: AuthRequestHandler<
+  AdminHandoffDemoTenantOwnerRequest
+> = async (req, res) => {
+  const { organizationId, ownerEmail, ownerName, role } = req.validated
+
+  try {
+    const result = await handoffDemoTenantOwner({
+      organizationId,
+      actorUserId: req.user.id,
+      ownerEmail,
+      ownerName,
+      role,
+    })
+
+    await writeAdminAudit({
+      organizationId,
+      actorUserId: req.user.id,
+      action: 'demo_tenant.owner_handoff',
+      resourceType: 'organization',
+      resourceId: organizationId,
+      before: result.before,
+      after: {
+        ...result.after,
+        ownerUserId: result.ownerUserId,
+        invitationId: result.invitationId,
+      },
+      ipAddress: req.ip || null,
+      userAgent: req.get('user-agent') || null,
+    })
+
+    return res.json({
+      data: result.after,
+      ownerUserId: result.ownerUserId,
+      invitationId: result.invitationId,
+    })
+  } catch (error) {
+    return sendDemoError(res, error)
+  }
 }
 
 export const createAgent: AuthRequestHandler<AdminCreateAgentRequest> = async (

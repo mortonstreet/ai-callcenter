@@ -5,7 +5,14 @@ import {
   getAdminStats,
   getAdminUsers,
   getAdminOrganizations,
+  getAdminDemoTenants,
   createOrganization,
+  createDemoOrganization,
+  approveDemoOrganization,
+  extendDemoOrganization,
+  suspendDemoOrganization,
+  convertDemoOrganization,
+  handoffDemoOrganizationOwner,
   createAgent,
   updateOrganizationLogo,
   deleteOrganization,
@@ -17,6 +24,20 @@ import {
   AdminCreateOrganizationRequestSchema,
   AdminCreateAgentRequest,
   AdminCreateAgentRequestSchema,
+  AdminListDemoTenantsRequest,
+  AdminListDemoTenantsRequestSchema,
+  AdminCreateDemoTenantRequest,
+  AdminCreateDemoTenantRequestSchema,
+  AdminApproveDemoTenantRequest,
+  AdminApproveDemoTenantRequestSchema,
+  AdminExtendDemoTenantRequest,
+  AdminExtendDemoTenantRequestSchema,
+  AdminSuspendDemoTenantRequest,
+  AdminSuspendDemoTenantRequestSchema,
+  AdminConvertDemoTenantRequest,
+  AdminConvertDemoTenantRequestSchema,
+  AdminHandoffDemoTenantOwnerRequest,
+  AdminHandoffDemoTenantOwnerRequestSchema,
 } from '@shared/types/src'
 import { twilioClient } from '@/clients/twilio.client'
 import { findTwilioConfig } from '@/repositories/call-center.repository'
@@ -65,6 +86,50 @@ router.post(
   withBetterAuth,
   validateAndMerge(AdminCreateOrganizationRequestSchema),
   adminOnlyRoute<AdminCreateOrganizationRequest>(createOrganization),
+)
+router.get(
+  '/demo-tenants',
+  withBetterAuth,
+  validateAndMerge(AdminListDemoTenantsRequestSchema),
+  adminOnlyRoute<AdminListDemoTenantsRequest>(getAdminDemoTenants),
+)
+router.post(
+  '/demo-tenants',
+  withBetterAuth,
+  validateAndMerge(AdminCreateDemoTenantRequestSchema),
+  adminOnlyRoute<AdminCreateDemoTenantRequest>(createDemoOrganization),
+)
+router.post(
+  '/demo-tenants/:organizationId/approve',
+  withBetterAuth,
+  validateAndMerge(AdminApproveDemoTenantRequestSchema),
+  adminOnlyRoute<AdminApproveDemoTenantRequest>(approveDemoOrganization),
+)
+router.post(
+  '/demo-tenants/:organizationId/extend',
+  withBetterAuth,
+  validateAndMerge(AdminExtendDemoTenantRequestSchema),
+  adminOnlyRoute<AdminExtendDemoTenantRequest>(extendDemoOrganization),
+)
+router.post(
+  '/demo-tenants/:organizationId/suspend',
+  withBetterAuth,
+  validateAndMerge(AdminSuspendDemoTenantRequestSchema),
+  adminOnlyRoute<AdminSuspendDemoTenantRequest>(suspendDemoOrganization),
+)
+router.post(
+  '/demo-tenants/:organizationId/convert',
+  withBetterAuth,
+  validateAndMerge(AdminConvertDemoTenantRequestSchema),
+  adminOnlyRoute<AdminConvertDemoTenantRequest>(convertDemoOrganization),
+)
+router.post(
+  '/demo-tenants/:organizationId/handoff-owner',
+  withBetterAuth,
+  validateAndMerge(AdminHandoffDemoTenantOwnerRequestSchema),
+  adminOnlyRoute<AdminHandoffDemoTenantOwnerRequest>(
+    handoffDemoOrganizationOwner,
+  ),
 )
 router.post(
   '/agents',

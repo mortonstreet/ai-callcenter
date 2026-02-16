@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Page } from "@/components/dashboard/Page";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
@@ -302,6 +303,14 @@ export default function AdminPage() {
 
   return (
     <Page title="Admin" subtitle="Manage users, organizations, and system health">
+      <div className="mb-6 flex items-center justify-end">
+        <Link
+          href="/dashboard/admin/demo-tenants"
+          className="inline-flex items-center rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+        >
+          Demo Tenant Provisioning
+        </Link>
+      </div>
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         <div className="bg-card rounded-xl border border-border p-6">
