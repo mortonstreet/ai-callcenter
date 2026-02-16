@@ -18,6 +18,16 @@ import {
   QUEUE_NAMES,
 } from '@/types/queues'
 import { startSyncJob } from '@/services/integration-contract.service'
+import {
+  AGENT_PROVISION_RETRY_JOB_NAME,
+  AGENT_UPDATE_RETRY_JOB_NAME,
+  retryAgentProvision,
+  retryAgentUpdateSync,
+} from '@/services/agent.service'
+import {
+  processTwilioIsvProvisioningJob,
+  TWILIO_ISV_PROVISION_ORG_JOB_NAME,
+} from '@/services/twilio-isv-provisioning.service'
 
 const DEFAULT_QUEUE_CONCURRENCY = 5
 const INTEGRATION_SYNC_CONCURRENCY = 4
@@ -383,6 +393,85 @@ export class WorkerRuntime {
   }
 
   private async handleIntegrationSyncJob(job: Job<QueueJobPayload>) {
+    if (job.name === AGENT_PROVISION_RETRY_JOB_NAME) {
+      const agentId =
+        typeof job.data.agentId === 'string' ? job.data.agentId : null
+      const organizationId =
+        typeof job.data.organizationId === 'string'
+          ? job.data.organizationId
+          : null
+      const companyName =
+        typeof job.data.companyName === 'string' ? job.data.companyName : null
+      const name = typeof job.data.name === 'string' ? job.data.name : null
+      const providerCorrelationKey =
+        typeof job.data.providerCorrelationKey === 'string'
+          ? job.data.providerCorrelationKey
+          : null
+
+      if (
+        !agentId ||
+        !organizationId ||
+        !companyName ||
+        !name ||
+        !providerCorrelationKey
+      ) {
+        throw new Error('Invalid agent provision retry payload')
+      }
+
+      return retryAgentProvision({
+        ...job.data,
+        agentId,
+        organizationId,
+        companyName,
+        name,
+        providerCorrelationKey,
+      })
+    }
+
+    if (job.name === AGENT_UPDATE_RETRY_JOB_NAME) {
+      const agentId =
+        typeof job.data.agentId === 'string' ? job.data.agentId : null
+      const organizationId =
+        typeof job.data.organizationId === 'string'
+          ? job.data.organizationId
+          : null
+      const updates = job.data.updates
+
+      if (
+        !agentId ||
+        !organizationId ||
+        !updates ||
+        typeof updates !== 'object'
+      ) {
+        throw new Error('Invalid agent update retry payload')
+      }
+
+      return retryAgentUpdateSync({
+        ...job.data,
+        agentId,
+        organizationId,
+        updates,
+      })
+    }
+
+    if (job.name === TWILIO_ISV_PROVISION_ORG_JOB_NAME) {
+      const organizationId =
+        typeof job.data.organizationId === 'string'
+          ? job.data.organizationId
+          : null
+
+      if (!organizationId) {
+        throw new Error('Invalid Twilio ISV provisioning payload')
+      }
+
+      return processTwilioIsvProvisioningJob({
+        ...job.data,
+        organizationId,
+        areaCode:
+          typeof job.data.areaCode === 'string' ? job.data.areaCode : undefined,
+      })
+    }
+
     const organizationId =
       typeof job.data.organizationId === 'string'
         ? job.data.organizationId

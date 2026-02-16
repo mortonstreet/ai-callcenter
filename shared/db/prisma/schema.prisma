@@ -313,17 +313,26 @@ model TaskInstance {
 }
 
 model TwilioConfig {
-  id             String   @id @default(uuid())
-  organizationId String   @unique
-  accountSid     String?
-  authToken      String? // Stored encrypted in production
-  phoneNumber    String?
-  apiKeySid      String?
-  apiKeySecret   String?
-  twimlAppSid    String?
-  autoRecord     Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                           String    @id @default(uuid())
+  organizationId               String    @unique
+  accountSid                   String?
+  authToken                    String? // Stored encrypted in production
+  phoneNumber                  String?
+  phoneNumberSid               String?
+  apiKeySid                    String?
+  apiKeySecret                 String?
+  twimlAppSid                  String?
+  twilioSubaccountSid          String?
+  twilioSubaccountFriendlyName String?
+  isIsvManaged                 Boolean   @default(false)
+  provisioningStatus           String    @default("pending") // pending | running | failed | completed
+  provisioningError            String?
+  provisioningAttemptCount     Int       @default(0)
+  lastProvisioningAttemptAt    DateTime?
+  provisionedAt                DateTime?
+  autoRecord                   Boolean   @default(true)
+  createdAt                    DateTime  @default(now())
+  updatedAt                    DateTime  @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 

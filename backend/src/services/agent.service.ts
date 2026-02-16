@@ -3,6 +3,7 @@ import { getElevenLabsClient } from '@/clients/elevenlabs.client'
 import {
   createAgent as createAgentRepo,
   findById,
+  findFirstByOrganizationId,
   updateAgent as updateAgentRepo,
   deleteAgent as deleteAgentRepo,
   getRecordingAggregates,
@@ -636,6 +637,28 @@ export async function deleteElevenLabsAgent(
   }
 
   return await deleteAgentRepo(agentId, organizationId)
+}
+
+export async function assignPrimaryPhoneNumberToFirstAgent(
+  organizationId: string,
+  phoneNumber: string,
+) {
+  const firstAgent = await findFirstByOrganizationId(organizationId)
+  if (!firstAgent) {
+    return null
+  }
+
+  if (
+    firstAgent.phoneNumber === phoneNumber &&
+    firstAgent.redirectNumber === phoneNumber
+  ) {
+    return firstAgent
+  }
+
+  return updateAgentRepo(firstAgent.id, organizationId, {
+    phoneNumber,
+    redirectNumber: phoneNumber,
+  })
 }
 
 export async function getElevenLabsAgentConfig(externalId: string) {

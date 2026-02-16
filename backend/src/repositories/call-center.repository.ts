@@ -40,9 +40,18 @@ export const upsertTwilioConfig = async (
     accountSid?: string
     authToken?: string
     phoneNumber?: string
+    phoneNumberSid?: string
     apiKeySid?: string
     apiKeySecret?: string
     twimlAppSid?: string
+    twilioSubaccountSid?: string
+    twilioSubaccountFriendlyName?: string
+    isIsvManaged?: boolean
+    provisioningStatus?: string
+    provisioningError?: string | null
+    provisioningAttemptCount?: number
+    lastProvisioningAttemptAt?: Date | null
+    provisionedAt?: Date | null
     autoRecord?: boolean
   },
 ) => {
@@ -54,11 +63,32 @@ export const upsertTwilioConfig = async (
     if (data.authToken !== undefined) updateData.authToken = data.authToken
     if (data.phoneNumber !== undefined)
       updateData.phoneNumber = data.phoneNumber
+    if (data.phoneNumberSid !== undefined)
+      updateData.phoneNumberSid = data.phoneNumberSid
     if (data.apiKeySid !== undefined) updateData.apiKeySid = data.apiKeySid
     if (data.apiKeySecret !== undefined)
       updateData.apiKeySecret = data.apiKeySecret
     if (data.twimlAppSid !== undefined)
       updateData.twimlAppSid = data.twimlAppSid
+    if (data.twilioSubaccountSid !== undefined)
+      updateData.twilioSubaccountSid = data.twilioSubaccountSid
+    if (data.twilioSubaccountFriendlyName !== undefined) {
+      updateData.twilioSubaccountFriendlyName =
+        data.twilioSubaccountFriendlyName
+    }
+    if (data.isIsvManaged !== undefined)
+      updateData.isIsvManaged = data.isIsvManaged
+    if (data.provisioningStatus !== undefined)
+      updateData.provisioningStatus = data.provisioningStatus
+    if (data.provisioningError !== undefined)
+      updateData.provisioningError = data.provisioningError
+    if (data.provisioningAttemptCount !== undefined)
+      updateData.provisioningAttemptCount = data.provisioningAttemptCount
+    if (data.lastProvisioningAttemptAt !== undefined) {
+      updateData.lastProvisioningAttemptAt = data.lastProvisioningAttemptAt
+    }
+    if (data.provisionedAt !== undefined)
+      updateData.provisionedAt = data.provisionedAt
     if (data.autoRecord !== undefined) updateData.autoRecord = data.autoRecord
 
     return await db
@@ -77,9 +107,18 @@ export const upsertTwilioConfig = async (
         accountSid: data.accountSid || null,
         authToken: data.authToken || null,
         phoneNumber: data.phoneNumber || null,
+        phoneNumberSid: data.phoneNumberSid || null,
         apiKeySid: data.apiKeySid || null,
         apiKeySecret: data.apiKeySecret || null,
         twimlAppSid: data.twimlAppSid || null,
+        twilioSubaccountSid: data.twilioSubaccountSid || null,
+        twilioSubaccountFriendlyName: data.twilioSubaccountFriendlyName || null,
+        isIsvManaged: data.isIsvManaged ?? false,
+        provisioningStatus: data.provisioningStatus || 'pending',
+        provisioningError: data.provisioningError || null,
+        provisioningAttemptCount: data.provisioningAttemptCount || 0,
+        lastProvisioningAttemptAt: data.lastProvisioningAttemptAt || null,
+        provisionedAt: data.provisionedAt || null,
         autoRecord: data.autoRecord ?? true,
         updatedAt: new Date(),
       }),

@@ -21,6 +21,10 @@ import {
   updateCallLogByCallSid,
 } from '@/repositories/call-center.repository'
 import { findMembersByOrganizationId } from '@/repositories/organization.repository'
+import {
+  getTwilioProvisioningSnapshot,
+  retryTwilioIsvProvisioning,
+} from '@/services/twilio-isv-provisioning.service'
 
 const { twiml: TwiML } = Twilio
 
@@ -92,10 +96,18 @@ const SaveConfigSchema = z.object({
   accountSid: z.string().optional(),
   authToken: z.string().optional(),
   phoneNumber: z.string().optional(),
+  phoneNumberSid: z.string().optional(),
   apiKeySid: z.string().optional(),
   apiKeySecret: z.string().optional(),
   twimlAppSid: z.string().optional(),
   autoRecord: z.boolean().optional(),
+})
+
+const RetryProvisioningSchema = z.object({
+  areaCode: z
+    .string()
+    .regex(/^\\d{3}$/)
+    .optional(),
 })
 
 const CreateDispositionSchema = z.object({
@@ -135,7 +147,15 @@ router.get(
         ? `${dbConfig.accountSid.slice(0, 8)}...${dbConfig.accountSid.slice(-4)}`
         : null,
       phoneNumber: dbConfig?.phoneNumber || null,
+      phoneNumberSid: dbConfig?.phoneNumberSid || null,
       autoRecord: dbConfig?.autoRecord ?? true,
+      provisioningStatus: dbConfig?.provisioningStatus || 'pending',
+      provisioningError: dbConfig?.provisioningError || null,
+      provisioningAttemptCount: dbConfig?.provisioningAttemptCount || 0,
+      lastProvisioningAttemptAt: dbConfig?.lastProvisioningAttemptAt || null,
+      provisionedAt: dbConfig?.provisionedAt || null,
+      isIsvManaged: dbConfig?.isIsvManaged || false,
+      twilioSubaccountSid: dbConfig?.twilioSubaccountSid || null,
       configured: !!(
         dbConfig?.accountSid &&
         dbConfig?.authToken &&
@@ -170,6 +190,14 @@ router.post(
 
     try {
       const result = await upsertTwilioConfig(orgId, data)
+
+      if (result.accountSid && result.authToken && result.phoneNumber) {
+        await upsertTwilioConfig(orgId, {
+          provisioningStatus: 'completed',
+          provisioningError: null,
+          provisionedAt: result.provisionedAt || new Date(),
+        })
+      }
 
       // Clear cached client so next request uses new creds
       twilioClient.clearCredentials()
@@ -238,6 +266,49 @@ router.post(
       logger.error('Failed to save Twilio config:', error)
       res.status(500).json({ error: error.message })
     }
+  },
+)
+
+router.get(
+  '/provisioning',
+  withBetterAuth,
+  validateIsAdmin,
+  async (req: Request, res: Response) => {
+    const orgId = getOrgId(req)
+    if (!orgId) {
+      return res.status(400).json({ error: 'No active organization' })
+    }
+
+    const snapshot = await getTwilioProvisioningSnapshot(orgId)
+
+    return res.json({
+      data: snapshot,
+    })
+  },
+)
+
+router.post(
+  '/provisioning/retry',
+  withBetterAuth,
+  validateIsAdmin,
+  validateAndMerge(RetryProvisioningSchema),
+  async (req: Request, res: Response) => {
+    const orgId = getOrgId(req)
+    if (!orgId) {
+      return res.status(400).json({ error: 'No active organization' })
+    }
+
+    const { areaCode } = (req as any).validated
+    await retryTwilioIsvProvisioning({
+      organizationId: orgId,
+      areaCode,
+    })
+
+    return res.status(202).json({
+      success: true,
+      status: 'pending',
+      message: 'Twilio ISV provisioning retry queued',
+    })
   },
 )
 

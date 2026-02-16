@@ -480,9 +480,18 @@ export type TwilioConfig = {
   accountSid: string | null
   authToken: string | null
   phoneNumber: string | null
+  phoneNumberSid: string | null
   apiKeySid: string | null
   apiKeySecret: string | null
   twimlAppSid: string | null
+  twilioSubaccountSid: string | null
+  twilioSubaccountFriendlyName: string | null
+  isIsvManaged: Generated<boolean>
+  provisioningStatus: Generated<string>
+  provisioningError: string | null
+  provisioningAttemptCount: Generated<number>
+  lastProvisioningAttemptAt: Timestamp | null
+  provisionedAt: Timestamp | null
   autoRecord: Generated<boolean>
   createdAt: Generated<Timestamp>
   updatedAt: Timestamp

@@ -30,6 +30,15 @@ export const findAllByOrganizationId = async (organizationId: string) => {
     .execute()
 }
 
+export const findFirstByOrganizationId = async (organizationId: string) => {
+  return await db
+    .selectFrom('agent')
+    .where('organizationId', '=', organizationId)
+    .orderBy('createdAt', 'asc')
+    .selectAll()
+    .executeTakeFirst()
+}
+
 export const findById = async (id: string, organizationId: string) => {
   return await db
     .selectFrom('agent')

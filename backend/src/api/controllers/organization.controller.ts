@@ -7,6 +7,8 @@ import { withId } from '@/repositories/utils'
 import { updateUserLastActiveOrganizationId } from '@/repositories/auth.repository'
 import { AgentExternalType } from '@shared/types/src'
 import { createElevenLabsAgent } from '@/services/agent.service'
+import { enqueueTwilioIsvProvisioning } from '@/services/twilio-isv-provisioning.service'
+import logger from '@/lib/logger'
 import { z } from 'zod'
 
 export const OrganizationOnboardingSchema = z.object({
@@ -88,9 +90,35 @@ export const onboardOrganization: AuthRequestHandler<
     serviceQuestions: agent.serviceQuestions,
   })
 
+  let provisioningQueued = false
+  let provisioningQueueError: string | null = null
+
+  try {
+    await enqueueTwilioIsvProvisioning({
+      organizationId: organization.id,
+      correlationId: `${organization.id}:onboarding`,
+    })
+    provisioningQueued = true
+  } catch (queueError) {
+    provisioningQueueError =
+      queueError instanceof Error ? queueError.message : 'queue_enqueue_failed'
+    logger.error(
+      {
+        organizationId: organization.id,
+        error: queueError,
+      },
+      'Failed to enqueue Twilio ISV provisioning after onboarding',
+    )
+  }
+
   res.json({
     data: {
       organization,
+      provisioning: {
+        status: 'pending',
+        queued: provisioningQueued,
+        queueError: provisioningQueueError,
+      },
       agent: {
         ...createdAgent,
         degradedMode: {
