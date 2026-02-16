@@ -1,19 +1,36 @@
 "use client";
 
+import { useState } from "react";
 import { Page } from "@/components/dashboard/Page";
 import Link from "next/link";
-import { Bot, Loader2 } from "lucide-react";
+import { Bot, Loader2, Plus } from "lucide-react";
 import { useAgents } from "@/hooks/api/useAgent";
+import { useIsAdminOrOwner } from "@/hooks/api/useOrganization";
+import CreateAgentModal from "@/components/agent/CreateAgentModal";
 
 export default function AgentsPage() {
   const { data: agents, isLoading, error } = useAgents();
+  const isAdminOrOwner = useIsAdminOrOwner();
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   return (
-    <Page 
-      title="Agents" 
+    <Page
+      title="Agents"
       subtitle="Your AI agents"
     >
       <div className="space-y-4">
+        {isAdminOrOwner && (
+          <div className="flex justify-end">
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition text-sm font-medium"
+            >
+              <Plus className="h-4 w-4" />
+              New Agent
+            </button>
+          </div>
+        )}
+
         {isLoading && (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
@@ -55,15 +72,23 @@ export default function AgentsPage() {
           <div className="text-center py-12">
             <Bot className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600 mb-4">No agents yet</p>
-            <a 
-              href="mailto:support@revcenter.ai" 
-              className="inline-block px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition text-sm font-medium"
-            >
-              Contact Support to Get Started
-            </a>
+            {isAdminOrOwner && (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition text-sm font-medium"
+              >
+                <Plus className="h-4 w-4" />
+                Create Your First Agent
+              </button>
+            )}
           </div>
         )}
       </div>
+
+      <CreateAgentModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+      />
     </Page>
   );
 }

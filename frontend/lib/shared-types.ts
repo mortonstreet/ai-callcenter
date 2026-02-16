@@ -375,6 +375,14 @@ export interface AdminCreateAgentRequest {
   externalId: string;
 }
 
+// Create Agent Request (user-facing)
+export interface CreateAgentRequest {
+  organizationId: string;
+  name: string;
+  firstMessage: string;
+  prompt: string;
+}
+
 // =============================================================================
 // RESPONSE TYPES
 // =============================================================================

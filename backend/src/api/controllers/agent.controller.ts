@@ -4,6 +4,8 @@ import {
   GetAgentRequest,
   ElevenLabsWebhook,
   CreateTaskRequest,
+  CreateAgentRequest,
+  DeleteAgentRequest,
   GetTasksRequest,
   UpdateTaskRequest,
   DeleteTaskRequest,
@@ -11,6 +13,8 @@ import {
 import {
   findAllByOrganizationId,
   findById as findAgentById,
+  createAgent as createAgentRepo,
+  deleteAgent as deleteAgentRepo,
   createTask as createTaskRepository,
   getAgentTasks,
   updateTask as updateTaskRepository,
@@ -23,12 +27,14 @@ import {
   updateTaskInstanceBookingStatus,
 } from '@/repositories/agent.repository'
 import { formatTaskFields } from '@/utils/task'
+import { formatToSlug } from '@/utils'
 import logger from '@/lib/logger'
 import {
   AgentExternalType,
   PipelineStage,
   CallQuality,
 } from '@shared/types/src'
+import { getElevenLabsClient } from '@/clients/elevenlabs.client'
 import { randomBytes } from 'crypto'
 import { Request, Response } from 'express'
 
@@ -115,6 +121,70 @@ export const getAgent: AuthRequestHandler<GetAgentRequest> = async (
   const { id, organizationId } = req.validated
   const agent = await findAgentById(id, organizationId)
   res.json(agent)
+}
+
+export const createAgent: AuthRequestHandler<CreateAgentRequest> = async (
+  req,
+  res,
+) => {
+  const { organizationId, name, firstMessage, prompt } = req.validated
+
+  const elevenLabsClient = getElevenLabsClient(
+    process.env.ELEVEN_LABS_API_KEY,
+  )
+  const elevenLabsAgent = await elevenLabsClient.createAgent(
+    name,
+    firstMessage,
+    prompt,
+  )
+
+  logger.info(
+    `Created ElevenLabs agent ${elevenLabsAgent.agent_id} for org ${organizationId}`,
+  )
+
+  const agent = await createAgentRepo({
+    name,
+    slug: formatToSlug(name),
+    organizationId,
+    phoneNumber: '',
+    redirectNumber: '',
+    externalId: elevenLabsAgent.agent_id,
+    externalType: AgentExternalType.ELEVEN_LABS,
+    mcpApiKey: null,
+    webhookSecret: null,
+    mcpEndpointUrl: null,
+  })
+
+  res.json(agent)
+}
+
+export const deleteAgent: AuthRequestHandler<DeleteAgentRequest> = async (
+  req,
+  res,
+) => {
+  const { id, organizationId } = req.validated
+
+  const agent = await findAgentById(id, organizationId)
+  if (!agent) {
+    return res.status(404).json({ error: 'Agent not found' })
+  }
+
+  // Delete from ElevenLabs first
+  try {
+    const elevenLabsClient = getElevenLabsClient(
+      process.env.ELEVEN_LABS_API_KEY,
+    )
+    await elevenLabsClient.deleteAgent(agent.externalId)
+    logger.info(`Deleted ElevenLabs agent ${agent.externalId}`)
+  } catch (error) {
+    logger.error(`Failed to delete ElevenLabs agent ${agent.externalId}:`, error)
+    // Continue with DB deletion even if ElevenLabs fails
+  }
+
+  const deleted = await deleteAgentRepo(id, organizationId)
+  logger.info(`Deleted agent ${agent.name} (${id}) from org ${organizationId}`)
+
+  res.json(deleted)
 }
 
 export const createTask: AuthRequestHandler<CreateTaskRequest> = async (

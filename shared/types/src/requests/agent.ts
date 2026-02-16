@@ -128,8 +128,22 @@ export const ElevenLabsWebhookSchema = z.object({
   }).passthrough(),
 })
 
+export const CreateAgentRequestSchema = z.object({
+  organizationId: z.string(),
+  name: z.string().min(1),
+  firstMessage: z.string().min(1),
+  prompt: z.string().min(1),
+})
+
+export const DeleteAgentRequestSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+})
+
 export type GetAgentsRequest = z.infer<typeof GetAgentsRequestSchema>
 export type GetAgentRequest = z.infer<typeof GetAgentRequestSchema>
 export type AgentWebhookRequest = z.infer<typeof AgentWebhookSchema>
 export type ElevenLabsWebhook = z.infer<typeof ElevenLabsWebhookSchema>
+export type CreateAgentRequest = z.infer<typeof CreateAgentRequestSchema>
+export type DeleteAgentRequest = z.infer<typeof DeleteAgentRequestSchema>
 

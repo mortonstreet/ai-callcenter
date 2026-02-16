@@ -4,6 +4,8 @@ import { getExample } from '@/api/controllers/example.controller'
 import { validateAndMerge } from '@/api/middlewares/validationMiddleware'
 import {
   AgentWebhookSchema,
+  CreateAgentRequestSchema,
+  DeleteAgentRequestSchema,
   CreateTaskRequestSchema,
   GetAgentRequestSchema,
   GetAgentsRequestSchema,
@@ -17,6 +19,8 @@ import { authenticatedRoute, validatedRoute } from './utils'
 import {
   getAgent,
   getAgents,
+  createAgent,
+  deleteAgent,
   agentWebhook,
   createTask,
   getTasks,
@@ -60,11 +64,31 @@ router.get(
   authenticatedRoute(getAgents),
 )
 
+router.post(
+  '/:organizationId',
+  validateAndMerge(CreateAgentRequestSchema),
+  validateMemberOfOrganizationIsOrAdmin([
+    OrganizationRole.ADMIN,
+    OrganizationRole.OWNER,
+  ]),
+  authenticatedRoute(createAgent),
+)
+
 router.get(
   '/:organizationId/:id',
   validateAndMerge(GetAgentRequestSchema),
   validateMemberOfOrganizationOrAdmin,
   authenticatedRoute(getAgent),
+)
+
+router.delete(
+  '/:organizationId/:id',
+  validateAndMerge(DeleteAgentRequestSchema),
+  validateMemberOfOrganizationIsOrAdmin([
+    OrganizationRole.ADMIN,
+    OrganizationRole.OWNER,
+  ]),
+  authenticatedRoute(deleteAgent),
 )
 
 router.post(

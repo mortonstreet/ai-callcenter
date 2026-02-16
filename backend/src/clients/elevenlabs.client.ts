@@ -64,6 +64,11 @@ interface ListConversationsResponse {
   last_history_id?: string
 }
 
+interface CreateAgentResponse {
+  agent_id: string
+  name?: string
+}
+
 export class ElevenLabsClient {
   private apiKey: string
 
@@ -93,6 +98,44 @@ export class ElevenLabsClient {
     }
 
     return response.json()
+  }
+
+  /**
+   * Create a new conversational AI agent
+   */
+  async createAgent(
+    name: string,
+    firstMessage: string,
+    prompt: string,
+    voiceId?: string,
+  ): Promise<CreateAgentResponse> {
+    return this.request<CreateAgentResponse>('/convai/agents/create', {
+      method: 'POST',
+      body: JSON.stringify({
+        name,
+        conversation_config: {
+          agent: {
+            first_message: firstMessage,
+            language: 'en',
+            prompt: {
+              prompt,
+            },
+          },
+          tts: {
+            voice_id: voiceId || process.env.ELEVEN_LABS_DEFAULT_VOICE_ID,
+          },
+        },
+      }),
+    })
+  }
+
+  /**
+   * Delete a conversational AI agent
+   */
+  async deleteAgent(agentId: string): Promise<void> {
+    await this.request<unknown>(`/convai/agents/${agentId}`, {
+      method: 'DELETE',
+    })
   }
 
   /**
