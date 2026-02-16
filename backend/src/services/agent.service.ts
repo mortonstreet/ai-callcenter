@@ -14,6 +14,10 @@ import { AgentExternalType, AgentHealthResponse } from '@shared/types/src'
 import logger from '@/lib/logger'
 import { enqueueQueueJob } from '@/queues'
 import { QUEUE_NAMES, QueueJobPayload } from '@/types/queues'
+import {
+  VoiceTrainingAssetInput,
+  resolveAdvancedVoiceProvisioning,
+} from '@/services/voice-provisioning.service'
 
 // Voice cache
 let voicesCache: { data: any; timestamp: number } | null = null
@@ -35,6 +39,7 @@ interface CreateAgentParams {
   systemPrompt?: string
   services?: string[]
   serviceQuestions?: string[]
+  voiceTrainingAssets?: VoiceTrainingAssetInput[]
   providerCorrelationKey?: string
 }
 
@@ -78,6 +83,7 @@ export interface AgentProvisionRetryPayload extends QueueJobPayload {
   systemPrompt?: string
   services?: string[]
   serviceQuestions?: string[]
+  voiceTrainingAssets?: VoiceTrainingAssetInput[]
   providerCorrelationKey: string
 }
 
@@ -104,7 +110,7 @@ const getUpdateIdempotencyKey = (
   return `agent-update:${agentId}:${digest.slice(0, 16)}`
 }
 
-const resolvePromptAndVoice = (params: {
+export const resolvePromptAndVoice = (params: {
   companyName: string
   industry?: string
   useCase?: string
@@ -113,6 +119,7 @@ const resolvePromptAndVoice = (params: {
   mainGoal?: string
   firstMessage?: string
   systemPrompt?: string
+  promptSeed?: string
   voiceId?: string
 }) => {
   const {
@@ -124,6 +131,7 @@ const resolvePromptAndVoice = (params: {
     mainGoal,
     firstMessage,
     systemPrompt,
+    promptSeed,
     voiceId,
   } = params
 
@@ -158,6 +166,10 @@ const resolvePromptAndVoice = (params: {
 
   if (mainGoal) {
     prompt = `${prompt}\n\nPrimary objective: ${mainGoal}`
+  }
+
+  if (promptSeed) {
+    prompt = `${promptSeed}\n\n${prompt}`
   }
 
   if (!greeting) {
@@ -293,11 +305,25 @@ export async function createElevenLabsAgent(params: CreateAgentParams) {
     systemPrompt,
     services = [],
     serviceQuestions = [],
+    voiceTrainingAssets = [],
   } = params
 
   const providerCorrelationKey =
     params.providerCorrelationKey ||
     `${organizationId}:${formatToSlug(name)}:${randomUUID()}`
+
+  const advancedVoiceProvisioning = await resolveAdvancedVoiceProvisioning({
+    organizationId,
+    companyName,
+    industry,
+    useCase,
+    website,
+    mainGoal,
+    services,
+    serviceQuestions,
+    explicitVoiceId: voiceId,
+    trainingAssets: voiceTrainingAssets,
+  })
 
   const { prompt, greeting, suggestedVoice } = resolvePromptAndVoice({
     companyName,
@@ -308,7 +334,8 @@ export async function createElevenLabsAgent(params: CreateAgentParams) {
     mainGoal,
     firstMessage,
     systemPrompt,
-    voiceId,
+    promptSeed: advancedVoiceProvisioning.promptSeed,
+    voiceId: advancedVoiceProvisioning.voiceId || voiceId,
   })
 
   const client = getElevenLabsClient()
@@ -349,6 +376,8 @@ export async function createElevenLabsAgent(params: CreateAgentParams) {
       website: website || null,
       mainGoal: mainGoal || null,
       voiceId: suggestedVoice || null,
+      voiceProvisioningStatus: advancedVoiceProvisioning.voiceProvisioningStatus,
+      voicePromptSeed: advancedVoiceProvisioning.promptSeed,
       status: 'active',
       syncPending: false,
       lastSyncAt: new Date(),
@@ -380,6 +409,8 @@ export async function createElevenLabsAgent(params: CreateAgentParams) {
       website: website || null,
       mainGoal: mainGoal || null,
       voiceId: suggestedVoice || null,
+      voiceProvisioningStatus: advancedVoiceProvisioning.voiceProvisioningStatus,
+      voicePromptSeed: advancedVoiceProvisioning.promptSeed,
       status: 'error',
       syncPending: true,
       lastSyncAt: null,
@@ -402,6 +433,7 @@ export async function createElevenLabsAgent(params: CreateAgentParams) {
         systemPrompt: prompt,
         services,
         serviceQuestions,
+        voiceTrainingAssets,
         providerCorrelationKey,
       })
     } catch (queueError) {
@@ -434,6 +466,7 @@ export async function retryAgentProvision(payload: AgentProvisionRetryPayload) {
     mainGoal: payload.mainGoal,
     firstMessage: payload.firstMessage,
     systemPrompt: payload.systemPrompt,
+    promptSeed: existingAgent.voicePromptSeed || undefined,
     voiceId: payload.voiceId,
   })
 
@@ -470,6 +503,11 @@ export async function retryAgentProvision(payload: AgentProvisionRetryPayload) {
     externalId: elevenLabsAgent.agent_id,
     externalType: AgentExternalType.ELEVEN_LABS,
     voiceId: suggestedVoice || null,
+    voiceProvisioningStatus:
+      existingAgent.voiceProvisioningStatus === 'fallback'
+        ? 'completed'
+        : existingAgent.voiceProvisioningStatus,
+    voicePromptSeed: existingAgent.voicePromptSeed,
     status: 'active',
     syncPending: false,
     lastSyncAt: new Date(),
@@ -493,6 +531,7 @@ export async function updateElevenLabsAgent(
   }
   if (updates.voiceId !== undefined) {
     localUpdates.voiceId = updates.voiceId
+    localUpdates.voiceProvisioningStatus = 'completed'
   }
   if (updates.status !== undefined) {
     localUpdates.status = updates.status

@@ -104,6 +104,12 @@ model Organization {
   logo                     String?
   createdAt                DateTime
   metadata                 String?
+  provisionedVoiceId       String?
+  voiceProvisioningStatus  String                    @default("not_started")
+  voiceTrainingStatus      String                    @default("not_requested")
+  voiceProvisioningError   String?
+  voicePromptSeed          String?
+  voiceProvisionedAt       DateTime?
   members                  Member[]
   invitations              Invitation[]
   agents                   Agent[]
@@ -206,6 +212,8 @@ model Agent {
   website  String?
   mainGoal String?
   voiceId  String? // ElevenLabs voice ID
+  voiceProvisioningStatus String  @default("not_started")
+  voicePromptSeed        String?
   status   String  @default("draft") // draft, active, paused, archived, error
 
   // Provider sync lifecycle fields

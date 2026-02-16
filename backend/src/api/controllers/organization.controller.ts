@@ -21,6 +21,16 @@ export const OrganizationOnboardingSchema = z.object({
     name: z.string(),
     openingLine: z.string().optional(),
     serviceQuestions: z.array(z.string()).optional(),
+    voiceTrainingAssets: z
+      .array(
+        z.object({
+          url: z.string().url(),
+          name: z.string().optional(),
+          mimeType: z.string().optional(),
+        }),
+      )
+      .max(5)
+      .optional(),
   }),
 })
 
@@ -56,6 +66,7 @@ export const onboardOrganization: AuthRequestHandler<
       agent: {
         openingLine: agent.openingLine,
         serviceQuestions: agent.serviceQuestions,
+        voiceTrainingAssets: agent.voiceTrainingAssets,
       },
     }),
   })
@@ -86,6 +97,7 @@ export const onboardOrganization: AuthRequestHandler<
     firstMessage: agent.openingLine,
     services,
     serviceQuestions: agent.serviceQuestions,
+    voiceTrainingAssets: agent.voiceTrainingAssets,
   })
 
   res.json({

@@ -49,6 +49,8 @@ export type Agent = {
   website: string | null
   mainGoal: string | null
   voiceId: string | null
+  voiceProvisioningStatus: Generated<string>
+  voicePromptSeed: string | null
   status: Generated<string>
   syncPending: Generated<boolean>
   lastSyncAt: Timestamp | null
@@ -322,6 +324,12 @@ export type Organization = {
   logo: string | null
   createdAt: Timestamp
   metadata: string | null
+  provisionedVoiceId: string | null
+  voiceProvisioningStatus: Generated<string>
+  voiceTrainingStatus: Generated<string>
+  voiceProvisioningError: string | null
+  voicePromptSeed: string | null
+  voiceProvisionedAt: Timestamp | null
 }
 export type PipelineStage = {
   id: string

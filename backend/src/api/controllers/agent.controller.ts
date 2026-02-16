@@ -362,6 +362,7 @@ export const createElevenLabsAgent: AuthRequestHandler<
     website,
     mainGoal,
     voiceId,
+    voiceTrainingAssets,
     firstMessage,
     systemPrompt,
   } = req.validated
@@ -378,6 +379,7 @@ export const createElevenLabsAgent: AuthRequestHandler<
       website,
       mainGoal,
       voiceId,
+      voiceTrainingAssets,
       firstMessage,
       systemPrompt,
     })

@@ -145,6 +145,16 @@ export const CreateElevenLabsAgentSchema = z.object({
   website: z.string().optional(),
   mainGoal: z.string().min(1),
   voiceId: z.string().optional(),
+  voiceTrainingAssets: z
+    .array(
+      z.object({
+        url: z.string().url(),
+        name: z.string().optional(),
+        mimeType: z.string().optional(),
+      }),
+    )
+    .max(5)
+    .optional(),
   firstMessage: z.string().optional(),
   systemPrompt: z.string().optional(),
 })

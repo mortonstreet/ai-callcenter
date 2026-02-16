@@ -2,6 +2,26 @@ import logger from '@/lib/logger'
 
 const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1'
 
+export interface ElevenLabsVoiceSampleInput {
+  filename: string
+  content: Buffer
+  contentType?: string
+}
+
+export interface CreateCustomVoiceRequest {
+  name: string
+  description?: string
+  labels?: Record<string, string>
+  samples?: ElevenLabsVoiceSampleInput[]
+}
+
+export interface TrainCustomVoiceRequest {
+  name?: string
+  description?: string
+  labels?: Record<string, string>
+  samples: ElevenLabsVoiceSampleInput[]
+}
+
 interface ElevenLabsConversation {
   agent_id: string
   conversation_id: string
@@ -93,6 +113,33 @@ export class ElevenLabsClient {
     }
 
     return response.json()
+  }
+
+  private async multipartRequest<T>(
+    endpoint: string,
+    formData: FormData,
+    method: 'POST' | 'PATCH' = 'POST',
+  ): Promise<T> {
+    const url = `${ELEVENLABS_API_URL}${endpoint}`
+    const response = await fetch(url, {
+      method,
+      headers: {
+        'xi-api-key': this.apiKey,
+      },
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      logger.error(`ElevenLabs API error: ${response.status} - ${errorText}`)
+      throw new Error(`ElevenLabs API error: ${response.status} - ${errorText}`)
+    }
+
+    const responseText = await response.text()
+    if (!responseText) {
+      return {} as T
+    }
+    return JSON.parse(responseText) as T
   }
 
   /**
@@ -198,6 +245,82 @@ export class ElevenLabsClient {
       throw new Error(`ElevenLabs API error: ${response.status} - ${errorText}`)
     }
     return response.json()
+  }
+
+  /**
+   * Create a custom voice profile.
+   */
+  async createCustomVoice(
+    config: CreateCustomVoiceRequest,
+  ): Promise<{ voice_id: string; [key: string]: any }> {
+    const formData = new FormData()
+    formData.append('name', config.name)
+
+    if (config.description?.trim()) {
+      formData.append('description', config.description.trim())
+    }
+    if (config.labels && Object.keys(config.labels).length > 0) {
+      formData.append('labels', JSON.stringify(config.labels))
+    }
+
+    for (const sample of config.samples || []) {
+      const content = new Uint8Array(sample.content)
+      formData.append(
+        'files',
+        new Blob([content], {
+          type: sample.contentType || 'audio/mpeg',
+        }),
+        sample.filename,
+      )
+    }
+
+    return this.multipartRequest('/voices/add', formData)
+  }
+
+  /**
+   * Add additional samples to a custom voice (training refinement).
+   */
+  async trainCustomVoice(
+    voiceId: string,
+    config: TrainCustomVoiceRequest,
+  ): Promise<{ voice_id: string; [key: string]: any }> {
+    if (!config.samples.length) {
+      return {
+        voice_id: voiceId,
+        training_status: 'skipped',
+      }
+    }
+
+    const formData = new FormData()
+    if (config.name?.trim()) {
+      formData.append('name', config.name.trim())
+    }
+    if (config.description?.trim()) {
+      formData.append('description', config.description.trim())
+    }
+    if (config.labels && Object.keys(config.labels).length > 0) {
+      formData.append('labels', JSON.stringify(config.labels))
+    }
+
+    for (const sample of config.samples) {
+      const content = new Uint8Array(sample.content)
+      formData.append(
+        'files',
+        new Blob([content], {
+          type: sample.contentType || 'audio/mpeg',
+        }),
+        sample.filename,
+      )
+    }
+
+    return this.multipartRequest(`/voices/${voiceId}/edit`, formData)
+  }
+
+  /**
+   * Retrieve a voice profile.
+   */
+  async getVoice(voiceId: string): Promise<{ voice_id: string; [key: string]: any }> {
+    return this.request(`/voices/${voiceId}`)
   }
 
   /**

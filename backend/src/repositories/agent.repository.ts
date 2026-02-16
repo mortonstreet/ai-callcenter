@@ -180,6 +180,8 @@ export const updateAgent = async (
     website: string | null
     mainGoal: string | null
     voiceId: string | null
+    voiceProvisioningStatus: string
+    voicePromptSeed: string | null
     status: string
     externalId: string
     externalType: string

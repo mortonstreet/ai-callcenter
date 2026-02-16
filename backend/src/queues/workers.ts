@@ -18,6 +18,14 @@ import {
   QUEUE_NAMES,
 } from '@/types/queues'
 import { startSyncJob } from '@/services/integration-contract.service'
+import {
+  AGENT_PROVISION_RETRY_JOB_NAME,
+  AGENT_UPDATE_RETRY_JOB_NAME,
+  AgentProvisionRetryPayload,
+  AgentUpdateRetryPayload,
+  retryAgentProvision,
+  retryAgentUpdateSync,
+} from '@/services/agent.service'
 
 const DEFAULT_QUEUE_CONCURRENCY = 5
 const INTEGRATION_SYNC_CONCURRENCY = 4
@@ -383,6 +391,14 @@ export class WorkerRuntime {
   }
 
   private async handleIntegrationSyncJob(job: Job<QueueJobPayload>) {
+    if (job.name === AGENT_PROVISION_RETRY_JOB_NAME) {
+      return retryAgentProvision(job.data as AgentProvisionRetryPayload)
+    }
+
+    if (job.name === AGENT_UPDATE_RETRY_JOB_NAME) {
+      return retryAgentUpdateSync(job.data as AgentUpdateRetryPayload)
+    }
+
     const organizationId =
       typeof job.data.organizationId === 'string'
         ? job.data.organizationId
