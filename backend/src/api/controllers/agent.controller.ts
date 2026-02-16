@@ -129,9 +129,7 @@ export const createAgent: AuthRequestHandler<CreateAgentRequest> = async (
 ) => {
   const { organizationId, name, firstMessage, prompt } = req.validated
 
-  const elevenLabsClient = getElevenLabsClient(
-    process.env.ELEVEN_LABS_API_KEY,
-  )
+  const elevenLabsClient = getElevenLabsClient(process.env.ELEVEN_LABS_API_KEY)
   const elevenLabsAgent = await elevenLabsClient.createAgent(
     name,
     firstMessage,
@@ -177,7 +175,10 @@ export const deleteAgent: AuthRequestHandler<DeleteAgentRequest> = async (
     await elevenLabsClient.deleteAgent(agent.externalId)
     logger.info(`Deleted ElevenLabs agent ${agent.externalId}`)
   } catch (error) {
-    logger.error(`Failed to delete ElevenLabs agent ${agent.externalId}:`, error)
+    logger.error(
+      `Failed to delete ElevenLabs agent ${agent.externalId}:`,
+      error,
+    )
     // Continue with DB deletion even if ElevenLabs fails
   }
 
