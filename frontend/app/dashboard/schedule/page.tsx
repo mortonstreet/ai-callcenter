@@ -2,7 +2,12 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useTaskInstances } from "@/hooks/api/useTask";
+import { useIntegrationStatus } from "@/hooks/api/useIntegrations";
 import { ChevronLeft, ChevronRight, X, Clock, User, Phone, MapPin } from "lucide-react";
+import {
+  buildScheduleAppointments,
+  ScheduleAppointment as Appointment,
+} from "./scheduleProjection";
 
 type ViewMode = "day" | "week" | "month";
 
@@ -73,16 +78,6 @@ function getEventColor(id: string) {
     hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
   }
   return EVENT_COLORS[Math.abs(hash) % EVENT_COLORS.length];
-}
-
-interface Appointment {
-  id: string;
-  title: string;
-  time: Date;
-  status: string;
-  customerName: string;
-  customerPhone: string;
-  customerAddress: string;
 }
 
 // Event detail popover
@@ -171,6 +166,15 @@ function EventPopover({
             >
               {appointment.status}
             </span>
+            <span
+              className={`inline-block px-2 py-0.5 rounded text-xs font-medium ml-2 ${
+                appointment.source === "google-calendar"
+                  ? "bg-blue-50 text-blue-700 border border-blue-200"
+                  : "bg-gray-100 text-gray-700 border border-gray-200"
+              }`}
+            >
+              {appointment.sourceLabel}
+            </span>
           </div>
         </div>
       </div>
@@ -184,30 +188,17 @@ export default function SchedulePage() {
   const [selectedEvent, setSelectedEvent] = useState<{ appointment: Appointment; rect: DOMRect } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const { data, isLoading } = useTaskInstances({ page: 1, limit: 1000 });
+  const { data, isLoading: isTaskLoading } = useTaskInstances({ page: 1, limit: 1000 });
+  const googleCalendarStatus = useIntegrationStatus("google-calendar");
 
   const appointments: Appointment[] = useMemo(() => {
-    if (!data?.data) return [];
-    return data.data
-      .filter((task) => task.appointmentTime)
-      .map((task) => ({
-        id: task.id,
-        title: task.taskName,
-        time: new Date(task.appointmentTime!),
-        status: task.status,
-        customerName:
-          (task.info as Record<string, string>)?.["full-name"] ||
-          (task.info as Record<string, string>)?.name ||
-          (task.info as Record<string, string>)?.["customer-name"] ||
-          "Unknown",
-        customerPhone:
-          (task.info as Record<string, string>)?.["phone-number"] ||
-          (task.info as Record<string, string>)?.phone || "",
-        customerAddress:
-          (task.info as Record<string, string>)?.address ||
-          (task.info as Record<string, string>)?.["customer-address"] || "",
-      }));
-  }, [data]);
+    return buildScheduleAppointments({
+      tasks: data?.data || [],
+      integrationConfig: googleCalendarStatus.data?.data?.config || {},
+    });
+  }, [data?.data, googleCalendarStatus.data?.data?.config]);
+
+  const isLoading = isTaskLoading || (googleCalendarStatus.isLoading && !googleCalendarStatus.data);
 
   // Scroll to ~8am on mount
   useEffect(() => {
@@ -374,6 +365,7 @@ export default function SchedulePage() {
                           <div className="text-xs font-medium leading-tight truncate">{apt.title}</div>
                           <div className="text-[11px] leading-tight truncate opacity-90">{apt.customerName}</div>
                           <div className="text-[10px] leading-tight opacity-75">{formatTime(apt.time)}</div>
+                          <div className="text-[10px] leading-tight opacity-70">{apt.sourceLabel}</div>
                         </div>
                       );
                     })}
@@ -467,6 +459,7 @@ export default function SchedulePage() {
                   >
                     <div className="text-sm font-medium leading-tight truncate">{apt.title}</div>
                     <div className="text-xs leading-tight opacity-90">{apt.customerName} &middot; {formatTime(apt.time)}</div>
+                    <div className="text-[10px] leading-tight opacity-75">{apt.sourceLabel}</div>
                   </div>
                 );
               })}
@@ -535,7 +528,7 @@ export default function SchedulePage() {
                             style={{ backgroundColor: color.bg, color: color.text }}
                             onClick={(e) => handleEventClick(e, apt)}
                           >
-                            {formatTime(apt.time)} {apt.customerName}
+                            {formatTime(apt.time)} {apt.customerName} • {apt.source === "google-calendar" ? "GCal" : "RC"}
                           </div>
                         );
                       })}

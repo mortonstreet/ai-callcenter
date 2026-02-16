@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-const integrationProviders = ['jobber', 'workiz', 'servicetitan'] as const
+const integrationProviders = [
+  'jobber',
+  'workiz',
+  'servicetitan',
+  'google-calendar',
+] as const
 
 export const IntegrationProviderSchema = z.enum(integrationProviders)
 export type IntegrationProvider = z.infer<typeof IntegrationProviderSchema>
@@ -141,4 +146,18 @@ export interface IntegrationSyncJobView {
   createdAt: string
   startedAt: string | null
   completedAt: string | null
+}
+
+export interface GoogleCalendarProjectionEventView {
+  id: string
+  title: string
+  startTime: string
+  endTime: string
+  status: 'confirmed' | 'tentative' | 'cancelled'
+  description?: string
+  location?: string
+  htmlLink?: string
+  organizerEmail?: string
+  source: 'google-calendar'
+  updatedAt?: string
 }

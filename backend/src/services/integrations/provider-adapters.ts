@@ -54,6 +54,21 @@ export interface ProviderJobRecord {
   externalId: string
   customerExternalId?: string
   status?: string
+  title?: string
+  startsAt?: string
+  endsAt?: string
+  description?: string
+  location?: string
+  htmlLink?: string
+  organizerEmail?: string
+  source?: string
+  updatedAt?: string
+  metadata?: Record<string, unknown>
+}
+
+export interface ProviderPullResult {
+  records: ProviderJobRecord[]
+  cursor?: string | null
 }
 
 interface PushLeadInput extends ProviderConnectionInput {
@@ -88,7 +103,7 @@ export interface CrmProviderAdapter {
   ): Promise<ProviderCustomerRecord[]>
   pullJobsOrAppointments(
     input: ProviderConnectionInput,
-  ): Promise<ProviderJobRecord[]>
+  ): Promise<ProviderPullResult>
   pushLead(input: PushLeadInput): Promise<ProviderPushResult>
   pushAppointment(input: PushAppointmentInput): Promise<ProviderPushResult>
 }
@@ -129,7 +144,9 @@ const defaultTestConnection = async (
 }
 
 const defaultPullCustomers = async () => [] as ProviderCustomerRecord[]
-const defaultPullJobs = async () => [] as ProviderJobRecord[]
+const defaultPullJobs = async (): Promise<ProviderPullResult> => ({
+  records: [],
+})
 
 const defaultPushResult = async (
   provider: IntegrationProvider,
@@ -285,16 +302,368 @@ const serviceTitanAdapter: CrmProviderAdapter = {
     defaultPushResult('servicetitan', appointment),
 }
 
+interface GoogleTokenResponse {
+  access_token?: string
+  refresh_token?: string
+  expires_in?: number
+  scope?: string
+  error?: string
+  error_description?: string
+}
+
+interface GoogleCalendarEventTime {
+  dateTime?: string
+  date?: string
+}
+
+export interface GoogleCalendarApiEvent {
+  id?: string
+  summary?: string
+  description?: string
+  location?: string
+  status?: string
+  start?: GoogleCalendarEventTime
+  end?: GoogleCalendarEventTime
+  htmlLink?: string
+  organizer?: {
+    email?: string
+  }
+  updated?: string
+}
+
+interface GoogleCalendarEventsResponse {
+  items?: GoogleCalendarApiEvent[]
+  nextSyncToken?: string
+}
+
+const GOOGLE_CALENDAR_SCOPES =
+  'https://www.googleapis.com/auth/calendar.readonly'
+const GOOGLE_OAUTH_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
+const GOOGLE_OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token'
+const GOOGLE_CALENDAR_API_BASE_URL = 'https://www.googleapis.com/calendar/v3'
+
+const asRecord = (value: unknown): Record<string, unknown> => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {}
+  }
+  return value as Record<string, unknown>
+}
+
+const asString = (value: unknown): string | null => {
+  if (typeof value !== 'string') {
+    return null
+  }
+  const trimmed = value.trim()
+  return trimmed || null
+}
+
+const toIsoDate = (value: unknown): string | null => {
+  const raw = asString(value)
+  if (!raw) {
+    return null
+  }
+  const parsed = new Date(raw)
+  if (Number.isNaN(parsed.getTime())) {
+    return null
+  }
+  return parsed.toISOString()
+}
+
+const resolveGoogleEventTime = (value?: GoogleCalendarEventTime): string | null => {
+  if (!value) return null
+  const dateTime = toIsoDate(value.dateTime)
+  if (dateTime) {
+    return dateTime
+  }
+  const dayValue = asString(value.date)
+  if (!dayValue) {
+    return null
+  }
+  const startOfDay = new Date(`${dayValue}T00:00:00.000Z`)
+  if (Number.isNaN(startOfDay.getTime())) {
+    return null
+  }
+  return startOfDay.toISOString()
+}
+
+const normalizeGoogleEventStatus = (
+  status?: string,
+): 'confirmed' | 'tentative' | 'cancelled' => {
+  if (status === 'cancelled') {
+    return 'cancelled'
+  }
+  if (status === 'tentative') {
+    return 'tentative'
+  }
+  return 'confirmed'
+}
+
+export const mapGoogleCalendarEventsToJobs = (
+  events: GoogleCalendarApiEvent[],
+): ProviderJobRecord[] => {
+  const mapped: ProviderJobRecord[] = []
+
+  for (const event of events) {
+    const externalId = asString(event.id)
+    if (!externalId) {
+      continue
+    }
+
+    mapped.push({
+      externalId,
+      status: normalizeGoogleEventStatus(event.status),
+      title: asString(event.summary) || 'Google Calendar event',
+      startsAt: resolveGoogleEventTime(event.start) || undefined,
+      endsAt: resolveGoogleEventTime(event.end) || undefined,
+      description: asString(event.description) || undefined,
+      location: asString(event.location) || undefined,
+      htmlLink: asString(event.htmlLink) || undefined,
+      organizerEmail: asString(event.organizer?.email) || undefined,
+      source: 'google-calendar',
+      updatedAt: toIsoDate(event.updated) || undefined,
+    })
+  }
+
+  return mapped
+}
+
+const fetchGoogleOauthToken = async (
+  payload: Record<string, string>,
+): Promise<ProviderTokenSet> => {
+  const body = new URLSearchParams({
+    ...payload,
+    client_id: config.providers.google.clientId,
+    client_secret: config.providers.google.clientSecret,
+  })
+
+  const response = await fetch(GOOGLE_OAUTH_TOKEN_URL, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/x-www-form-urlencoded',
+    },
+    body: body.toString(),
+  })
+
+  const parsed = (await response.json().catch(() => ({}))) as GoogleTokenResponse
+  if (!response.ok) {
+    throw new Error(
+      parsed.error_description ||
+        parsed.error ||
+        `Google OAuth token exchange failed (${response.status})`,
+    )
+  }
+
+  const accessToken = asString(parsed.access_token)
+  if (!accessToken) {
+    throw new Error('Google OAuth token exchange did not return access_token')
+  }
+
+  const expiresInSeconds =
+    typeof parsed.expires_in === 'number' && Number.isFinite(parsed.expires_in)
+      ? parsed.expires_in
+      : null
+
+  return {
+    accessToken,
+    refreshToken: asString(parsed.refresh_token),
+    tokenExpiresAt: expiresInSeconds
+      ? new Date(Date.now() + expiresInSeconds * 1000)
+      : null,
+    scopes: asString(parsed.scope) || GOOGLE_CALENDAR_SCOPES,
+  }
+}
+
+const fetchGoogleCalendarEvents = async (input: {
+  accessToken: string
+  calendarId: string
+  syncWindowDays: number
+  syncToken?: string | null
+}): Promise<GoogleCalendarEventsResponse> => {
+  const url = new URL(
+    `${GOOGLE_CALENDAR_API_BASE_URL}/calendars/${encodeURIComponent(
+      input.calendarId,
+    )}/events`,
+  )
+
+  url.searchParams.set('singleEvents', 'true')
+  url.searchParams.set('showDeleted', 'true')
+  url.searchParams.set('maxResults', '2500')
+
+  if (input.syncToken) {
+    url.searchParams.set('syncToken', input.syncToken)
+  } else {
+    const now = Date.now()
+    const windowMs = input.syncWindowDays * 24 * 60 * 60 * 1000
+    url.searchParams.set('timeMin', new Date(now - windowMs).toISOString())
+    url.searchParams.set('timeMax', new Date(now + windowMs).toISOString())
+    url.searchParams.set('orderBy', 'startTime')
+  }
+
+  const response = await fetch(url, {
+    headers: {
+      authorization: `Bearer ${input.accessToken}`,
+      accept: 'application/json',
+    },
+  })
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => '')
+    throw new Error(
+      `Google Calendar events fetch failed (${response.status}): ${message || 'unknown error'}`,
+    )
+  }
+
+  return (await response.json()) as GoogleCalendarEventsResponse
+}
+
+const isGoogleSyncTokenExpiredError = (error: unknown) => {
+  const message =
+    error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase()
+  return message.includes('410') || message.includes('synctoken')
+}
+
+export const googleCalendarAdapter: CrmProviderAdapter = {
+  provider: 'google-calendar',
+  label: 'Google Calendar',
+  authMode: 'oauth',
+  buildAuthorizeUrl: ({ organizationId, redirectUri, state }) =>
+    buildOauthAuthorizeUrl(GOOGLE_OAUTH_AUTH_URL, {
+      client_id: config.providers.google.clientId,
+      redirect_uri:
+        redirectUri ||
+        buildFallbackRedirectUri('google-calendar', organizationId),
+      response_type: 'code',
+      state,
+      access_type: 'offline',
+      prompt: 'consent',
+      include_granted_scopes: 'true',
+      scope: GOOGLE_CALENDAR_SCOPES,
+    }),
+  exchangeCode: async ({ code, organizationId, redirectUri }) => {
+    if (!code) {
+      throw new Error('Missing Google Calendar authorization code')
+    }
+
+    return fetchGoogleOauthToken({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri:
+        redirectUri ||
+        buildFallbackRedirectUri('google-calendar', organizationId),
+    })
+  },
+  refreshToken: async ({ refreshToken }) => {
+    if (!refreshToken) {
+      throw new Error('Missing Google Calendar refresh token')
+    }
+
+    const refreshed = await fetchGoogleOauthToken({
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    })
+
+    return {
+      ...refreshed,
+      refreshToken: refreshed.refreshToken || refreshToken,
+    }
+  },
+  testConnection: async ({ accessToken }) => {
+    if (!accessToken) {
+      return {
+        ok: false,
+        message: 'Google Calendar is not connected',
+      }
+    }
+
+    try {
+      const url = new URL(`${GOOGLE_CALENDAR_API_BASE_URL}/users/me/calendarList`)
+      url.searchParams.set('maxResults', '1')
+      const response = await fetch(url, {
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          accept: 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        const details = await response.text().catch(() => '')
+        return {
+          ok: false,
+          message: details || `Google Calendar auth failed (${response.status})`,
+        }
+      }
+
+      return {
+        ok: true,
+        message: 'Google Calendar connection is healthy',
+      }
+    } catch (error) {
+      return {
+        ok: false,
+        message:
+          error instanceof Error
+            ? error.message
+            : 'Google Calendar connection failed',
+      }
+    }
+  },
+  pullCustomers: defaultPullCustomers,
+  pullJobsOrAppointments: async ({ accessToken, config: providerConfig }) => {
+    if (!accessToken) {
+      throw new Error('Google Calendar access token is missing')
+    }
+
+    const configRecord = asRecord(providerConfig)
+    const calendarId = asString(configRecord.calendarId) || 'primary'
+    const syncWindowRaw = Number(configRecord.syncWindowDays)
+    const syncWindowDays = Number.isFinite(syncWindowRaw)
+      ? Math.max(1, Math.min(90, Math.floor(syncWindowRaw)))
+      : 30
+    const syncToken = asString(configRecord.calendarSyncToken)
+
+    let eventsResponse: GoogleCalendarEventsResponse
+    try {
+      eventsResponse = await fetchGoogleCalendarEvents({
+        accessToken,
+        calendarId,
+        syncWindowDays,
+        syncToken,
+      })
+    } catch (error) {
+      if (syncToken && isGoogleSyncTokenExpiredError(error)) {
+        eventsResponse = await fetchGoogleCalendarEvents({
+          accessToken,
+          calendarId,
+          syncWindowDays,
+          syncToken: null,
+        })
+      } else {
+        throw error
+      }
+    }
+
+    return {
+      records: mapGoogleCalendarEventsToJobs(eventsResponse.items || []),
+      cursor: asString(eventsResponse.nextSyncToken) || syncToken,
+    }
+  },
+  pushLead: async ({ lead }) => defaultPushResult('google-calendar', lead),
+  pushAppointment: async ({ appointment }) =>
+    defaultPushResult('google-calendar', appointment),
+}
+
 const adapters: Record<IntegrationProvider, CrmProviderAdapter> = {
   jobber: jobberAdapter,
   workiz: workizAdapter,
   servicetitan: serviceTitanAdapter,
+  'google-calendar': googleCalendarAdapter,
 }
 
 export const supportedIntegrationProviders: IntegrationProvider[] = [
   'jobber',
   'workiz',
   'servicetitan',
+  'google-calendar',
 ]
 
 export const getIntegrationProviderAdapter = (

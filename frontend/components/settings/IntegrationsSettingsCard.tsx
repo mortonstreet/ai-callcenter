@@ -53,6 +53,11 @@ const PROVIDERS: ProviderMeta[] = [
     label: "ServiceTitan",
     description: "Bi-directional sync for customers, calls, jobs, and booking outcomes.",
   },
+  {
+    provider: "google-calendar",
+    label: "Google Calendar",
+    description: "Read-only calendar sync that projects Google events into the RevCenter schedule.",
+  },
 ];
 
 const STATUS_BADGE_CLASS: Record<string, string> = {
@@ -139,6 +144,14 @@ function IntegrationProviderCard({
     (job) => job.status === "failed",
   );
   const lastError = integration?.lastError || latestFailedJob?.errorSummary || null;
+  const reconnectRequired = asBoolean(
+    integration?.config?.reconnectRequired,
+    false,
+  );
+  const reconnectMessage =
+    typeof integration?.config?.reconnectMessage === "string"
+      ? integration.config.reconnectMessage
+      : null;
 
   const isBusy =
     connectMutation.isPending ||
@@ -272,6 +285,12 @@ function IntegrationProviderCard({
         {lastError && (
           <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {lastError}
+          </div>
+        )}
+
+        {reconnectRequired && (
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            {reconnectMessage || "Credentials expired. Reconnect this provider to resume sync jobs."}
           </div>
         )}
 
@@ -455,7 +474,7 @@ export default function IntegrationsSettingsCard({
     <Card title="Integrations">
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Manage Jobber, Workiz, and ServiceTitan CRM connections, configs, and sync jobs.
+          Manage CRM + calendar integrations, sync behavior, and provider health state.
         </p>
 
         {integrationsQuery.isLoading && !integrationsQuery.data ? (

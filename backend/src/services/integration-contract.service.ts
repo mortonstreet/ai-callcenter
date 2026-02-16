@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto'
 import { DBIntegration, DBIntegrationSyncJob, DBLead } from '@shared/db/src'
 import {
+  GoogleCalendarProjectionEventView,
   IntegrationConnectionStatus,
   IntegrationConnectionView,
   IntegrationProvider,
@@ -19,12 +20,15 @@ import {
   getSyncJobName,
   ProviderConnectionInput,
   ProviderCustomerRecord,
+  ProviderJobRecord,
   supportedIntegrationProviders,
 } from '@/services/integrations/provider-adapters'
 import { QUEUE_NAMES } from '@/types/queues'
 
 const INTERNAL_CONFIG_KEYS = new Set(['oauthState'])
 const TOKEN_EXPIRY_SKEW_MS = 30 * 1000
+const GOOGLE_CALENDAR_PROVIDER: IntegrationProvider = 'google-calendar'
+const MAX_PROJECTED_GOOGLE_CALENDAR_EVENTS = 500
 
 export interface IntegrationSyncQueuePayload {
   integrationJobId: string
@@ -293,6 +297,258 @@ const getErrorMessage = (error: unknown) => {
   return 'Unknown integration error'
 }
 
+const buildReconnectRequiredConfig = (
+  config: Record<string, unknown>,
+  reason: string,
+  message: string,
+): Record<string, unknown> => {
+  return {
+    ...config,
+    reconnectRequired: true,
+    reconnectReason: reason,
+    reconnectMessage: message,
+    reconnectRequiredAt: nowIso(),
+  }
+}
+
+const clearReconnectRequiredConfig = (
+  config: Record<string, unknown>,
+): Record<string, unknown> => {
+  const next = { ...config }
+  delete next.reconnectRequired
+  delete next.reconnectReason
+  delete next.reconnectMessage
+  delete next.reconnectRequiredAt
+  return next
+}
+
+const markReconnectRequiredIntegration = async (input: {
+  integration: DBIntegration
+  provider: IntegrationProvider
+  reason: string
+  message: string
+}) => {
+  const nextConfig = buildReconnectRequiredConfig(
+    toConfigRecord(input.integration.config),
+    input.reason,
+    input.message,
+  )
+
+  const updated = await integrationRepository.updateIntegration(
+    input.integration.id,
+    {
+      status: 'error',
+      lastSyncStatus: 'failed',
+      lastSyncMessage: input.message,
+      lastSyncAt: input.integration.lastSyncAt,
+      accessToken: input.integration.accessToken,
+      refreshToken: input.integration.refreshToken,
+      tokenExpiresAt: input.integration.tokenExpiresAt,
+      scopes: input.integration.scopes,
+      externalAccountId: input.integration.externalAccountId,
+      config: nextConfig,
+      createdByUserId: input.integration.createdByUserId,
+      displayName: input.integration.displayName,
+    },
+  )
+
+  return updated || input.integration
+}
+
+const isReconnectRequiredError = (
+  error: unknown,
+): error is IntegrationServiceError => {
+  return (
+    error instanceof IntegrationServiceError &&
+    error.code === 'INTEGRATION_RECONNECT_REQUIRED'
+  )
+}
+
+const getReconnectReasonFromError = (error: IntegrationServiceError) => {
+  if (
+    typeof error.details === 'object' &&
+    error.details &&
+    'reason' in error.details &&
+    typeof (error.details as Record<string, unknown>).reason === 'string'
+  ) {
+    return (error.details as Record<string, unknown>).reason as string
+  }
+  return 'token_refresh_failed'
+}
+
+const toIsoTimestamp = (value: unknown): string | null => {
+  if (typeof value !== 'string' || !value.trim()) {
+    return null
+  }
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return null
+  }
+  return parsed.toISOString()
+}
+
+const normalizeGoogleCalendarEventStatus = (
+  value?: string,
+): GoogleCalendarProjectionEventView['status'] => {
+  if (value === 'tentative') {
+    return 'tentative'
+  }
+  if (value === 'cancelled') {
+    return 'cancelled'
+  }
+  return 'confirmed'
+}
+
+const parseProjectedGoogleCalendarEvent = (
+  value: unknown,
+): GoogleCalendarProjectionEventView | null => {
+  if (!isObject(value)) {
+    return null
+  }
+
+  const id = typeof value.id === 'string' ? value.id.trim() : ''
+  const startTime = toIsoTimestamp(value.startTime)
+  const endTime = toIsoTimestamp(value.endTime)
+
+  if (!id || !startTime || !endTime) {
+    return null
+  }
+
+  return {
+    id,
+    title:
+      typeof value.title === 'string' && value.title.trim()
+        ? value.title
+        : 'Google Calendar event',
+    startTime,
+    endTime,
+    status: normalizeGoogleCalendarEventStatus(
+      typeof value.status === 'string' ? value.status : undefined,
+    ),
+    description:
+      typeof value.description === 'string' ? value.description : undefined,
+    location: typeof value.location === 'string' ? value.location : undefined,
+    htmlLink: typeof value.htmlLink === 'string' ? value.htmlLink : undefined,
+    organizerEmail:
+      typeof value.organizerEmail === 'string'
+        ? value.organizerEmail
+        : undefined,
+    source: 'google-calendar',
+    updatedAt:
+      typeof value.updatedAt === 'string' ? value.updatedAt : undefined,
+  }
+}
+
+const parseProjectedGoogleCalendarEvents = (
+  config: Record<string, unknown>,
+): GoogleCalendarProjectionEventView[] => {
+  const events = config.calendarEvents
+  if (!Array.isArray(events)) {
+    return []
+  }
+
+  return events
+    .map(parseProjectedGoogleCalendarEvent)
+    .filter(
+      (event): event is GoogleCalendarProjectionEventView => Boolean(event),
+    )
+}
+
+const mergeProjectedGoogleCalendarEvents = (
+  existingEvents: GoogleCalendarProjectionEventView[],
+  incomingRecords: ProviderJobRecord[],
+) => {
+  const byId = new Map(existingEvents.map((event) => [event.id, event]))
+  let recordsProcessed = 0
+
+  for (const record of incomingRecords) {
+    const id = record.externalId?.trim()
+    if (!id) {
+      continue
+    }
+
+    const status = normalizeGoogleCalendarEventStatus(record.status)
+    if (status === 'cancelled') {
+      byId.delete(id)
+      recordsProcessed += 1
+      continue
+    }
+
+    const startTime = toIsoTimestamp(record.startsAt)
+    const endTime = toIsoTimestamp(record.endsAt || record.startsAt)
+    if (!startTime || !endTime) {
+      continue
+    }
+
+    const previous = byId.get(id)
+    byId.set(id, {
+      id,
+      title: record.title || previous?.title || 'Google Calendar event',
+      startTime,
+      endTime,
+      status,
+      description: record.description || previous?.description,
+      location: record.location || previous?.location,
+      htmlLink: record.htmlLink || previous?.htmlLink,
+      organizerEmail: record.organizerEmail || previous?.organizerEmail,
+      source: 'google-calendar',
+      updatedAt: record.updatedAt || previous?.updatedAt,
+    })
+    recordsProcessed += 1
+  }
+
+  const events = [...byId.values()]
+    .sort((a, b) => a.startTime.localeCompare(b.startTime))
+    .slice(0, MAX_PROJECTED_GOOGLE_CALENDAR_EVENTS)
+
+  return {
+    events,
+    recordsProcessed,
+  }
+}
+
+const persistGoogleCalendarProjection = async (input: {
+  integration: DBIntegration
+  records: ProviderJobRecord[]
+  cursor?: string | null
+}) => {
+  const currentConfig = toConfigRecord(input.integration.config)
+  const merged = mergeProjectedGoogleCalendarEvents(
+    parseProjectedGoogleCalendarEvents(currentConfig),
+    input.records,
+  )
+
+  const nextConfig = clearReconnectRequiredConfig(currentConfig)
+  nextConfig.calendarEvents = merged.events
+  nextConfig.calendarLastSyncedAt = nowIso()
+  if (input.cursor && input.cursor.trim()) {
+    nextConfig.calendarSyncToken = input.cursor
+  }
+
+  const updated = await integrationRepository.updateIntegration(
+    input.integration.id,
+    {
+      status: input.integration.status,
+      lastSyncStatus: input.integration.lastSyncStatus,
+      lastSyncMessage: input.integration.lastSyncMessage,
+      lastSyncAt: input.integration.lastSyncAt,
+      accessToken: input.integration.accessToken,
+      refreshToken: input.integration.refreshToken,
+      tokenExpiresAt: input.integration.tokenExpiresAt,
+      scopes: input.integration.scopes,
+      externalAccountId: input.integration.externalAccountId,
+      config: nextConfig,
+      createdByUserId: input.integration.createdByUserId,
+      displayName: input.integration.displayName,
+    },
+  )
+
+  return {
+    integration: updated || input.integration,
+    recordsProcessed: merged.recordsProcessed,
+  }
+}
+
 const isTokenExpired = (value?: string | Date | null) => {
   const expiresAt = toDate(value)
   if (!expiresAt) {
@@ -311,14 +567,37 @@ const refreshTokenIfNeeded = async (
 
   const refreshToken = decryptSecret(integration.refreshToken)
   if (!refreshToken) {
-    return integration
+    throw new IntegrationServiceError({
+      status: 401,
+      code: 'INTEGRATION_RECONNECT_REQUIRED',
+      message: `Refresh token missing for ${provider}`,
+      userMessage: `${getProviderDisplayName(provider)} credentials expired. Reconnect this integration to continue syncing.`,
+      details: {
+        provider,
+        reason: 'refresh_token_missing',
+      },
+    })
   }
 
   const adapter = getIntegrationProviderAdapter(provider)
-  const refreshed = await adapter.refreshToken({
-    organizationId: integration.organizationId,
-    refreshToken,
-  })
+  let refreshed: Awaited<ReturnType<typeof adapter.refreshToken>>
+  try {
+    refreshed = await adapter.refreshToken({
+      organizationId: integration.organizationId,
+      refreshToken,
+    })
+  } catch (error) {
+    throw new IntegrationServiceError({
+      status: 401,
+      code: 'INTEGRATION_RECONNECT_REQUIRED',
+      message: getErrorMessage(error),
+      userMessage: `${getProviderDisplayName(provider)} token refresh failed. Reconnect this integration and retry.`,
+      details: {
+        provider,
+        reason: 'token_refresh_failed',
+      },
+    })
+  }
 
   const updated = await integrationRepository.updateIntegration(
     integration.id,
@@ -332,7 +611,7 @@ const refreshTokenIfNeeded = async (
       lastSyncStatus: integration.lastSyncStatus,
       externalAccountId:
         refreshed.externalAccountId || integration.externalAccountId || null,
-      config: integration.config,
+      config: clearReconnectRequiredConfig(toConfigRecord(integration.config)),
       createdByUserId: integration.createdByUserId,
       displayName: integration.displayName,
       lastSyncAt: integration.lastSyncAt,
@@ -504,7 +783,9 @@ export const connectIntegration = async (
       existing: existing || undefined,
       status: 'connected',
       createdByUserId: userId,
-      config: sanitizeConfigForView(existingConfig),
+      config: clearReconnectRequiredConfig(
+        sanitizeConfigForView(existingConfig),
+      ),
       accessToken: encryptSecret(tokenSet.accessToken),
       refreshToken: encryptSecret(tokenSet.refreshToken),
       tokenExpiresAt: tokenSet.tokenExpiresAt || null,
@@ -528,7 +809,7 @@ export const connectIntegration = async (
     status: 'pending',
     createdByUserId: userId,
     config: {
-      ...existingConfig,
+      ...clearReconnectRequiredConfig(existingConfig),
       oauthState: state,
     },
     accessToken: existing?.accessToken || null,
@@ -597,7 +878,7 @@ export const completeIntegrationCallback = async (
       state,
     })
 
-    const nextConfig = { ...existingConfig }
+    const nextConfig = clearReconnectRequiredConfig({ ...existingConfig })
     delete nextConfig.oauthState
 
     const connected = await persistIntegration({
@@ -626,7 +907,9 @@ export const completeIntegrationCallback = async (
       existing,
       status: 'error',
       createdByUserId: existing.createdByUserId,
-      config: sanitizeConfigForView(existingConfig),
+      config: clearReconnectRequiredConfig(
+        sanitizeConfigForView(existingConfig),
+      ),
       accessToken: existing.accessToken,
       refreshToken: existing.refreshToken,
       tokenExpiresAt: existing.tokenExpiresAt
@@ -697,7 +980,26 @@ export const testIntegrationConnection = async (
     }
   }
 
-  integration = await refreshTokenIfNeeded(integration, provider)
+  try {
+    integration = await refreshTokenIfNeeded(integration, provider)
+  } catch (error) {
+    if (isReconnectRequiredError(error)) {
+      const persisted = await markReconnectRequiredIntegration({
+        integration,
+        provider,
+        reason: getReconnectReasonFromError(error),
+        message: error.userMessage,
+      })
+
+      return {
+        ok: false,
+        message: error.userMessage,
+        integration: toIntegrationView(organizationId, provider, persisted),
+      }
+    }
+
+    throw error
+  }
 
   const adapter = getIntegrationProviderAdapter(provider)
   const connectionInput = buildProviderConnectionInput(integration)
@@ -709,7 +1011,9 @@ export const testIntegrationConnection = async (
     existing: integration,
     status: result.ok ? 'connected' : 'error',
     createdByUserId: integration.createdByUserId || null,
-    config: toConfigRecord(integration.config),
+    config: result.ok
+      ? clearReconnectRequiredConfig(toConfigRecord(integration.config))
+      : toConfigRecord(integration.config),
     accessToken: integration.accessToken,
     refreshToken: integration.refreshToken,
     tokenExpiresAt: integration.tokenExpiresAt
@@ -738,7 +1042,9 @@ export const disconnectIntegration = async (
     return toIntegrationView(organizationId, provider)
   }
 
-  const config = toConfigRecord(integration.config)
+  const config = clearReconnectRequiredConfig(
+    toConfigRecord(integration.config),
+  )
   delete config.oauthState
 
   const disconnected = await persistIntegration({
@@ -768,6 +1074,13 @@ export const startSyncJob = async (
 ) => {
   const integration = await ensureConnectedIntegration(organizationId, provider)
   const correlationId = randomUUID()
+  const integrationConfig = toConfigRecord(integration.config)
+  const persistedCursor =
+    provider === GOOGLE_CALENDAR_PROVIDER &&
+    typeof integrationConfig.calendarSyncToken === 'string' &&
+    integrationConfig.calendarSyncToken.trim()
+      ? integrationConfig.calendarSyncToken
+      : null
 
   const queuedJob = await integrationRepository.createIntegrationSyncJob({
     integrationId: integration.id,
@@ -777,13 +1090,16 @@ export const startSyncJob = async (
     status: 'queued',
     startedAt: null,
     completedAt: null,
-    lastCursor: null,
+    lastCursor: persistedCursor,
     recordsSynced: 0,
     errorMessage: null,
     payload: {
       direction,
       requestedAt: nowIso(),
       correlationId,
+      syncMode:
+        persistedCursor && direction === 'pull' ? 'incremental' : 'backfill',
+      ...(persistedCursor ? { lastCursor: persistedCursor } : {}),
     },
     updatedAt: new Date(),
   })
@@ -961,16 +1277,25 @@ export const processQueuedIntegrationSyncJob = async (
     },
   })
 
+  let activeIntegration = integration
+  let lastCursor =
+    typeof syncJob.lastCursor === 'string' ? syncJob.lastCursor : null
+
   try {
-    let refreshedIntegration = await refreshTokenIfNeeded(integration, provider)
-    const connectionInput = buildProviderConnectionInput(refreshedIntegration)
+    activeIntegration = await refreshTokenIfNeeded(activeIntegration, provider)
+    const connectionInput = buildProviderConnectionInput(activeIntegration)
     let recordsProcessed = 0
 
     if (direction === 'pull') {
-      const [customers, jobsOrAppointments] = await Promise.all([
+      const [customers, jobsOrAppointmentsResult] = await Promise.all([
         adapter.pullCustomers(connectionInput),
         adapter.pullJobsOrAppointments(connectionInput),
       ])
+      const jobsOrAppointments = jobsOrAppointmentsResult.records
+
+      if (jobsOrAppointmentsResult.cursor) {
+        lastCursor = jobsOrAppointmentsResult.cursor
+      }
 
       let upsertedLeads = 0
       for (const customer of customers) {
@@ -984,7 +1309,17 @@ export const processQueuedIntegrationSyncJob = async (
         }
       }
 
-      recordsProcessed = upsertedLeads + jobsOrAppointments.length
+      if (provider === GOOGLE_CALENDAR_PROVIDER) {
+        const projected = await persistGoogleCalendarProjection({
+          integration: activeIntegration,
+          records: jobsOrAppointments,
+          cursor: jobsOrAppointmentsResult.cursor,
+        })
+        activeIntegration = projected.integration
+        recordsProcessed = upsertedLeads + projected.recordsProcessed
+      } else {
+        recordsProcessed = upsertedLeads + jobsOrAppointments.length
+      }
     } else {
       const [leadPush, appointmentPush] = await Promise.all([
         adapter.pushLead({
@@ -1012,29 +1347,32 @@ export const processQueuedIntegrationSyncJob = async (
       completedAt: new Date(),
       recordsSynced: recordsProcessed,
       errorMessage: null,
-      lastCursor: syncJob.lastCursor,
+      lastCursor,
       payload: {
         ...toConfigRecord(syncJob.payload),
         correlationId,
         direction,
+        lastCursor,
       },
       provider,
       jobType: direction,
     })
 
-    await integrationRepository.updateIntegration(integration.id, {
+    await integrationRepository.updateIntegration(activeIntegration.id, {
       status: 'connected',
       lastSyncStatus: 'completed',
       lastSyncMessage: null,
       lastSyncAt: new Date(),
-      accessToken: refreshedIntegration.accessToken,
-      refreshToken: refreshedIntegration.refreshToken,
-      tokenExpiresAt: refreshedIntegration.tokenExpiresAt,
-      scopes: refreshedIntegration.scopes,
-      externalAccountId: refreshedIntegration.externalAccountId,
-      config: refreshedIntegration.config,
-      createdByUserId: refreshedIntegration.createdByUserId,
-      displayName: refreshedIntegration.displayName,
+      accessToken: activeIntegration.accessToken,
+      refreshToken: activeIntegration.refreshToken,
+      tokenExpiresAt: activeIntegration.tokenExpiresAt,
+      scopes: activeIntegration.scopes,
+      externalAccountId: activeIntegration.externalAccountId,
+      config: clearReconnectRequiredConfig(
+        toConfigRecord(activeIntegration.config),
+      ),
+      createdByUserId: activeIntegration.createdByUserId,
+      displayName: activeIntegration.displayName,
     })
 
     await integrationRepository.createIntegrationSyncLog({
@@ -1072,6 +1410,7 @@ export const processQueuedIntegrationSyncJob = async (
     }
   } catch (error) {
     const errorMessage = getErrorMessage(error)
+    const reconnectRequired = isReconnectRequiredError(error)
 
     await integrationRepository.updateIntegrationSyncJob(syncJob.id, {
       status: 'failed',
@@ -1079,30 +1418,41 @@ export const processQueuedIntegrationSyncJob = async (
       completedAt: new Date(),
       recordsSynced: syncJob.recordsSynced || 0,
       errorMessage,
-      lastCursor: syncJob.lastCursor,
+      lastCursor,
       payload: {
         ...toConfigRecord(syncJob.payload),
         correlationId,
         direction,
+        lastCursor,
       },
       provider,
       jobType: direction,
     })
 
-    await integrationRepository.updateIntegration(integration.id, {
-      status: 'error',
-      lastSyncStatus: 'failed',
-      lastSyncMessage: errorMessage,
-      lastSyncAt: integration.lastSyncAt,
-      accessToken: integration.accessToken,
-      refreshToken: integration.refreshToken,
-      tokenExpiresAt: integration.tokenExpiresAt,
-      scopes: integration.scopes,
-      externalAccountId: integration.externalAccountId,
-      config: integration.config,
-      createdByUserId: integration.createdByUserId,
-      displayName: integration.displayName,
-    })
+    if (isReconnectRequiredError(error)) {
+      activeIntegration = await markReconnectRequiredIntegration({
+        integration: activeIntegration,
+        provider,
+        reason: getReconnectReasonFromError(error),
+        message: error.userMessage,
+      })
+    } else {
+      activeIntegration =
+        (await integrationRepository.updateIntegration(activeIntegration.id, {
+          status: 'error',
+          lastSyncStatus: 'failed',
+          lastSyncMessage: errorMessage,
+          lastSyncAt: activeIntegration.lastSyncAt,
+          accessToken: activeIntegration.accessToken,
+          refreshToken: activeIntegration.refreshToken,
+          tokenExpiresAt: activeIntegration.tokenExpiresAt,
+          scopes: activeIntegration.scopes,
+          externalAccountId: activeIntegration.externalAccountId,
+          config: toConfigRecord(activeIntegration.config),
+          createdByUserId: activeIntegration.createdByUserId,
+          displayName: activeIntegration.displayName,
+        })) || activeIntegration
+    }
 
     await integrationRepository.createIntegrationSyncLog({
       integrationId: integration.id,
@@ -1115,6 +1465,7 @@ export const processQueuedIntegrationSyncJob = async (
         syncJobId: syncJob.id,
         provider,
         direction,
+        reconnectRequired,
       },
     })
 

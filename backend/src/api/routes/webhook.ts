@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { createHash } from 'crypto'
 import {
   withApiKeyAuth,
   withWebhookAuth,
@@ -12,6 +13,16 @@ import express from 'express'
 import logger from '@/lib/logger'
 import { z } from 'zod'
 import { addSuppression } from '@/services/compliance.service'
+import {
+  IntegrationServiceError,
+  startSyncJob,
+} from '@/services/integration-contract.service'
+import { ingestWebhookEvent } from '@/services/webhook-event.service'
+import {
+  parseSignedWebhookBody,
+  verifySignedWebhook,
+} from '../middlewares/webhookContracts'
+import { sendApiError } from '../utils/error-contract'
 
 const router = Router()
 
@@ -31,6 +42,14 @@ const logAuthPassed =
     logger.info(`✅ WEBHOOK AUTH PASSED [${providerSlug}]`)
     next()
   }
+
+const GoogleCalendarWebhookSchema = z.object({
+  organizationId: z.string().min(1),
+  eventId: z.string().min(1),
+  eventType: z.string().min(1),
+  cursor: z.string().optional(),
+  payload: z.record(z.string(), z.any()).default({}),
+})
 
 // Legacy route - ElevenLabs specific
 router.post(
@@ -65,6 +84,7 @@ router.post(
 router.post(
   '/calcom',
   logWebhook('calcom'),
+  withApiKeyAuth,
   express.json(),
   async (req, res) => {
     try {
@@ -72,6 +92,114 @@ router.post(
     } catch (error) {
       logger.error('Cal.com webhook error:', error)
       res.status(500).json({ error: 'Internal server error' })
+    }
+  },
+)
+
+router.post(
+  '/google-calendar',
+  logWebhook('google-calendar'),
+  express.raw({ type: 'application/json', limit: '10mb' }),
+  parseSignedWebhookBody,
+  verifySignedWebhook,
+  async (req, res) => {
+    const rawPayload =
+      typeof (req as { rawBodyText?: string }).rawBodyText === 'string'
+        ? (req as { rawBodyText?: string }).rawBodyText || ''
+        : ''
+
+    const parsed = GoogleCalendarWebhookSchema.safeParse(req.body)
+    if (!parsed.success) {
+      const payloadHash = createHash('sha256')
+        .update(rawPayload || JSON.stringify(req.body || {}), 'utf8')
+        .digest('hex')
+      const eventId = `invalid:${payloadHash.slice(0, 24)}`
+
+      ingestWebhookEvent({
+        namespace: 'integrations',
+        organizationId: null,
+        provider: 'google-calendar',
+        eventId,
+        eventType: 'invalid_payload',
+        payload: {
+          issues: parsed.error.issues.map((issue) => ({
+            path: issue.path.join('.'),
+            code: issue.code,
+            message: issue.message,
+          })),
+        },
+        rawPayload: rawPayload || JSON.stringify(req.body || {}),
+      })
+
+      logger.warn(
+        {
+          issues: parsed.error.issues,
+        },
+        'Rejected invalid Google Calendar webhook payload',
+      )
+
+      return sendApiError(req, res, 400, {
+        code: 'GOOGLE_CALENDAR_WEBHOOK_INVALID_PAYLOAD',
+        message: 'Invalid Google Calendar webhook payload',
+        userMessage: 'Webhook payload is invalid.',
+      })
+    }
+
+    const { organizationId, eventId, eventType, cursor, payload } = parsed.data
+    const ingestResult = ingestWebhookEvent({
+      namespace: 'integrations',
+      organizationId,
+      provider: 'google-calendar',
+      eventId,
+      eventType,
+      payload: {
+        ...payload,
+        ...(cursor ? { cursor } : {}),
+      },
+      rawPayload: rawPayload || JSON.stringify(parsed.data),
+    })
+
+    if (ingestResult.duplicate) {
+      return res.status(202).json({
+        accepted: true,
+        duplicate: true,
+        event: {
+          id: ingestResult.event.id,
+          eventId,
+          eventType,
+          receivedAt: ingestResult.event.receivedAt,
+        },
+      })
+    }
+
+    try {
+      const syncJob = await startSyncJob(
+        organizationId,
+        'google-calendar',
+        'pull',
+      )
+
+      return res.status(202).json({
+        accepted: true,
+        duplicate: false,
+        event: {
+          id: ingestResult.event.id,
+          eventId,
+          eventType,
+          receivedAt: ingestResult.event.receivedAt,
+        },
+        syncJobId: syncJob.id,
+      })
+    } catch (error) {
+      if (error instanceof IntegrationServiceError) {
+        return sendApiError(req, res, error.status, {
+          code: error.code,
+          message: error.message,
+          userMessage: error.userMessage,
+          details: error.details,
+        })
+      }
+      throw error
     }
   },
 )
