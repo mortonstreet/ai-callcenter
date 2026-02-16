@@ -42,12 +42,10 @@ export const healthCheck: AuthRequestHandler<{}> = async (_req, res) => {
     logger.error('[elevenlabs] connection failed', {
       error: error?.message || String(error),
     })
-    return res
-      .status(500)
-      .json({
-        error: 'Failed to reach ElevenLabs',
-        details: error?.message || String(error),
-      })
+    return res.status(500).json({
+      error: 'Failed to reach ElevenLabs',
+      details: error?.message || String(error),
+    })
   }
 }
 
@@ -63,11 +61,9 @@ export const listVoices: AuthRequestHandler<{}> = async (_req, res) => {
     logger.error('[elevenlabs] listVoices failed', {
       error: error?.message || String(error),
     })
-    return res
-      .status(500)
-      .json({
-        error: 'Failed to list voices',
-        details: error?.message || String(error),
-      })
+    return res.status(500).json({
+      error: 'Failed to list voices',
+      details: error?.message || String(error),
+    })
   }
 }
