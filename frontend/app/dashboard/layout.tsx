@@ -75,11 +75,41 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   useEffect(() => {
     if (isPending || !session || isLoadingOrgData) return;
     if (isAdmin) return;
-    if (activeOrganization?.data?.id) return;
-    if (organizations?.data?.length === 0) {
-      router.push("/onboarding");
+    const activeOrg = activeOrganization?.data as
+      | Record<string, unknown>
+      | undefined;
+
+    if (typeof activeOrg?.id !== "string" || activeOrg.id.length === 0) {
+      if (organizations?.data?.length === 0) {
+        router.push("/onboarding");
+      }
+      return;
     }
-  }, [isPending, session, isLoadingOrgData, organizations?.data?.length, activeOrganization?.data?.id, isAdmin, router]);
+
+    const lifecycleStatus =
+      typeof activeOrg["lifecycleStatus"] === "string"
+        ? activeOrg["lifecycleStatus"]
+        : "workspace_active";
+
+    if (lifecycleStatus === "workspace_active") {
+      return;
+    }
+
+    if (lifecycleStatus === "onboarding_incomplete") {
+      router.push("/onboarding");
+      return;
+    }
+
+    router.push("/onboarding/provisioning");
+  }, [
+    isPending,
+    session,
+    isLoadingOrgData,
+    organizations?.data?.length,
+    activeOrganization?.data,
+    isAdmin,
+    router,
+  ]);
 
   // Close dropdown on outside click
   useEffect(() => {

@@ -1,13 +1,24 @@
+import { randomUUID } from 'crypto'
 import { AuthRequestHandler } from '@/types/handlers'
 import { config } from '@/config'
 import { db } from '@/lib/db'
-import { formatToSlug } from '@/utils'
-import { createOrganization } from '@/repositories/organization.repository'
-import { withId } from '@/repositories/utils'
-import { updateUserLastActiveOrganizationId } from '@/repositories/auth.repository'
-import { AgentExternalType } from '@shared/types/src'
-import { createElevenLabsAgent } from '@/services/agent.service'
+import {
+  getOnboardingProvisioningStatus as getOnboardingProvisioningStatusView,
+  OnboardingProvisioningServiceError,
+  retryOnboardingProvisioning,
+  submitOnboarding,
+} from '@/services/onboarding-provisioning.service'
+import { sendApiError } from '@/api/utils/error-contract'
 import { z } from 'zod'
+
+const OnboardingQualificationSchema = z
+  .object({
+    teamSize: z.string().optional(),
+    monthlyLeadVolume: z.string().optional(),
+    rolloutTimeline: z.string().optional(),
+    notes: z.string().optional(),
+  })
+  .optional()
 
 export const OrganizationOnboardingSchema = z.object({
   name: z.string(),
@@ -17,6 +28,10 @@ export const OrganizationOnboardingSchema = z.object({
   useCase: z.string().optional(),
   website: z.string().optional(),
   mainGoal: z.string().optional(),
+  businessRole: z.string().optional(),
+  demoIntent: z.boolean().default(true),
+  qualification: OnboardingQualificationSchema,
+  idempotencyKey: z.string().optional(),
   agent: z.object({
     name: z.string(),
     openingLine: z.string().optional(),
@@ -24,86 +39,148 @@ export const OrganizationOnboardingSchema = z.object({
   }),
 })
 
+export const OrganizationProvisioningStatusSchema = z.object({
+  organizationId: z.string().optional(),
+})
+
+export const OrganizationProvisioningRetrySchema = z.object({
+  organizationId: z.string().optional(),
+})
+
 type OrgOnboardingRequest = z.infer<typeof OrganizationOnboardingSchema>
+type OrgProvisioningStatusRequest = z.infer<
+  typeof OrganizationProvisioningStatusSchema
+>
+type OrgProvisioningRetryRequest = z.infer<
+  typeof OrganizationProvisioningRetrySchema
+>
+
+const getCorrelationId = (headers: Record<string, unknown>): string => {
+  const headerValue = headers['x-correlation-id']
+  if (typeof headerValue === 'string' && headerValue.trim().length > 0) {
+    return headerValue.trim()
+  }
+  return randomUUID()
+}
+
+const getIdempotencyKey = (input: {
+  headers: Record<string, unknown>
+  bodyKey?: string
+}): string => {
+  const fromHeader = input.headers['x-idempotency-key']
+
+  if (typeof fromHeader === 'string' && fromHeader.trim().length > 0) {
+    return fromHeader.trim()
+  }
+
+  if (input.bodyKey && input.bodyKey.trim().length > 0) {
+    return input.bodyKey.trim()
+  }
+
+  return randomUUID()
+}
+
+const sendOnboardingServiceError = (
+  req: Parameters<AuthRequestHandler<any>>[0],
+  res: Parameters<AuthRequestHandler<any>>[1],
+  error: OnboardingProvisioningServiceError,
+) => {
+  return sendApiError(req, res, error.status, {
+    code: error.code,
+    message: error.message,
+    userMessage: error.userMessage,
+    details: error.details,
+  })
+}
 
 export const onboardOrganization: AuthRequestHandler<
   OrgOnboardingRequest
-> = async (req, res) => {
-  const {
-    name,
-    domain,
-    industry,
-    services,
-    useCase,
-    website,
-    mainGoal,
-    agent,
-  } = req.validated
-  const now = new Date()
+> = async (req, res, next) => {
+  try {
+    const validated = req.validated
+    const correlationId = getCorrelationId(req.headers as Record<string, unknown>)
+    const idempotencyKey = getIdempotencyKey({
+      headers: req.headers as Record<string, unknown>,
+      bodyKey: validated.idempotencyKey,
+    })
 
-  // Create organization with metadata captured from onboarding
-  const organization = await createOrganization({
-    name,
-    slug: formatToSlug(name),
-    createdAt: now,
-    metadata: JSON.stringify({
-      domain,
-      industry,
-      services,
-      useCase,
-      website,
-      mainGoal,
+    const result = await submitOnboarding({
+      userId: req.user.id,
+      correlationId,
+      idempotencyKey,
+      name: validated.name,
+      domain: validated.domain,
+      industry: validated.industry,
+      services: validated.services,
+      useCase: validated.useCase,
+      website: validated.website,
+      mainGoal: validated.mainGoal,
+      businessRole: validated.businessRole,
+      demoIntent: validated.demoIntent,
+      qualification: validated.qualification,
       agent: {
-        openingLine: agent.openingLine,
-        serviceQuestions: agent.serviceQuestions,
+        name: validated.agent.name,
+        openingLine: validated.agent.openingLine,
+        serviceQuestions: validated.agent.serviceQuestions,
       },
-    }),
-  })
+    })
 
-  // Add the current user as owner
-  await db
-    .insertInto('member')
-    .values(
-      withId({
-        organizationId: organization.id,
-        userId: req.user.id,
-        role: 'owner',
-        createdAt: now,
-      }),
-    )
-    .executeTakeFirst()
-
-  await updateUserLastActiveOrganizationId(req.user.id, organization.id)
-
-  const createdAgent = await createElevenLabsAgent({
-    organizationId: organization.id,
-    companyName: name,
-    name: agent.name,
-    industry,
-    useCase: useCase || 'customer_support',
-    website,
-    mainGoal,
-    firstMessage: agent.openingLine,
-    services,
-    serviceQuestions: agent.serviceQuestions,
-  })
-
-  res.json({
-    data: {
-      organization,
-      agent: {
-        ...createdAgent,
-        degradedMode: {
-          enabled:
-            createdAgent.externalType === AgentExternalType.LOCAL_FALLBACK,
-          reason:
-            createdAgent.externalType === AgentExternalType.LOCAL_FALLBACK
-              ? 'local_fallback_agent'
-              : null,
-        },
+    return res.status(result.idempotent ? 200 : 202).json({
+      data: {
+        organizationId: result.organizationId,
+        idempotent: result.idempotent,
+        provisioning: result.status,
       },
-    },
-  })
+    })
+  } catch (error) {
+    if (error instanceof OnboardingProvisioningServiceError) {
+      return sendOnboardingServiceError(req, res, error)
+    }
+    return next(error)
+  }
+}
+
+export const getOrganizationOnboardingProvisioningStatus: AuthRequestHandler<
+  OrgProvisioningStatusRequest
+> = async (req, res, next) => {
+  try {
+    const status = await getOnboardingProvisioningStatusView({
+      userId: req.user.id,
+      organizationId: req.validated.organizationId,
+    })
+
+    return res.json({
+      data: status,
+    })
+  } catch (error) {
+    if (error instanceof OnboardingProvisioningServiceError) {
+      return sendOnboardingServiceError(req, res, error)
+    }
+    return next(error)
+  }
+}
+
+export const retryOrganizationOnboardingProvisioning: AuthRequestHandler<
+  OrgProvisioningRetryRequest
+> = async (req, res, next) => {
+  try {
+    const correlationId = getCorrelationId(req.headers as Record<string, unknown>)
+
+    const result = await retryOnboardingProvisioning({
+      userId: req.user.id,
+      correlationId,
+      organizationId: req.validated.organizationId,
+    })
+
+    return res.status(202).json({
+      data: result.status,
+    })
+  } catch (error) {
+    if (error instanceof OnboardingProvisioningServiceError) {
+      return sendOnboardingServiceError(req, res, error)
+    }
+    return next(error)
+  }
 }
 
 interface DeleteOrganizationDevRequest {

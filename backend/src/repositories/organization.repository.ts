@@ -14,6 +14,16 @@ export const findById = async (id: string) => {
     .executeTakeFirstOrThrow()
 }
 
+export const findByOnboardingIdempotencyKey = async (
+  idempotencyKey: string,
+) => {
+  return await db
+    .selectFrom('organization')
+    .where('onboardingIdempotencyKey', '=', idempotencyKey)
+    .selectAll()
+    .executeTakeFirst()
+}
+
 export const findMember = async (organizationId: string, userId: string) => {
   return await db
     .selectFrom('member')

@@ -18,6 +18,7 @@ import {
   QUEUE_NAMES,
 } from '@/types/queues'
 import { startSyncJob } from '@/services/integration-contract.service'
+import { processOnboardingProvisioningJob } from '@/services/onboarding-provisioning.service'
 
 const DEFAULT_QUEUE_CONCURRENCY = 5
 const INTEGRATION_SYNC_CONCURRENCY = 4
@@ -270,6 +271,8 @@ export class WorkerRuntime {
             'Processed webhook ingest job',
           )
           return { processed: true }
+        case QUEUE_NAMES.ONBOARDING_PROVISIONING:
+          return this.handleOnboardingProvisioningJob(job)
         default:
           throw new Error(`Unhandled queue name: ${queueName}`)
       }
@@ -410,6 +413,36 @@ export class WorkerRuntime {
     })
 
     return result
+  }
+
+  private async handleOnboardingProvisioningJob(job: Job<QueueJobPayload>) {
+    const organizationId =
+      typeof job.data.organizationId === 'string'
+        ? job.data.organizationId
+        : null
+    const provisioningJobId =
+      typeof job.data.provisioningJobId === 'string'
+        ? job.data.provisioningJobId
+        : null
+    const correlationId =
+      typeof job.data.correlationId === 'string'
+        ? job.data.correlationId
+        : `worker-${job.id}`
+    const idempotencyKey =
+      typeof job.data.idempotencyKey === 'string'
+        ? job.data.idempotencyKey
+        : undefined
+
+    if (!organizationId || !provisioningJobId) {
+      throw new Error('Invalid onboarding provisioning queue payload')
+    }
+
+    return processOnboardingProvisioningJob({
+      organizationId,
+      provisioningJobId,
+      correlationId,
+      idempotencyKey,
+    })
   }
 
   private async moveToDeadLetterQueue(

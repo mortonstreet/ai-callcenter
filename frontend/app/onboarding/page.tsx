@@ -24,6 +24,35 @@ const INDUSTRY_OPTIONS = [
   { value: "cleaning_services", label: "Cleaning Services" },
 ];
 
+const BUSINESS_ROLE_OPTIONS = [
+  { value: "owner_operator", label: "Owner / Operator" },
+  { value: "operations_manager", label: "Operations Manager" },
+  { value: "dispatcher", label: "Dispatcher / CSR Lead" },
+  { value: "sales", label: "Sales / Revenue Lead" },
+  { value: "other", label: "Other" },
+];
+
+const TEAM_SIZE_OPTIONS = [
+  { value: "1-5", label: "1-5 employees" },
+  { value: "6-20", label: "6-20 employees" },
+  { value: "21-50", label: "21-50 employees" },
+  { value: "50+", label: "50+ employees" },
+];
+
+const LEAD_VOLUME_OPTIONS = [
+  { value: "<50", label: "Under 50 calls/leads per month" },
+  { value: "50-200", label: "50-200 calls/leads per month" },
+  { value: "200-500", label: "200-500 calls/leads per month" },
+  { value: "500+", label: "500+ calls/leads per month" },
+];
+
+const ROLLOUT_TIMELINE_OPTIONS = [
+  { value: "asap", label: "As soon as possible" },
+  { value: "30_days", label: "Within 30 days" },
+  { value: "quarter", label: "This quarter" },
+  { value: "exploring", label: "Just exploring" },
+];
+
 const SERVICE_PRESETS: Record<string, string[]> = {
   hvac: ["AC repair", "Ductless mini split"],
   pest_control: ["Termite treatment", "Rodent removal", "Wildlife removal"],
@@ -126,6 +155,19 @@ export default function OnboardingPage() {
   const [useCase, setUseCase] = useState("");
   const [website, setWebsite] = useState("");
   const [mainGoal, setMainGoal] = useState("");
+  const [businessRole, setBusinessRole] = useState(BUSINESS_ROLE_OPTIONS[0].value);
+  const [demoIntent, setDemoIntent] = useState(true);
+  const [teamSize, setTeamSize] = useState("");
+  const [monthlyLeadVolume, setMonthlyLeadVolume] = useState("");
+  const [rolloutTimeline, setRolloutTimeline] = useState("");
+  const [qualificationNotes, setQualificationNotes] = useState("");
+
+  const [idempotencyKey] = useState(() => {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    return `onboarding-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  });
 
   const [agentName, setAgentName] = useState("");
   const [openingLine, setOpeningLine] = useState("");
@@ -167,6 +209,15 @@ export default function OnboardingPage() {
         useCase: useCase || undefined,
         website: website.trim() || undefined,
         mainGoal: mainGoal.trim() || undefined,
+        businessRole,
+        demoIntent,
+        qualification: {
+          teamSize: teamSize || undefined,
+          monthlyLeadVolume: monthlyLeadVolume || undefined,
+          rolloutTimeline: rolloutTimeline || undefined,
+          notes: qualificationNotes.trim() || undefined,
+        },
+        idempotencyKey,
         agent: {
           name: agentName.trim(),
           openingLine: openingLine.trim() || undefined,
@@ -175,7 +226,7 @@ export default function OnboardingPage() {
       },
       {
         onSuccess: () => {
-          router.push("/dashboard");
+          router.push("/onboarding/provisioning");
         },
       },
     );
@@ -193,6 +244,24 @@ export default function OnboardingPage() {
       <div className="space-y-5">
         <Input label="Company name" value={orgName} onChange={(e) => setOrgName(e.target.value)} required />
         <Input label="Company domain" placeholder="www.example.com" value={domain} onChange={(e) => setDomain(e.target.value)} />
+
+        <label className="block space-y-1">
+          <span className="text-sm font-medium text-foreground">Your role</span>
+          <div className="relative">
+            <select
+              className="w-full appearance-none rounded-xl border border-border bg-background px-3 py-2 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-ring"
+              value={businessRole}
+              onChange={(e) => setBusinessRole(e.target.value)}
+            >
+              {BUSINESS_ROLE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+        </label>
 
         <label className="block space-y-1">
           <span className="text-sm font-medium text-foreground">Industry</span>
@@ -244,6 +313,114 @@ export default function OnboardingPage() {
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Demo intent</label>
+            <p className="text-xs text-muted-foreground">Tell us whether you want a guided demo workspace or a paid rollout path.</p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setDemoIntent(true)}
+              className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+                demoIntent
+                  ? "border-[#1b191a] bg-[#1b191a]/[0.04] ring-1 ring-[#1b191a]"
+                  : "border-border hover:border-foreground/30"
+              }`}
+            >
+              Guided demo first
+            </button>
+            <button
+              type="button"
+              onClick={() => setDemoIntent(false)}
+              className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+                !demoIntent
+                  ? "border-[#1b191a] bg-[#1b191a]/[0.04] ring-1 ring-[#1b191a]"
+                  : "border-border hover:border-foreground/30"
+              }`}
+            >
+              Paid rollout
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-4 rounded-xl border border-border bg-card p-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Qualification details</label>
+            <p className="text-xs text-muted-foreground">These inputs help us tune onboarding and provisioning steps.</p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block space-y-1">
+              <span className="text-sm font-medium text-foreground">Team size</span>
+              <div className="relative">
+                <select
+                  className="w-full appearance-none rounded-xl border border-border bg-background px-3 py-2 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-ring"
+                  value={teamSize}
+                  onChange={(e) => setTeamSize(e.target.value)}
+                >
+                  <option value="">Select</option>
+                  {TEAM_SIZE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+            </label>
+
+            <label className="block space-y-1">
+              <span className="text-sm font-medium text-foreground">Monthly lead volume</span>
+              <div className="relative">
+                <select
+                  className="w-full appearance-none rounded-xl border border-border bg-background px-3 py-2 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-ring"
+                  value={monthlyLeadVolume}
+                  onChange={(e) => setMonthlyLeadVolume(e.target.value)}
+                >
+                  <option value="">Select</option>
+                  {LEAD_VOLUME_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+            </label>
+          </div>
+
+          <label className="block space-y-1">
+            <span className="text-sm font-medium text-foreground">Rollout timeline</span>
+            <div className="relative">
+              <select
+                className="w-full appearance-none rounded-xl border border-border bg-background px-3 py-2 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-ring"
+                value={rolloutTimeline}
+                onChange={(e) => setRolloutTimeline(e.target.value)}
+              >
+                <option value="">Select</option>
+                {ROLLOUT_TIMELINE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+          </label>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Additional notes</label>
+            <textarea
+              value={qualificationNotes}
+              onChange={(e) => setQualificationNotes(e.target.value)}
+              rows={2}
+              placeholder="Any implementation constraints or launch details we should know?"
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/60"
+            />
           </div>
         </div>
       </div>
@@ -440,12 +617,45 @@ export default function OnboardingPage() {
               <span className="text-muted-foreground">Use Case</span>
               <span className="font-medium text-foreground">{useCaseLabel || "\u2014"}</span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Role</span>
+              <span className="font-medium text-foreground">
+                {BUSINESS_ROLE_OPTIONS.find((opt) => opt.value === businessRole)?.label || "\u2014"}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Plan path</span>
+              <span className="font-medium text-foreground">
+                {demoIntent ? "Guided demo" : "Paid rollout"}
+              </span>
+            </div>
             <div className="pt-1">
               <span className="text-muted-foreground block mb-1.5">Services</span>
               <div className="flex flex-wrap gap-1.5">
                 {currentServices.map((s) => (
                   <span key={s} className="inline-block rounded-lg bg-muted px-2.5 py-0.5 text-xs font-medium text-foreground">{s}</span>
                 ))}
+              </div>
+            </div>
+            <div className="pt-1">
+              <span className="text-muted-foreground block mb-1.5">Qualification</span>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Team size</span>
+                  <span className="font-medium text-foreground">{teamSize || "\u2014"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Lead volume</span>
+                  <span className="font-medium text-foreground">{monthlyLeadVolume || "\u2014"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Timeline</span>
+                  <span className="font-medium text-foreground">{rolloutTimeline || "\u2014"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Notes</span>
+                  <span className="font-medium text-foreground max-w-[60%] text-right">{qualificationNotes || "\u2014"}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -508,7 +718,7 @@ export default function OnboardingPage() {
           disabled={onboardMutation.isPending}
           className="inline-flex items-center gap-2 rounded-xl bg-[#1b191a] px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#2d2a2b] hover:shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {onboardMutation.isPending ? "Creating..." : "Create agent & finish"}
+          {onboardMutation.isPending ? "Submitting..." : "Submit onboarding"}
         </button>
       </div>
     </div>
