@@ -40,7 +40,9 @@ const setReplayFallbackKey = (key: string): boolean => {
 
 const rememberReplayKey = async (key: string): Promise<boolean> => {
   try {
-    const result = await getRedis().set(
+    const redis = getRedis()
+    if (!redis) return setReplayFallbackKey(key)
+    const result = await redis.set(
       key,
       '1',
       'EX',

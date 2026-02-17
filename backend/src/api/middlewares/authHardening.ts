@@ -137,6 +137,7 @@ const incrementCounter = async (
 ): Promise<number> => {
   try {
     const redis = getRedis()
+    if (!redis) return memoryIncrementCounter(key, windowSeconds)
     const multiResult = await redis.multi().incr(key).ttl(key).exec()
 
     const count = Number(multiResult?.[0]?.[1] ?? 0)
@@ -156,6 +157,7 @@ const incrementCounter = async (
 const keyExists = async (key: string): Promise<boolean> => {
   try {
     const redis = getRedis()
+    if (!redis) return memoryGetValue(key)
     const exists = await redis.exists(key)
     onRedisSuccess()
     return exists === 1
@@ -173,6 +175,7 @@ const setKey = async (
   const nx = options?.nx ?? false
   try {
     const redis = getRedis()
+    if (!redis) return memorySetValue(key, ttlSeconds, nx)
     const result = nx
       ? await redis.set(key, '1', 'EX', ttlSeconds, 'NX')
       : await redis.set(key, '1', 'EX', ttlSeconds)
