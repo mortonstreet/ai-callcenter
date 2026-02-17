@@ -71,6 +71,15 @@ export const updateTask = async (id: string, task: UpdateDBTask) => {
     .executeTakeFirstOrThrow()
 }
 
+export const deleteAgent = async (id: string, organizationId: string) => {
+  return await db
+    .deleteFrom('agent')
+    .where('id', '=', id)
+    .where('organizationId', '=', organizationId)
+    .returningAll()
+    .executeTakeFirstOrThrow()
+}
+
 export const deleteTask = async (id: string, organizationId: string) => {
   return await db
     .deleteFrom('task')
@@ -288,6 +297,18 @@ export const getRecordingTimeSeries = async (
 }
 
 // Update task instance booking status (for Cal.com webhook events)
+export const findFirstTaskByAgentId = async (
+  agentId: string,
+  organizationId: string,
+) => {
+  return await db
+    .selectFrom('task')
+    .where('agentId', '=', agentId)
+    .where('organizationId', '=', organizationId)
+    .selectAll()
+    .executeTakeFirst()
+}
+
 export const updateTaskInstanceBookingStatus = async (
   id: string,
   updates: {

@@ -4,6 +4,8 @@ import {
   GetAgentRequest,
   ElevenLabsWebhook,
   CreateTaskRequest,
+  CreateAgentRequest,
+  DeleteAgentRequest,
   GetTasksRequest,
   UpdateTaskRequest,
   DeleteTaskRequest,
@@ -20,32 +22,30 @@ import {
 import {
   findAllByOrganizationId,
   findById as findAgentById,
+  createAgent as createAgentRepo,
+  deleteAgent as deleteAgentRepo,
   createTask as createTaskRepository,
   getAgentTasks,
   updateTask as updateTaskRepository,
   deleteTask as deleteTaskRepository,
+  createRecording,
+  findAgentByExternalId,
+  findTaskInstanceByConversationId,
+  findFirstTaskByAgentId,
   updateAgentMcpCredentials,
   findTaskInstanceByBookingId,
   updateTaskInstanceBookingStatus,
 } from '@/repositories/agent.repository'
-import {
-  createElevenLabsAgent as createElevenLabsAgentService,
-  updateElevenLabsAgent as updateElevenLabsAgentService,
-  deleteElevenLabsAgent as deleteElevenLabsAgentService,
-  getElevenLabsAgentConfig as getElevenLabsAgentConfigService,
-  getVoices as getVoicesService,
-  getAgentAnalytics as getAgentAnalyticsService,
-  getAgentConversations as getAgentConversationsService,
-  getAgentHealth as getAgentHealthService,
-} from '@/services/agent.service'
-import {
-  processElevenLabsConversationWebhook,
-  isProcessableElevenLabsWebhookType,
-  ELEVENLABS_WEBHOOK_RETRY_JOB_NAME,
-} from '@/services/agent-webhook.service'
+import { createTaskInstance } from '@/repositories/organization.repository'
 import { formatTaskFields } from '@/utils/task'
+import { formatToSlug } from '@/utils'
 import logger from '@/lib/logger'
-import { AgentExternalType, PipelineStage } from '@shared/types/src'
+import {
+  AgentExternalType,
+  PipelineStage,
+  CallQuality,
+} from '@shared/types/src'
+import { getElevenLabsClient } from '@/clients/elevenlabs.client'
 import { randomBytes } from 'crypto'
 import { Request, Response } from 'express'
 import { enqueueQueueJob } from '@/queues'
@@ -105,6 +105,71 @@ export const getAgent: AuthRequestHandler<GetAgentRequest> = async (
   const { id, organizationId } = req.validated
   const agent = await findAgentById(id, organizationId)
   res.json(withAgentContractMetadata(agent))
+}
+
+export const createAgent: AuthRequestHandler<CreateAgentRequest> = async (
+  req,
+  res,
+) => {
+  const { organizationId, name, firstMessage, prompt } = req.validated
+
+  const elevenLabsClient = getElevenLabsClient(process.env.ELEVEN_LABS_API_KEY)
+  const elevenLabsAgent = await elevenLabsClient.createAgent(
+    name,
+    firstMessage,
+    prompt,
+  )
+
+  logger.info(
+    `Created ElevenLabs agent ${elevenLabsAgent.agent_id} for org ${organizationId}`,
+  )
+
+  const agent = await createAgentRepo({
+    name,
+    slug: formatToSlug(name),
+    organizationId,
+    phoneNumber: '',
+    redirectNumber: '',
+    externalId: elevenLabsAgent.agent_id,
+    externalType: AgentExternalType.ELEVEN_LABS,
+    mcpApiKey: null,
+    webhookSecret: null,
+    mcpEndpointUrl: null,
+  })
+
+  res.json(agent)
+}
+
+export const deleteAgent: AuthRequestHandler<DeleteAgentRequest> = async (
+  req,
+  res,
+) => {
+  const { id, organizationId } = req.validated
+
+  const agent = await findAgentById(id, organizationId)
+  if (!agent) {
+    return res.status(404).json({ error: 'Agent not found' })
+  }
+
+  // Delete from ElevenLabs first
+  try {
+    const elevenLabsClient = getElevenLabsClient(
+      process.env.ELEVEN_LABS_API_KEY,
+    )
+    await elevenLabsClient.deleteAgent(agent.externalId)
+    logger.info(`Deleted ElevenLabs agent ${agent.externalId}`)
+  } catch (error) {
+    logger.error(
+      `Failed to delete ElevenLabs agent ${agent.externalId}:`,
+      error,
+    )
+    // Continue with DB deletion even if ElevenLabs fails
+  }
+
+  const deleted = await deleteAgentRepo(id, organizationId)
+  logger.info(`Deleted agent ${agent.name} (${id}) from org ${organizationId}`)
+
+  res.json(deleted)
 }
 
 export const createTask: AuthRequestHandler<CreateTaskRequest> = async (
@@ -220,6 +285,102 @@ export const agentWebhook: ValidatedRequestHandler<ElevenLabsWebhook> = async (
       )
       return res.status(500).json({ error: 'Internal server error' })
     }
+
+    let taskInstance = await findTaskInstanceByConversationId(
+      webhook.data.conversation_id,
+      agent.organizationId,
+    )
+
+    // If no TaskInstance exists for this conversation, create one as a new lead
+    if (!taskInstance) {
+      // Find an existing task for this agent, or create a default one
+      let task = await findFirstTaskByAgentId(agent.id, agent.organizationId)
+
+      if (!task) {
+        task = await createTaskRepository({
+          name: 'Inbound Calls',
+          description: 'Default task for inbound call leads',
+          agentId: agent.id,
+          organizationId: agent.organizationId,
+          requiredInfo: JSON.stringify([]),
+          dispatcherUserId: null,
+        })
+        logger.info(
+          `Created default task "${task.name}" for agent ${agent.name} (${agent.id})`,
+        )
+      }
+
+      // Extract caller phone from webhook metadata if available
+      const phoneCall = webhook.data.metadata?.phone_call as
+        | { from_number?: string; call_sid?: string }
+        | null
+        | undefined
+      const callerPhone = phoneCall?.from_number || null
+
+      taskInstance = await createTaskInstance({
+        taskId: task.id,
+        status: 'pending',
+        requiredInfo: task.requiredInfo,
+        info: JSON.stringify(
+          callerPhone ? { 'phone-number': callerPhone } : {},
+        ),
+        conversationId: webhook.data.conversation_id,
+        callSid: phoneCall?.call_sid || webhook.data.conversation_id,
+        dispatcherId: null,
+        organizationId: agent.organizationId,
+        pipelineStage: PipelineStage.NEW,
+        leadType: null,
+        resolutionType: null,
+        customerType: null,
+        leadScore: null,
+        estimatedValue: null,
+        calcomBookingId: null,
+        calcomEventId: null,
+        appointmentTime: null,
+        bookingStatus: null,
+        bookingCancelledAt: null,
+        bookingCancelReason: null,
+        tags: null,
+      })
+
+      logger.info(
+        `Created new lead (TaskInstance ${taskInstance.id}) for conversation ${webhook.data.conversation_id}`,
+      )
+    }
+
+    // Classify call quality
+    const callDuration = webhook.data.metadata?.call_duration_secs || 0
+    const transcriptSummary = webhook.data.analysis?.transcript_summary || null
+    const qualityResult = classifyCallQuality(callDuration, transcriptSummary)
+
+    logger.info(
+      `📊 Call quality: ${qualityResult.quality} (${qualityResult.reason})`,
+    )
+
+    // Create the recording
+    const recording = await createRecording({
+      conversationId: webhook.data.conversation_id,
+      callSid:
+        webhook.data.metadata?.phone_call?.call_sid ||
+        webhook.data.conversation_id, // Fallback to conversationId if no callSid
+      taskInstanceId: taskInstance.id,
+      organizationId: agent.organizationId,
+      callDurationSeconds: callDuration,
+      cost: webhook.data.metadata?.cost || 0,
+      transcriptSummary,
+      payload: webhook as any, // Store the entire webhook
+      callQuality: qualityResult.quality,
+      callQualityReason: qualityResult.reason,
+    })
+
+    logger.info(
+      `Created recording ${recording.id} (quality: ${qualityResult.quality}) for conversation ${webhook.data.conversation_id}`,
+    )
+
+    res.json({ success: true, recordingId: recording.id })
+  } catch (error) {
+    logger.error('Error processing webhook', error)
+    return res.status(500).json({ error: 'Internal server error' })
   }
 }
 

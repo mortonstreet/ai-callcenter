@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { get, post, put, patch, del } from '@/lib/api';
 import { QUERY_KEYS } from '@/lib/config';
 import { useEffectiveOrganization } from '@/lib/admin-store';
-import { DBAgent, CreateTaskRequest, UpdateTaskRequest, DBTask } from '@/lib/shared-types';
+import { DBAgent, CreateAgentRequest, CreateTaskRequest, UpdateTaskRequest, DBTask } from '@/lib/shared-types';
 import { toast } from 'sonner';
 
 /**
@@ -40,6 +40,55 @@ export function useAgent(agentId: string) {
       return await get<DBAgent>(`/agent/${activeOrganization.data.id}/${agentId}`);
     },
     enabled: !!activeOrganization?.data?.id && !!agentId,
+  });
+}
+
+/**
+ * Create a new agent
+ */
+export function useCreateAgent() {
+  const queryClient = useQueryClient();
+  const activeOrganization = useEffectiveOrganization();
+
+  return useMutation({
+    mutationFn: async (data: Omit<CreateAgentRequest, 'organizationId'>) => {
+      if (!activeOrganization?.data?.id) {
+        throw new Error('No active organization');
+      }
+      return await post<DBAgent>(`/agent/${activeOrganization.data.id}`, {
+        ...data,
+        organizationId: activeOrganization.data.id,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.agents(activeOrganization?.data?.id) });
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || "Failed to create agent");
+    },
+  });
+}
+
+/**
+ * Delete an agent
+ */
+export function useDeleteAgent() {
+  const queryClient = useQueryClient();
+  const activeOrganization = useEffectiveOrganization();
+
+  return useMutation({
+    mutationFn: async (agentId: string) => {
+      if (!activeOrganization?.data?.id) {
+        throw new Error('No active organization');
+      }
+      return await del(`/agent/${activeOrganization.data.id}/${agentId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.agents(activeOrganization?.data?.id) });
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || "Failed to delete agent");
+    },
   });
 }
 
