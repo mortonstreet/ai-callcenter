@@ -330,9 +330,7 @@ export const agentWebhook: ValidatedRequestHandler<ElevenLabsWebhook> = async (
         status: 'pending',
         requiredInfo: task.requiredInfo,
         info: JSON.stringify(
-          callerPhone
-            ? { 'phone-number': callerPhone }
-            : {},
+          callerPhone ? { 'phone-number': callerPhone } : {},
         ),
         conversationId: webhook.data.conversation_id,
         callSid: phoneCall?.call_sid || webhook.data.conversation_id,
