@@ -14,6 +14,16 @@ export const findById = async (id: string) => {
     .executeTakeFirstOrThrow()
 }
 
+export const findByOnboardingIdempotencyKey = async (
+  idempotencyKey: string,
+) => {
+  return await db
+    .selectFrom('organization')
+    .where('onboardingIdempotencyKey', '=', idempotencyKey)
+    .selectAll()
+    .executeTakeFirst()
+}
+
 export const findMember = async (organizationId: string, userId: string) => {
   return await db
     .selectFrom('member')
@@ -21,6 +31,22 @@ export const findMember = async (organizationId: string, userId: string) => {
     .where('userId', '=', userId)
     .selectAll()
     .executeTakeFirst()
+}
+
+export const findMembersByOrganizationId = async (organizationId: string) => {
+  return await db
+    .selectFrom('member')
+    .innerJoin('user', 'user.id', 'member.userId')
+    .where('member.organizationId', '=', organizationId)
+    .select([
+      'member.id',
+      'member.userId',
+      'member.organizationId',
+      'member.role',
+      'user.name as userName',
+      'user.email as userEmail',
+    ])
+    .execute()
 }
 
 export const findTasksByOrganizationId = async (organizationId: string) => {
@@ -119,6 +145,7 @@ export const getTaskInstanceById = async (
       // Tags and pipeline
       'task_instance.tags',
       'task_instance.pipelineStage',
+      'task_instance.pipelineStageId',
     ])
     .executeTakeFirst()
 
@@ -258,6 +285,7 @@ export const getTaskInstances = async (filters: {
       // Tags and pipeline
       'task_instance.tags',
       'task_instance.pipelineStage',
+      'task_instance.pipelineStageId',
     ])
 
   // Apply sorting
@@ -313,6 +341,7 @@ export const updateTaskInstance = async (
     appointmentTime?: Date | null
     tags?: string | null
     pipelineStage?: string | null
+    pipelineStageId?: string | null
   },
 ) => {
   return await db

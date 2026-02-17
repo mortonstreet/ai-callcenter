@@ -1,5 +1,13 @@
 import { z } from 'zod';
 
+export const AgentStatusSchema = z.enum([
+  'draft',
+  'active',
+  'paused',
+  'archived',
+  'error',
+]);
+
 export const GetAgentsRequestSchema = z.object({
   organizationId: z.string(),
 })
@@ -147,3 +155,17 @@ export type ElevenLabsWebhook = z.infer<typeof ElevenLabsWebhookSchema>
 export type CreateAgentRequest = z.infer<typeof CreateAgentRequestSchema>
 export type DeleteAgentRequest = z.infer<typeof DeleteAgentRequestSchema>
 
+export interface AgentHealthResponse {
+  agentId: string
+  organizationId: string
+  status: 'healthy' | 'degraded'
+  degradedMode: AgentDegradedModeMetadata
+  checks: {
+    provider: {
+      status: 'ok' | 'degraded'
+      provider: string
+      checkedAt: string
+      message: string
+    }
+  }
+}

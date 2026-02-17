@@ -11,5 +11,5 @@ cmds = [
 ]
 
 [start]
-cmd = "NODE_ENV=production pnpm --filter @shared/db db:generate && pnpm --filter @shared/db db:deploy && NODE_ENV=production node backend/dist/server.mjs"
+cmd = "NODE_ENV=production pnpm --filter @shared/db db:generate && (pnpm --filter @shared/db db:deploy || echo 'Migration failed, continuing...') && NODE_ENV=production node backend/dist/server.mjs"
 

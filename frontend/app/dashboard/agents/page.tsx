@@ -17,6 +17,17 @@ export default function AgentsPage() {
     <Page
       title="Agents"
       subtitle="Your AI agents"
+      actions={
+        isAdminOrOwner ? (
+          <button
+            onClick={() => setShowWizard(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#1b191a] px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#2d2a2b] hover:shadow-md active:scale-[0.98]"
+          >
+            <Plus className="h-4 w-4" />
+            New Agent
+          </button>
+        ) : undefined
+      }
     >
       <div className="space-y-4">
         {isAdminOrOwner && (
@@ -33,7 +44,7 @@ export default function AgentsPage() {
 
         {isLoading && (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+            <Loader2 className="h-8 w-8 text-muted-foreground/70 animate-spin" />
           </div>
         )}
 
@@ -49,17 +60,31 @@ export default function AgentsPage() {
               <Link
                 key={agent.id}
                 href={`/dashboard/agents/${agent.id}`}
-                className="group p-6 bg-white rounded-lg border border-gray-200 hover:border-[var(--color-primary)] hover:shadow-md transition cursor-pointer"
+                className="group card-hover p-6 bg-card rounded-xl border border-border hover:border-primary hover:shadow-md transition cursor-pointer"
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div className="w-10 h-10 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center flex-shrink-0">
-                    <Bot className="h-5 w-5 text-[var(--color-primary)]" />
+                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                    <Bot className="h-5 w-5 text-primary" />
                   </div>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    agent.status === "active"
+                      ? "bg-green-100 text-green-800"
+                      : agent.status === "paused"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : agent.status === "error"
+                          ? "bg-red-100 text-red-800"
+                          : "bg-gray-100 text-gray-700"
+                  }`}>
+                    {agent.status || "draft"}
+                  </span>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-1 group-hover:text-[var(--color-primary)] transition">
+                <h3 className="text-lg font-semibold text-foreground mb-1 group-hover:text-primary transition">
                   {agent.name}
                 </h3>
-                <div className="text-xs text-gray-500 space-y-1">
+                <div className="text-xs text-muted-foreground space-y-1">
+                  {agent.industry && (
+                    <p className="capitalize">{agent.industry.replace(/_/g, " ")}</p>
+                  )}
                   <p>Phone: {agent.phoneNumber}</p>
                   <p>Created {new Date(agent.createdAt).toLocaleDateString()}</p>
                 </div>

@@ -4,21 +4,15 @@ import {
   Task,
   UpdateDBTask,
   InsertDBTask,
+  InsertDBAgent,
+  UpdateDBAgent,
   DBRecording,
 } from '@shared/db/src'
+import { sql } from 'kysely'
 import { withIdAndTimestamps, withTimestamps } from './utils'
 
 export const createAgent = async (
-  agent: Omit<
-    Agent,
-    | 'id'
-    | 'createdAt'
-    | 'updatedAt'
-    | 'mcpApiKey'
-    | 'webhookSecret'
-    | 'mcpEndpointUrl'
-  > &
-    Partial<Pick<Agent, 'mcpApiKey' | 'webhookSecret' | 'mcpEndpointUrl'>>,
+  agent: Omit<InsertDBAgent, 'id' | 'createdAt' | 'updatedAt'>,
 ) => {
   const newAgent = await db
     .insertInto('agent')
@@ -181,6 +175,125 @@ export const findTaskInstanceByBookingId = async (bookingId: string) => {
     .where('calcomBookingId', '=', bookingId)
     .selectAll()
     .executeTakeFirst()
+}
+
+// Update agent fields
+export const updateAgent = async (
+  id: string,
+  organizationId: string,
+  updates: Partial<{
+    name: string
+    slug: string
+    industry: string | null
+    useCase: string | null
+    website: string | null
+    mainGoal: string | null
+    voiceId: string | null
+    status: string
+    externalId: string
+    externalType: string
+    phoneNumber: string
+    redirectNumber: string
+    syncPending: boolean
+    lastSyncAt: Date | null
+    lastSyncError: string | null
+    providerCorrelationKey: string | null
+  }>,
+) => {
+  return await db
+    .updateTable('agent')
+    .set({
+      ...updates,
+      updatedAt: new Date(),
+    })
+    .where('id', '=', id)
+    .where('organizationId', '=', organizationId)
+    .returningAll()
+    .executeTakeFirstOrThrow()
+}
+
+// Delete agent
+export const deleteAgent = async (id: string, organizationId: string) => {
+  return await db
+    .deleteFrom('agent')
+    .where('id', '=', id)
+    .where('organizationId', '=', organizationId)
+    .returningAll()
+    .executeTakeFirstOrThrow()
+}
+
+// Get recording aggregates for analytics
+export const getRecordingAggregates = async (
+  organizationId: string,
+  agentExternalId: string,
+  startDate?: string,
+  endDate?: string,
+) => {
+  let query = db
+    .selectFrom('recording')
+    .where('recording.organizationId', '=', organizationId)
+
+  if (startDate) {
+    query = query.where('recording.createdAt', '>=', new Date(startDate))
+  }
+  if (endDate) {
+    query = query.where('recording.createdAt', '<=', new Date(endDate))
+  }
+
+  const result = await query
+    .select([
+      sql<number>`count(*)`.as('totalCalls'),
+      sql<number>`coalesce(avg("callDurationSeconds"), 0)`.as('avgDuration'),
+      sql<number>`coalesce(sum(cost), 0)`.as('totalCost'),
+      sql<number>`coalesce(avg(cost), 0)`.as('avgCost'),
+      sql<number>`count(case when "callQuality" = 'productive' then 1 end)`.as(
+        'productiveCalls',
+      ),
+    ])
+    .executeTakeFirst()
+
+  return result
+}
+
+// Get recording time series for analytics charts
+export const getRecordingTimeSeries = async (
+  organizationId: string,
+  startDate?: string,
+  endDate?: string,
+  granularity: 'hour' | 'day' | 'week' | 'month' = 'day',
+) => {
+  const truncFn =
+    granularity === 'hour'
+      ? `date_trunc('hour', "createdAt")`
+      : granularity === 'week'
+        ? `date_trunc('week', "createdAt")`
+        : granularity === 'month'
+          ? `date_trunc('month', "createdAt")`
+          : `date_trunc('day', "createdAt")`
+
+  let query = db
+    .selectFrom('recording')
+    .where('recording.organizationId', '=', organizationId)
+
+  if (startDate) {
+    query = query.where('recording.createdAt', '>=', new Date(startDate))
+  }
+  if (endDate) {
+    query = query.where('recording.createdAt', '<=', new Date(endDate))
+  }
+
+  const results = await query
+    .select([
+      sql<string>`${sql.raw(truncFn)}`.as('period'),
+      sql<number>`count(*)`.as('calls'),
+      sql<number>`coalesce(avg("callDurationSeconds"), 0)`.as('avgDuration'),
+      sql<number>`coalesce(sum(cost), 0)`.as('totalCost'),
+    ])
+    .groupBy(sql`${sql.raw(truncFn)}`)
+    .orderBy(sql`${sql.raw(truncFn)}`, 'asc')
+    .execute()
+
+  return results
 }
 
 // Update task instance booking status (for Cal.com webhook events)

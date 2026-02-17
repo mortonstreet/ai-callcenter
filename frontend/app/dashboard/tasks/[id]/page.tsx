@@ -34,7 +34,7 @@ const STATUS_COLORS: Record<string, string> = {
   [TaskStatus.DISPATCHED]: "bg-blue-100 text-blue-800",
   [TaskStatus.IN_PROGRESS]: "bg-purple-100 text-purple-800",
   [TaskStatus.COMPLETED]: "bg-green-100 text-green-800",
-  [TaskStatus.CANCELLED]: "bg-gray-100 text-gray-800",
+  [TaskStatus.CANCELLED]: "bg-muted text-foreground",
 };
 
 const PIPELINE_COLORS: Record<string, string> = {
@@ -43,7 +43,7 @@ const PIPELINE_COLORS: Record<string, string> = {
   booked: "bg-purple-100 text-purple-800 border-purple-300",
   dispatched: "bg-blue-100 text-blue-800 border-blue-300",
   closed_won: "bg-green-100 text-green-800 border-green-300",
-  closed_lost: "bg-gray-100 text-gray-600 border-gray-300",
+  closed_lost: "bg-muted text-muted-foreground border-border",
 };
 
 // Lead score breakdown explanation
@@ -157,7 +157,7 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
   if (isLoading) {
     return (
       <Page title="Lead Details" subtitle="Loading...">
-        <div className="text-center text-gray-500">Loading lead details...</div>
+        <div className="text-center text-muted-foreground">Loading lead details...</div>
       </Page>
     );
   }
@@ -166,10 +166,10 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
     return (
       <Page title="Lead Details" subtitle="Not found">
         <div className="text-center py-12">
-          <p className="text-gray-600 mb-4">Lead not found</p>
+          <p className="text-muted-foreground mb-4">Lead not found</p>
           <button
             onClick={() => router.push('/dashboard/tasks')}
-            className="text-[var(--color-primary)] hover:underline"
+            className="text-primary hover:underline"
           >
             Back to leads
           </button>
@@ -247,7 +247,7 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
     >
       <button
         onClick={() => router.push('/dashboard/tasks')}
-        className="mb-6 flex items-center gap-2 text-gray-600 hover:text-gray-900 transition"
+        className="mb-6 flex items-center gap-2 text-muted-foreground hover:text-foreground transition"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to leads
@@ -255,12 +255,12 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
 
       <div className="grid gap-6">
         {/* Lead Overview Card - Attio-style */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-card rounded-xl border border-border p-6">
           <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
             {/* Customer Info */}
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">{customerName}</h1>
-              <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+              <h1 className="text-2xl font-bold text-foreground mb-2">{customerName}</h1>
+              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                 {customerPhone && (
                   <div className="flex items-center gap-1.5">
                     <Phone className="h-4 w-4" />
@@ -291,11 +291,11 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
           {/* Quick Stats Row */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {/* Lead Score */}
-            <div 
-              className="bg-gray-50 rounded-lg p-4 cursor-pointer hover:bg-gray-100 transition"
+            <div
+              className="bg-muted rounded-lg p-4 cursor-pointer hover:bg-accent transition"
               onClick={() => setShowScoreBreakdown(!showScoreBreakdown)}
             >
-              <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
+              <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
                 <TrendingUp className="h-4 w-4" />
                 Lead Score
               </div>
@@ -307,29 +307,29 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
                 }`}>
                   {taskInstance.leadScore || 50}
                 </span>
-                <span className="text-xs text-gray-400">/ 100</span>
+                <span className="text-xs text-muted-foreground/70">/ 100</span>
               </div>
-              <div className="text-xs text-blue-600 mt-1">Click to see breakdown</div>
+              <div className="text-xs text-primary mt-1">Click to see breakdown</div>
             </div>
 
             {/* Estimated Value */}
-            <div 
-              className="bg-gray-50 rounded-lg p-4 cursor-pointer hover:bg-gray-100 transition"
+            <div
+              className="bg-muted rounded-lg p-4 cursor-pointer hover:bg-accent transition"
               onClick={() => setShowValueBreakdown(!showValueBreakdown)}
             >
-              <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
+              <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
                 <DollarSign className="h-4 w-4" />
                 Est. Value
               </div>
               <div className="text-2xl font-bold text-green-600">
                 ${taskInstance.estimatedValue || 200}
               </div>
-              <div className="text-xs text-blue-600 mt-1">Click to see breakdown</div>
+              <div className="text-xs text-primary mt-1">Click to see breakdown</div>
             </div>
 
             {/* Appointment */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
+            <div className="bg-muted rounded-lg p-4">
+              <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
                 <CalendarCheck className="h-4 w-4" />
                 Appointment
               </div>
@@ -339,19 +339,19 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
                     {formatDate(taskInstance.appointmentTime).full}
                   </div>
                   {taskInstance.calcomBookingId && (
-                    <div className="text-xs text-gray-400 mt-1">
+                    <div className="text-xs text-muted-foreground/70 mt-1">
                       Booking: {taskInstance.calcomBookingId.slice(0, 12)}...
                     </div>
                   )}
                 </>
               ) : (
-                <div className="text-lg text-gray-400">Not booked</div>
+                <div className="text-lg text-muted-foreground/70">Not booked</div>
               )}
             </div>
 
             {/* Status */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-gray-500 text-sm mb-1">
+            <div className="bg-muted rounded-lg p-4">
+              <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
                 <CheckCircle className="h-4 w-4" />
                 Status
               </div>
@@ -361,7 +361,7 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
                 disabled={updateStatus.isPending}
                 aria-label="Task status"
                 className={`px-3 py-1.5 text-sm font-medium rounded-full border-0 cursor-pointer ${
-                  STATUS_COLORS[taskInstance.status] || "bg-gray-100 text-gray-800"
+                  STATUS_COLORS[taskInstance.status] || "bg-muted text-foreground"
                 }`}
               >
                 {STATUS_OPTIONS.map((status) => (
@@ -417,55 +417,55 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
         </div>
 
         {/* Details Card */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Details</h2>
+        <div className="bg-card rounded-xl border border-border p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Details</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="flex items-start gap-3">
-              <User className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+              <User className="h-5 w-5 text-muted-foreground/70 mt-0.5 flex-shrink-0" />
               <div>
-                <div className="text-sm font-medium text-gray-700">Assigned to</div>
-                <div className="text-sm text-gray-900">
+                <div className="text-sm font-medium text-foreground/80">Assigned to</div>
+                <div className="text-sm text-foreground">
                   {taskInstance.dispatcherName || taskInstance.dispatcherEmail || "Unassigned"}
                 </div>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
-              <Tag className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+              <Tag className="h-5 w-5 text-muted-foreground/70 mt-0.5 flex-shrink-0" />
               <div>
-                <div className="text-sm font-medium text-gray-700">Lead Type</div>
-                <div className="text-sm text-gray-900">
+                <div className="text-sm font-medium text-foreground/80">Lead Type</div>
+                <div className="text-sm text-foreground">
                   {taskInstance.leadType?.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase()) || "New Lead"}
                 </div>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
-              <Calendar className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+              <Calendar className="h-5 w-5 text-muted-foreground/70 mt-0.5 flex-shrink-0" />
               <div>
-                <div className="text-sm font-medium text-gray-700">Created</div>
-                <div className="text-sm text-gray-900">
+                <div className="text-sm font-medium text-foreground/80">Created</div>
+                <div className="text-sm text-foreground">
                   {createdDate.date} at {createdDate.time}
                 </div>
               </div>
             </div>
 
             <div className="flex items-start gap-3">
-              <Clock className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+              <Clock className="h-5 w-5 text-muted-foreground/70 mt-0.5 flex-shrink-0" />
               <div>
-                <div className="text-sm font-medium text-gray-700">Last Updated</div>
-                <div className="text-sm text-gray-900">
+                <div className="text-sm font-medium text-foreground/80">Last Updated</div>
+                <div className="text-sm text-foreground">
                   {updatedDate.date} at {updatedDate.time}
                 </div>
               </div>
             </div>
 
             <div className="flex items-start gap-3 md:col-span-2 lg:col-span-2">
-              <MessageSquare className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+              <MessageSquare className="h-5 w-5 text-muted-foreground/70 mt-0.5 flex-shrink-0" />
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-gray-700">Conversation ID</div>
-                <div className="text-sm text-gray-900 font-mono break-all">
+                <div className="text-sm font-medium text-foreground/80">Conversation ID</div>
+                <div className="text-sm text-foreground font-mono break-all">
                   {taskInstance.conversationId}
                 </div>
               </div>
@@ -474,33 +474,33 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
         </div>
 
         {/* Collected Information */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Collected Information</h2>
+        <div className="bg-card rounded-xl border border-border p-6">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Collected Information</h2>
           {displayFields.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {displayFields.map((field, index) => {
                 const fieldValue = collectedInfo[field.nameSlug];
                 return (
-                  <div key={index} className="border border-gray-100 rounded-lg p-4">
+                  <div key={index} className="border border-border rounded-lg p-4">
                     <div className="flex items-start justify-between mb-2">
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-medium text-foreground">
                         {field.name}
                       </div>
-                      <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                      <div className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
                         {field.type}
                       </div>
                     </div>
                     {field.description && (
-                      <div className="text-xs text-gray-500 mb-2">
+                      <div className="text-xs text-muted-foreground mb-2">
                         {field.description}
                       </div>
                     )}
-                    <div className="text-sm text-gray-900 mt-2">
+                    <div className="text-sm text-foreground mt-2">
                       {fieldValue !== undefined && fieldValue !== null
                         ? typeof fieldValue === 'object'
-                          ? <pre className="text-xs bg-gray-50 p-2 rounded overflow-x-auto">{JSON.stringify(fieldValue, null, 2)}</pre>
+                          ? <pre className="text-xs bg-muted p-2 rounded overflow-x-auto">{JSON.stringify(fieldValue, null, 2)}</pre>
                           : <div className="break-words">{String(fieldValue)}</div>
-                        : <span className="text-gray-400 italic">Not collected</span>
+                        : <span className="text-muted-foreground/70 italic">Not collected</span>
                       }
                     </div>
                   </div>
@@ -508,7 +508,7 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
               })}
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               <p>No information collected for this lead</p>
             </div>
           )}
@@ -516,27 +516,27 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
 
         {/* Recording Section */}
         {recording && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Recording</h2>
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-4">Recording</h2>
             <div className="space-y-4">
               <div>
-                <div className="text-sm font-medium text-gray-700 mb-1">Call Duration</div>
-                <div className="text-sm text-gray-900">
+                <div className="text-sm font-medium text-foreground/80 mb-1">Call Duration</div>
+                <div className="text-sm text-foreground">
                   {formatDuration(recording.callDurationSeconds)}
                 </div>
               </div>
 
               {recording.transcriptSummary && (
                 <div>
-                  <div className="text-sm font-medium text-gray-700 mb-1">Summary</div>
-                  <div className="text-sm text-gray-900">
+                  <div className="text-sm font-medium text-foreground/80 mb-1">Summary</div>
+                  <div className="text-sm text-foreground">
                     {recording.transcriptSummary}
                   </div>
                 </div>
               )}
 
               <div>
-                <div className="text-sm font-medium text-gray-700 mb-2">Audio</div>
+                <div className="text-sm font-medium text-foreground/80 mb-2">Audio</div>
                 {playingAudio && audioUrl ? (
                   <audio
                     src={audioUrl}
@@ -549,7 +549,7 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
                   <button
                     onClick={handlePlayAudio}
                     disabled={loadingAudio}
-                    className="flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
                   >
                     {loadingAudio ? (
                       <>
@@ -571,8 +571,8 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
 
         {/* Transcript Section */}
         {transcript.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Conversation Transcript</h2>
+          <div className="bg-card rounded-xl border border-border p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-4">Conversation Transcript</h2>
             <div className="space-y-4">
               {transcript.map((turn: any, index: number) => {
                 const isAgent = turn.role === 'agent';
@@ -585,7 +585,7 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
                       <div className={`text-xs font-medium mb-1 ${isAgent ? 'text-blue-600' : 'text-green-600'}`}>
                         {isAgent ? 'Agent' : 'User'}
                         {turn.time_in_call_secs !== undefined && (
-                          <span className="ml-2 text-gray-500">
+                          <span className="ml-2 text-muted-foreground">
                             {Math.floor(turn.time_in_call_secs / 60)}:{(turn.time_in_call_secs % 60).toString().padStart(2, '0')}
                           </span>
                         )}
@@ -593,7 +593,7 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
                       
                       {turn.message && (
                         <div className={`rounded-lg p-3 ${
-                          isAgent ? 'bg-blue-50 text-gray-900' : 'bg-green-50 text-gray-900'
+                          isAgent ? 'bg-blue-50 text-foreground' : 'bg-green-50 text-foreground'
                         }`}>
                           {turn.message}
                         </div>
@@ -617,7 +617,7 @@ export default function TaskInstanceDetailPage({ params }: { params: Promise<{ i
                       {hasToolResults && (
                         <div className="mt-2 space-y-1">
                           {turn.tool_results.map((result: any, idx: number) => (
-                            <div key={idx} className="text-xs bg-gray-50 text-gray-900 rounded p-2">
+                            <div key={idx} className="text-xs bg-muted text-foreground rounded p-2">
                               <div className="font-medium">
                                 ⚡ Result: {result.tool_name}
                                 {result.is_error && <span className="ml-2 text-red-600">(Error)</span>}

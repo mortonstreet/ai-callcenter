@@ -1,5 +1,14 @@
 import { Selectable, Insertable, Updateable } from "kysely";
 import {
+  AdminAuditLog,
+  AgentEmailConfig,
+  AgentMessage,
+  AgentWorkflow,
+  Campaign,
+  CampaignLead,
+  CampaignList,
+  CampaignOrchestration,
+  CampaignUser,
   User,
   Example,
   Organization,
@@ -10,6 +19,23 @@ import {
   TaskInstance,
   Recording,
   Invitation,
+  PipelineStage,
+  TwilioConfig,
+  CallDisposition,
+  CallLog,
+  Lead,
+  ErrorLog,
+  Integration,
+  IntegrationSyncJob,
+  IntegrationSyncLog,
+  IntegrationWebhookEvent,
+  OnboardingProvisioningJob,
+  OnboardingProvisioningEvent,
+  SmsCampaign,
+  SmsCampaignEnrollment,
+  SmsCampaignList,
+  SmsCampaignMessage,
+  SmsCampaignStep,
 } from "./generated/types";
 
 
@@ -52,6 +78,110 @@ export type InsertDBTaskInstance = Insertable<TaskInstance>;
 export type DBRecording = Selectable<Recording>;
 export type UpdateDBRecording = Updateable<Recording>;
 export type InsertDBRecording = Insertable<Recording>;
+
+export type DBPipelineStage = Selectable<PipelineStage>;
+export type UpdateDBPipelineStage = Updateable<PipelineStage>;
+export type InsertDBPipelineStage = Insertable<PipelineStage>;
+
+export type DBTwilioConfig = Selectable<TwilioConfig>;
+export type InsertDBTwilioConfig = Insertable<TwilioConfig>;
+export type UpdateDBTwilioConfig = Updateable<TwilioConfig>;
+
+export type DBCallDisposition = Selectable<CallDisposition>;
+export type InsertDBCallDisposition = Insertable<CallDisposition>;
+export type UpdateDBCallDisposition = Updateable<CallDisposition>;
+
+export type DBCallLog = Selectable<CallLog>;
+export type InsertDBCallLog = Insertable<CallLog>;
+export type UpdateDBCallLog = Updateable<CallLog>;
+
+export type DBLead = Selectable<Lead>;
+export type InsertDBLead = Insertable<Lead>;
+export type UpdateDBLead = Updateable<Lead>;
+
+export type DBIntegration = Selectable<Integration>;
+export type InsertDBIntegration = Insertable<Integration>;
+export type UpdateDBIntegration = Updateable<Integration>;
+
+export type DBIntegrationSyncJob = Selectable<IntegrationSyncJob>;
+export type InsertDBIntegrationSyncJob = Insertable<IntegrationSyncJob>;
+export type UpdateDBIntegrationSyncJob = Updateable<IntegrationSyncJob>;
+
+export type DBIntegrationSyncLog = Selectable<IntegrationSyncLog>;
+export type InsertDBIntegrationSyncLog = Insertable<IntegrationSyncLog>;
+export type UpdateDBIntegrationSyncLog = Updateable<IntegrationSyncLog>;
+
+export type DBIntegrationWebhookEvent = Selectable<IntegrationWebhookEvent>;
+export type InsertDBIntegrationWebhookEvent = Insertable<IntegrationWebhookEvent>;
+export type UpdateDBIntegrationWebhookEvent = Updateable<IntegrationWebhookEvent>;
+
+export type DBOnboardingProvisioningJob = Selectable<OnboardingProvisioningJob>;
+export type InsertDBOnboardingProvisioningJob = Insertable<OnboardingProvisioningJob>;
+export type UpdateDBOnboardingProvisioningJob = Updateable<OnboardingProvisioningJob>;
+
+export type DBOnboardingProvisioningEvent = Selectable<OnboardingProvisioningEvent>;
+export type InsertDBOnboardingProvisioningEvent = Insertable<OnboardingProvisioningEvent>;
+export type UpdateDBOnboardingProvisioningEvent = Updateable<OnboardingProvisioningEvent>;
+
+export type DBCampaign = Selectable<Campaign>;
+export type InsertDBCampaign = Insertable<Campaign>;
+export type UpdateDBCampaign = Updateable<Campaign>;
+
+export type DBCampaignLead = Selectable<CampaignLead>;
+export type InsertDBCampaignLead = Insertable<CampaignLead>;
+export type UpdateDBCampaignLead = Updateable<CampaignLead>;
+
+export type DBCampaignUser = Selectable<CampaignUser>;
+export type InsertDBCampaignUser = Insertable<CampaignUser>;
+export type UpdateDBCampaignUser = Updateable<CampaignUser>;
+
+export type DBCampaignList = Selectable<CampaignList>;
+export type InsertDBCampaignList = Insertable<CampaignList>;
+export type UpdateDBCampaignList = Updateable<CampaignList>;
+
+export type DBCampaignOrchestration = Selectable<CampaignOrchestration>;
+export type InsertDBCampaignOrchestration = Insertable<CampaignOrchestration>;
+export type UpdateDBCampaignOrchestration = Updateable<CampaignOrchestration>;
+
+export type DBSmsCampaign = Selectable<SmsCampaign>;
+export type InsertDBSmsCampaign = Insertable<SmsCampaign>;
+export type UpdateDBSmsCampaign = Updateable<SmsCampaign>;
+
+export type DBSmsCampaignStep = Selectable<SmsCampaignStep>;
+export type InsertDBSmsCampaignStep = Insertable<SmsCampaignStep>;
+export type UpdateDBSmsCampaignStep = Updateable<SmsCampaignStep>;
+
+export type DBSmsCampaignList = Selectable<SmsCampaignList>;
+export type InsertDBSmsCampaignList = Insertable<SmsCampaignList>;
+export type UpdateDBSmsCampaignList = Updateable<SmsCampaignList>;
+
+export type DBSmsCampaignEnrollment = Selectable<SmsCampaignEnrollment>;
+export type InsertDBSmsCampaignEnrollment = Insertable<SmsCampaignEnrollment>;
+export type UpdateDBSmsCampaignEnrollment = Updateable<SmsCampaignEnrollment>;
+
+export type DBSmsCampaignMessage = Selectable<SmsCampaignMessage>;
+export type InsertDBSmsCampaignMessage = Insertable<SmsCampaignMessage>;
+export type UpdateDBSmsCampaignMessage = Updateable<SmsCampaignMessage>;
+
+export type DBAgentEmailConfig = Selectable<AgentEmailConfig>;
+export type InsertDBAgentEmailConfig = Insertable<AgentEmailConfig>;
+export type UpdateDBAgentEmailConfig = Updateable<AgentEmailConfig>;
+
+export type DBAgentMessage = Selectable<AgentMessage>;
+export type InsertDBAgentMessage = Insertable<AgentMessage>;
+export type UpdateDBAgentMessage = Updateable<AgentMessage>;
+
+export type DBAgentWorkflow = Selectable<AgentWorkflow>;
+export type InsertDBAgentWorkflow = Insertable<AgentWorkflow>;
+export type UpdateDBAgentWorkflow = Updateable<AgentWorkflow>;
+
+export type DBErrorLog = Selectable<ErrorLog>;
+export type InsertDBErrorLog = Insertable<ErrorLog>;
+export type UpdateDBErrorLog = Updateable<ErrorLog>;
+
+export type DBAdminAuditLog = Selectable<AdminAuditLog>;
+export type InsertDBAdminAuditLog = Insertable<AdminAuditLog>;
+export type UpdateDBAdminAuditLog = Updateable<AdminAuditLog>;
 
 export type DBPagination = {
   page: number;

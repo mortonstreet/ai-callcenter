@@ -21,100 +21,142 @@ export interface CallStatusUpdate {
   recordingUrl?: string
 }
 
+export interface TwilioCredentials {
+  accountSid: string
+  authToken: string
+  phoneNumber: string
+  apiKeySid?: string
+  apiKeySecret?: string
+  twimlAppSid?: string
+}
+
 class TwilioClient {
   private client: Twilio.Twilio | null = null
-  private initialized = false
+  private currentCredentials: TwilioCredentials | null = null
 
-  private getClient(): Twilio.Twilio {
-    if (!this.client) {
-      if (!config.twilio.accountSid || !config.twilio.authToken) {
-        throw new Error('Twilio credentials not configured')
+  /**
+   * Set credentials from database config (org-level)
+   */
+  setCredentials(creds: TwilioCredentials) {
+    // If credentials changed, reset client
+    if (
+      this.currentCredentials?.accountSid !== creds.accountSid ||
+      this.currentCredentials?.authToken !== creds.authToken
+    ) {
+      this.client = null
+    }
+    this.currentCredentials = creds
+  }
+
+  /**
+   * Clear any cached credentials/client
+   */
+  clearCredentials() {
+    this.client = null
+    this.currentCredentials = null
+  }
+
+  private getCredentials(): TwilioCredentials | null {
+    // Use explicit credentials if set (from DB), otherwise fall back to env
+    if (this.currentCredentials) {
+      return this.currentCredentials
+    }
+
+    if (
+      config.twilio.accountSid &&
+      config.twilio.authToken &&
+      config.twilio.phoneNumber
+    ) {
+      return {
+        accountSid: config.twilio.accountSid,
+        authToken: config.twilio.authToken,
+        phoneNumber: config.twilio.phoneNumber,
+        apiKeySid: config.twilio.apiKeySid || undefined,
+        apiKeySecret: config.twilio.apiKeySecret || undefined,
+        twimlAppSid: config.twilio.twimlAppSid || undefined,
       }
-      this.client = Twilio(config.twilio.accountSid, config.twilio.authToken)
-      this.initialized = true
+    }
+
+    return null
+  }
+
+  getClient(): Twilio.Twilio {
+    const creds = this.getCredentials()
+    if (!creds) {
+      throw new Error('Twilio credentials not configured')
+    }
+
+    if (!this.client) {
+      this.client = Twilio(creds.accountSid, creds.authToken)
     }
     return this.client
   }
 
   isConfigured(): boolean {
-    return !!(
-      config.twilio.accountSid &&
-      config.twilio.authToken &&
-      config.twilio.phoneNumber
-    )
+    const creds = this.getCredentials()
+    return !!(creds?.accountSid && creds?.authToken && creds?.phoneNumber)
   }
 
-  /**
-   * Check if browser-based voice calling is configured
-   * Requires API Key and TwiML App
-   */
   isVoiceConfigured(): boolean {
+    const creds = this.getCredentials()
     return !!(
-      config.twilio.accountSid &&
-      config.twilio.apiKeySid &&
-      config.twilio.apiKeySecret &&
-      config.twilio.twimlAppSid
+      creds?.accountSid &&
+      creds?.apiKeySid &&
+      creds?.apiKeySecret &&
+      creds?.twimlAppSid
     )
   }
 
-  /**
-   * Generate Access Token for browser-based calling
-   * The token allows the browser to connect to Twilio's Voice SDK
-   */
+  getPhoneNumber(): string | null {
+    return this.getCredentials()?.phoneNumber || null
+  }
+
   generateAccessToken(identity: string): string {
-    if (!this.isVoiceConfigured()) {
+    const creds = this.getCredentials()
+    if (!creds?.apiKeySid || !creds?.apiKeySecret || !creds?.twimlAppSid) {
       throw new Error(
         'Twilio Voice SDK not configured. Need API Key and TwiML App.',
       )
     }
 
-    // Create an access token
     const accessToken = new AccessToken(
-      config.twilio.accountSid,
-      config.twilio.apiKeySid,
-      config.twilio.apiKeySecret,
+      creds.accountSid,
+      creds.apiKeySid,
+      creds.apiKeySecret,
       { identity },
     )
 
-    // Create a Voice grant and add it to the token
     const voiceGrant = new VoiceGrant({
-      outgoingApplicationSid: config.twilio.twimlAppSid,
-      incomingAllow: true, // Allow incoming calls too
+      outgoingApplicationSid: creds.twimlAppSid,
+      incomingAllow: true,
     })
 
     accessToken.addGrant(voiceGrant)
 
-    logger.info(`🎫 Generated access token for identity: ${identity}`)
+    logger.info(`Generated access token for identity: ${identity}`)
 
     return accessToken.toJwt()
   }
 
-  /**
-   * Make an outbound call with recording enabled
-   */
   async makeCall(to: string, statusCallbackUrl?: string): Promise<CallResult> {
     try {
       const client = this.getClient()
-
-      // Normalize phone number to E.164 format
+      const creds = this.getCredentials()!
       const toNormalized = this.normalizePhoneNumber(to)
 
       logger.info(
-        `📞 Initiating call from ${config.twilio.phoneNumber} to ${toNormalized}`,
+        `Initiating call from ${creds.phoneNumber} to ${toNormalized}`,
       )
 
       const callParams = {
         to: toNormalized,
-        from: config.twilio.phoneNumber,
-        // Simple TwiML - just say a message (for testing)
+        from: creds.phoneNumber,
         twiml: `<Response><Say voice="alice">Hello! This is a test call from RevCenter. Your callback request has been received. Goodbye!</Say></Response>`,
-        // Enable recording
         record: true,
         recordingStatusCallback: statusCallbackUrl
           ? `${statusCallbackUrl}/recording`
           : undefined,
         recordingStatusCallbackEvent: ['completed'],
-        // Status callbacks
         statusCallback: statusCallbackUrl,
         statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
         statusCallbackMethod: 'POST',
@@ -122,7 +164,7 @@ class TwilioClient {
 
       const call = await client.calls.create(callParams)
 
-      logger.info(`✅ Call initiated: ${call.sid} - Status: ${call.status}`)
+      logger.info(`Call initiated: ${call.sid} - Status: ${call.status}`)
 
       return {
         success: true,
@@ -131,7 +173,7 @@ class TwilioClient {
       }
     } catch (error: any) {
       const errorDetails = `Code: ${error.code}, Status: ${error.status}, Message: ${error.message}, MoreInfo: ${error.moreInfo}`
-      logger.error(`❌ Failed to make call: ${errorDetails}`)
+      logger.error(`Failed to make call: ${errorDetails}`)
       return {
         success: false,
         error: error.message || 'Failed to initiate call',
@@ -139,9 +181,6 @@ class TwilioClient {
     }
   }
 
-  /**
-   * End an active call
-   */
   async endCall(callSid: string): Promise<CallResult> {
     try {
       const client = this.getClient()
@@ -150,7 +189,7 @@ class TwilioClient {
         status: 'completed',
       })
 
-      logger.info(`📴 Call ended: ${callSid}`)
+      logger.info(`Call ended: ${callSid}`)
 
       return {
         success: true,
@@ -158,7 +197,7 @@ class TwilioClient {
         status: call.status,
       }
     } catch (error: any) {
-      logger.error('❌ Failed to end call:', error)
+      logger.error('Failed to end call:', error)
       return {
         success: false,
         error: error.message || 'Failed to end call',
@@ -166,9 +205,6 @@ class TwilioClient {
     }
   }
 
-  /**
-   * Get call details
-   */
   async getCall(callSid: string) {
     try {
       const client = this.getClient()
@@ -186,7 +222,7 @@ class TwilioClient {
         },
       }
     } catch (error: any) {
-      logger.error('❌ Failed to get call:', error)
+      logger.error('Failed to get call:', error)
       return {
         success: false,
         error: error.message,
@@ -194,9 +230,6 @@ class TwilioClient {
     }
   }
 
-  /**
-   * Get recording for a call
-   */
   async getRecordings(callSid: string) {
     try {
       const client = this.getClient()
@@ -211,7 +244,7 @@ class TwilioClient {
         })),
       }
     } catch (error: any) {
-      logger.error('❌ Failed to get recordings:', error)
+      logger.error('Failed to get recordings:', error)
       return {
         success: false,
         error: error.message,
@@ -219,9 +252,134 @@ class TwilioClient {
     }
   }
 
-  /**
-   * List available phone numbers on the account
-   */
+  async listAlerts(params?: {
+    startDate?: Date
+    endDate?: Date
+    logLevel?: string
+    limit?: number
+  }) {
+    try {
+      const client = this.getClient()
+      const listParams: Record<string, any> = {}
+      if (params?.startDate) listParams.startDate = params.startDate
+      if (params?.endDate) listParams.endDate = params.endDate
+      if (params?.logLevel) listParams.logLevel = params.logLevel
+      if (params?.limit) listParams.limit = params.limit
+
+      const alerts = await client.monitor.v1.alerts.list(listParams)
+
+      return {
+        success: true,
+        alerts,
+      }
+    } catch (error: any) {
+      logger.error('Failed to list alerts:', error)
+      return {
+        success: false,
+        error: error.message,
+        alerts: [],
+      }
+    }
+  }
+
+  async getAlert(alertSid: string) {
+    try {
+      const client = this.getClient()
+      const alert = await client.monitor.v1.alerts(alertSid).fetch()
+
+      return {
+        success: true,
+        alert,
+      }
+    } catch (error: any) {
+      logger.error('Failed to get alert:', error)
+      return {
+        success: false,
+        error: error.message,
+      }
+    }
+  }
+
+  async updateTwimlAppVoiceUrl(twimlAppSid: string, voiceUrl: string) {
+    try {
+      const client = this.getClient()
+
+      await client.applications(twimlAppSid).update({
+        voiceUrl,
+        voiceMethod: 'POST',
+      })
+
+      logger.info(
+        `Auto-configured TwiML App ${twimlAppSid} voice URL: ${voiceUrl}`,
+      )
+      return { success: true }
+    } catch (error: any) {
+      logger.error('Failed to update TwiML App voice URL:', {
+        message: error.message,
+        code: error.code,
+      })
+      return { success: false, error: error.message }
+    }
+  }
+
+  async updatePhoneNumberVoiceConfig(
+    phoneNumber: string,
+    voiceUrl: string,
+    statusCallbackUrl?: string,
+    twimlAppSid?: string,
+  ) {
+    try {
+      const client = this.getClient()
+      const numbers = await client.incomingPhoneNumbers.list({ phoneNumber })
+
+      if (numbers.length === 0) {
+        logger.warn(
+          `No Twilio phone number found matching ${phoneNumber} — skipping voice URL config`,
+        )
+        return { success: false, error: 'Phone number not found' }
+      }
+
+      const sid = numbers[0].sid
+
+      if (twimlAppSid) {
+        // Route phone number through the TwiML App (gtmdialer pattern).
+        // Twilio will call the TwiML App's Voice URL for inbound calls.
+        await client.incomingPhoneNumbers(sid).update({
+          voiceApplicationSid: twimlAppSid,
+        })
+
+        logger.info(
+          `Configured phone number ${phoneNumber} (${sid}) to use TwiML App ${twimlAppSid}`,
+        )
+      } else {
+        // Fallback: set voiceUrl directly on the phone number
+        const updateData: Record<string, any> = {
+          voiceUrl,
+          voiceMethod: 'POST',
+          voiceApplicationSid: '',
+        }
+        if (statusCallbackUrl) {
+          updateData.statusCallback = statusCallbackUrl
+          updateData.statusCallbackMethod = 'POST'
+        }
+
+        await client.incomingPhoneNumbers(sid).update(updateData)
+
+        logger.info(
+          `Auto-configured inbound voice URL for ${phoneNumber} (${sid}): ${voiceUrl}`,
+        )
+      }
+
+      return { success: true }
+    } catch (error: any) {
+      logger.error('Failed to update phone number voice config:', {
+        message: error.message,
+        code: error.code,
+      })
+      return { success: false, error: error.message }
+    }
+  }
+
   async listPhoneNumbers() {
     try {
       const client = this.getClient()
@@ -236,7 +394,7 @@ class TwilioClient {
         })),
       }
     } catch (error: any) {
-      logger.error('❌ Failed to list phone numbers:', {
+      logger.error('Failed to list phone numbers:', {
         message: error.message,
         code: error.code,
         moreInfo: error.moreInfo,
@@ -252,16 +410,13 @@ class TwilioClient {
   /**
    * Normalize phone number to E.164 format
    */
-  private normalizePhoneNumber(phone: string): string {
-    // Remove all non-digit characters except leading +
+  normalizePhoneNumber(phone: string): string {
     let cleaned = phone.replace(/[^\d+]/g, '')
 
-    // If no + prefix and 10 digits, assume US number
     if (!cleaned.startsWith('+') && cleaned.length === 10) {
       cleaned = '+1' + cleaned
     }
 
-    // If no + prefix and 11 digits starting with 1, add +
     if (
       !cleaned.startsWith('+') &&
       cleaned.length === 11 &&

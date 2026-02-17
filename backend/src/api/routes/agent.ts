@@ -13,6 +13,14 @@ import {
   UpdateTaskRequestSchema,
   OrganizationRole,
   DeleteTaskRequestSchema,
+  CreateElevenLabsAgentSchema,
+  UpdateElevenLabsAgentSchema,
+  OwnerUpdateAgentSchema,
+  DeleteElevenLabsAgentSchema,
+  GetAgentConfigSchema,
+  GetAgentAnalyticsSchema,
+  GetAgentConversationsSchema,
+  GetAgentHealthSchema,
 } from '@shared/types/src'
 import { z } from 'zod'
 import { authenticatedRoute, validatedRoute } from './utils'
@@ -28,6 +36,15 @@ import {
   deleteTask,
   updateAgentMcpConfig,
   getAgentMcpConfig,
+  createElevenLabsAgent,
+  updateElevenLabsAgent,
+  ownerUpdateAgent,
+  deleteElevenLabsAgent,
+  getAgentConfig,
+  listVoices,
+  getAgentAnalytics,
+  getAgentConversations,
+  getAgentHealth,
 } from '@/api/controllers/agent.controller'
 import {
   validateMemberOfOrganizationOrAdmin,
@@ -57,6 +74,10 @@ const router = Router()
 
 router.use(withBetterAuth)
 
+// ===== Voices (no org required) =====
+router.get('/voices', authenticatedRoute(listVoices))
+
+// ===== Agent CRUD =====
 router.get(
   '/:organizationId',
   validateAndMerge(GetAgentsRequestSchema),
@@ -128,7 +149,7 @@ router.delete(
   authenticatedRoute(deleteTask),
 )
 
-// MCP Configuration Routes - for managing agent MCP credentials
+// MCP Configuration Routes
 router.get(
   '/:organizationId/:id/mcp-config',
   validateAndMerge(GetAgentMcpConfigSchema),

@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Page } from "@/components/dashboard/Page";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useTaskInstances } from "@/hooks/api/useTask";
-import { ChevronLeft, ChevronRight, Clock, MapPin, Phone, User } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Clock, User, Phone, MapPin } from "lucide-react";
 
 type ViewMode = "day" | "week" | "month";
 
@@ -13,17 +12,16 @@ const VIEW_MODES: { id: ViewMode; label: string }[] = [
   { id: "month", label: "Month" },
 ];
 
-// Helper to get days in a month
-function getDaysInMonth(year: number, month: number) {
-  return new Date(year, month + 1, 0).getDate();
+const DAY_NAMES_SHORT = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+const HOURS = Array.from({ length: 24 }, (_, i) => i); // 0-23
+
+function formatHour(hour: number) {
+  if (hour === 0) return "12 AM";
+  if (hour < 12) return `${hour} AM`;
+  if (hour === 12) return "12 PM";
+  return `${hour - 12} PM`;
 }
 
-// Helper to get the day of week for the first day of month (0 = Sunday)
-function getFirstDayOfMonth(year: number, month: number) {
-  return new Date(year, month, 1).getDay();
-}
-
-// Helper to format time
 function formatTime(date: Date) {
   return date.toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -32,21 +30,14 @@ function formatTime(date: Date) {
   });
 }
 
-// Helper to check if two dates are the same day
-function isSameDay(date1: Date, date2: Date) {
-  return (
-    date1.getFullYear() === date2.getFullYear() &&
-    date1.getMonth() === date2.getMonth() &&
-    date1.getDate() === date2.getDate()
-  );
+function isSameDay(d1: Date, d2: Date) {
+  return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
 }
 
-// Get week days starting from a date
-function getWeekDays(startDate: Date) {
+function getWeekDays(date: Date) {
   const days: Date[] = [];
-  const start = new Date(startDate);
-  start.setDate(start.getDate() - start.getDay()); // Start from Sunday
-  
+  const start = new Date(date);
+  start.setDate(start.getDate() - start.getDay());
   for (let i = 0; i < 7; i++) {
     days.push(new Date(start));
     start.setDate(start.getDate() + 1);
@@ -54,22 +45,149 @@ function getWeekDays(startDate: Date) {
   return days;
 }
 
-// Time slots for day/week view (6 AM to 9 PM for full business coverage)
-const TIME_SLOTS = Array.from({ length: 16 }, (_, i) => i + 6); // 6 AM to 9 PM
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function getFirstDayOfMonth(year: number, month: number) {
+  return new Date(year, month, 1).getDay();
+}
+
+// Color palette for events (Google Cal style)
+const EVENT_COLORS = [
+  { bg: "#039be5", text: "#fff" },
+  { bg: "#7986cb", text: "#fff" },
+  { bg: "#33b679", text: "#fff" },
+  { bg: "#8e24aa", text: "#fff" },
+  { bg: "#e67c73", text: "#fff" },
+  { bg: "#f6bf26", text: "#333" },
+  { bg: "#f4511e", text: "#fff" },
+  { bg: "#616161", text: "#fff" },
+  { bg: "#3f51b5", text: "#fff" },
+  { bg: "#0b8043", text: "#fff" },
+];
+
+function getEventColor(id: string) {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
+  }
+  return EVENT_COLORS[Math.abs(hash) % EVENT_COLORS.length];
+}
+
+interface Appointment {
+  id: string;
+  title: string;
+  time: Date;
+  status: string;
+  customerName: string;
+  customerPhone: string;
+  customerAddress: string;
+}
+
+// Event detail popover
+function EventPopover({
+  appointment,
+  onClose,
+  anchorRect,
+}: {
+  appointment: Appointment;
+  onClose: () => void;
+  anchorRect: DOMRect | null;
+}) {
+  const color = getEventColor(appointment.id);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    }
+    function handleEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [onClose]);
+
+  if (!anchorRect) return null;
+
+  // Position the popover near the clicked event
+  const top = Math.min(anchorRect.top, window.innerHeight - 320);
+  const left = anchorRect.right + 8 > window.innerWidth - 20
+    ? anchorRect.left - 328
+    : anchorRect.right + 8;
+
+  return (
+    <div className="fixed inset-0 z-[100]">
+      <div
+        ref={popoverRef}
+        className="absolute bg-white rounded-lg shadow-[0_24px_38px_3px_rgba(0,0,0,0.14),0_9px_46px_8px_rgba(0,0,0,0.12),0_11px_15px_-7px_rgba(0,0,0,0.2)] w-[320px] overflow-hidden"
+        style={{ top: Math.max(8, top), left: Math.max(8, left) }}
+      >
+        {/* Color bar */}
+        <div className="h-2" style={{ backgroundColor: color.bg }} />
+        <div className="p-4">
+          <div className="flex items-start justify-between mb-3">
+            <h3 className="text-lg font-normal text-[#3c4043] leading-snug pr-2">{appointment.title}</h3>
+            <button
+              onClick={onClose}
+              className="p-1 rounded-full hover:bg-gray-100 transition flex-shrink-0 -mr-1 -mt-1"
+            >
+              <X className="h-5 w-5 text-[#5f6368]" />
+            </button>
+          </div>
+          <div className="space-y-2.5 text-sm text-[#5f6368]">
+            <div className="flex items-center gap-3">
+              <Clock className="h-4 w-4 flex-shrink-0 text-[#5f6368]" />
+              <span>{appointment.time.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })} &middot; {formatTime(appointment.time)}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <User className="h-4 w-4 flex-shrink-0 text-[#5f6368]" />
+              <span>{appointment.customerName}</span>
+            </div>
+            {appointment.customerPhone && (
+              <div className="flex items-center gap-3">
+                <Phone className="h-4 w-4 flex-shrink-0 text-[#5f6368]" />
+                <span>{appointment.customerPhone}</span>
+              </div>
+            )}
+            {appointment.customerAddress && (
+              <div className="flex items-center gap-3">
+                <MapPin className="h-4 w-4 flex-shrink-0 text-[#5f6368]" />
+                <span>{appointment.customerAddress}</span>
+              </div>
+            )}
+          </div>
+          <div className="mt-3 pt-3 border-t border-gray-200">
+            <span
+              className="inline-block px-2 py-0.5 rounded text-xs font-medium"
+              style={{ backgroundColor: color.bg + "22", color: color.bg }}
+            >
+              {appointment.status}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function SchedulePage() {
   const [viewMode, setViewMode] = useState<ViewMode>("week");
   const [currentDate, setCurrentDate] = useState(new Date());
-  
-  // Fetch all task instances that have appointments
-  const { data, isLoading } = useTaskInstances({
-    page: 1,
-    limit: 1000, // Get all for calendar
-  });
-  
-  const appointments = useMemo(() => {
+  const [selectedEvent, setSelectedEvent] = useState<{ appointment: Appointment; rect: DOMRect } | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const { data, isLoading } = useTaskInstances({ page: 1, limit: 1000 });
+
+  const appointments: Appointment[] = useMemo(() => {
     if (!data?.data) return [];
-    
     return data.data
       .filter((task) => task.appointmentTime)
       .map((task) => ({
@@ -77,153 +195,357 @@ export default function SchedulePage() {
         title: task.taskName,
         time: new Date(task.appointmentTime!),
         status: task.status,
-        customerName: (task.info as Record<string, string>)?.["full-name"] ||
-                      (task.info as Record<string, string>)?.name || 
-                      (task.info as Record<string, string>)?.["customer-name"] || 
-                      "Unknown",
-        customerPhone: (task.info as Record<string, string>)?.["phone-number"] || 
-                       (task.info as Record<string, string>)?.phone || "",
-        customerAddress: (task.info as Record<string, string>)?.address || 
-                         (task.info as Record<string, string>)?.["customer-address"] || "",
+        customerName:
+          (task.info as Record<string, string>)?.["full-name"] ||
+          (task.info as Record<string, string>)?.name ||
+          (task.info as Record<string, string>)?.["customer-name"] ||
+          "Unknown",
+        customerPhone:
+          (task.info as Record<string, string>)?.["phone-number"] ||
+          (task.info as Record<string, string>)?.phone || "",
+        customerAddress:
+          (task.info as Record<string, string>)?.address ||
+          (task.info as Record<string, string>)?.["customer-address"] || "",
       }));
   }, [data]);
 
-  // Navigation handlers
-  const goToPrevious = () => {
-    const newDate = new Date(currentDate);
-    if (viewMode === "day") {
-      newDate.setDate(newDate.getDate() - 1);
-    } else if (viewMode === "week") {
-      newDate.setDate(newDate.getDate() - 7);
-    } else {
-      newDate.setMonth(newDate.getMonth() - 1);
+  // Scroll to ~8am on mount
+  useEffect(() => {
+    if (scrollRef.current) {
+      const hourHeight = 60;
+      scrollRef.current.scrollTop = hourHeight * 8;
     }
-    setCurrentDate(newDate);
+  }, [viewMode]);
+
+  const today = new Date();
+
+  const goToPrevious = () => {
+    const d = new Date(currentDate);
+    if (viewMode === "day") d.setDate(d.getDate() - 1);
+    else if (viewMode === "week") d.setDate(d.getDate() - 7);
+    else d.setMonth(d.getMonth() - 1);
+    setCurrentDate(d);
   };
 
   const goToNext = () => {
-    const newDate = new Date(currentDate);
-    if (viewMode === "day") {
-      newDate.setDate(newDate.getDate() + 1);
-    } else if (viewMode === "week") {
-      newDate.setDate(newDate.getDate() + 7);
-    } else {
-      newDate.setMonth(newDate.getMonth() + 1);
-    }
-    setCurrentDate(newDate);
+    const d = new Date(currentDate);
+    if (viewMode === "day") d.setDate(d.getDate() + 1);
+    else if (viewMode === "week") d.setDate(d.getDate() + 7);
+    else d.setMonth(d.getMonth() + 1);
+    setCurrentDate(d);
   };
 
-  const goToToday = () => {
-    setCurrentDate(new Date());
-  };
+  const goToToday = () => setCurrentDate(new Date());
 
-  // Get title based on view mode
   const getTitle = () => {
     if (viewMode === "day") {
-      return currentDate.toLocaleDateString("en-US", {
-        weekday: "long",
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      });
+      return currentDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
     } else if (viewMode === "week") {
-      const weekDays = getWeekDays(currentDate);
-      const start = weekDays[0];
-      const end = weekDays[6];
-      if (start.getMonth() === end.getMonth()) {
-        return `${start.toLocaleDateString("en-US", { month: "long" })} ${start.getDate()} - ${end.getDate()}, ${start.getFullYear()}`;
+      const week = getWeekDays(currentDate);
+      const s = week[0];
+      const e = week[6];
+      if (s.getMonth() === e.getMonth()) {
+        return `${s.toLocaleDateString("en-US", { month: "long" })} ${s.getDate()}\u2009\u2013\u2009${e.getDate()}, ${s.getFullYear()}`;
       }
-      return `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })} - ${end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+      return `${s.toLocaleDateString("en-US", { month: "short" })} ${s.getDate()} \u2013 ${e.toLocaleDateString("en-US", { month: "short" })} ${e.getDate()}, ${e.getFullYear()}`;
     }
     return currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   };
 
-  // Get appointments for a specific day
-  const getAppointmentsForDay = (date: Date) => {
-    return appointments.filter((apt) => isSameDay(apt.time, date));
+  const getAppointmentsForDay = (date: Date) => appointments.filter((a) => isSameDay(a.time, date));
+  const getAppointmentsForHour = (date: Date, hour: number) =>
+    appointments.filter((a) => isSameDay(a.time, date) && a.time.getHours() === hour);
+
+  const handleEventClick = (e: React.MouseEvent, apt: Appointment) => {
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setSelectedEvent({ appointment: apt, rect });
   };
 
-  // Get appointments for a specific hour on a day
-  const getAppointmentsForHour = (date: Date, hour: number) => {
-    return appointments.filter((apt) => {
-      return isSameDay(apt.time, date) && apt.time.getHours() === hour;
-    });
+  // Current time indicator position
+  const now = new Date();
+  const currentTimeTop = (now.getHours() + now.getMinutes() / 60) * 60;
+
+  // ── WEEK VIEW ──
+  const renderWeekView = () => {
+    const weekDays = getWeekDays(currentDate);
+
+    return (
+      <div className="flex flex-col flex-1 min-h-0">
+        {/* Sticky day headers */}
+        <div className="flex border-b border-[#dadce0] flex-shrink-0">
+          {/* Time gutter spacer */}
+          <div className="w-[56px] flex-shrink-0" />
+          {/* Day columns */}
+          <div className="flex-1 grid grid-cols-7">
+            {weekDays.map((day, i) => {
+              const isToday_ = isSameDay(day, today);
+              return (
+                <div key={i} className="flex flex-col items-center py-2 border-l border-[#dadce0]">
+                  <span className={`text-[11px] font-medium tracking-wide ${isToday_ ? "text-[#1a73e8]" : "text-[#70757a]"}`}>
+                    {DAY_NAMES_SHORT[day.getDay()]}
+                  </span>
+                  <span
+                    className={`
+                      mt-0.5 w-[46px] h-[46px] flex items-center justify-center text-[24px] font-normal rounded-full transition
+                      ${isToday_ ? "bg-[#1a73e8] text-white" : "text-[#3c4043] hover:bg-[#f1f3f4]"}
+                    `}
+                  >
+                    {day.getDate()}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Scrollable time grid */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto overflow-x-hidden min-h-0">
+          <div className="flex relative" style={{ height: `${24 * 60}px` }}>
+            {/* Time labels gutter */}
+            <div className="w-[56px] flex-shrink-0 relative">
+              {HOURS.map((h) => (
+                <div
+                  key={h}
+                  className="absolute right-2 text-[10px] text-[#70757a] leading-none"
+                  style={{ top: `${h * 60 - 5}px` }}
+                >
+                  {h === 0 ? "" : formatHour(h)}
+                </div>
+              ))}
+            </div>
+
+            {/* Day columns */}
+            <div className="flex-1 grid grid-cols-7 relative">
+              {/* Horizontal hour lines */}
+              {HOURS.map((h) => (
+                <div
+                  key={h}
+                  className="absolute left-0 right-0 border-t border-[#dadce0]"
+                  style={{ top: `${h * 60}px` }}
+                />
+              ))}
+
+              {/* Current time indicator */}
+              {weekDays.some((d) => isSameDay(d, today)) && (
+                <div
+                  className="absolute left-0 right-0 z-10 pointer-events-none"
+                  style={{ top: `${currentTimeTop}px` }}
+                >
+                  <div className="relative" style={{
+                    left: `${(today.getDay() / 7) * 100}%`,
+                    width: `${100 / 7}%`,
+                  }}>
+                    <div className="absolute left-0 right-0 flex items-center">
+                      <div className="w-3 h-3 rounded-full bg-[#ea4335] -ml-1.5 flex-shrink-0" />
+                      <div className="flex-1 h-[2px] bg-[#ea4335]" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Day column overlays + events */}
+              {weekDays.map((day, dayIdx) => {
+                const isToday_ = isSameDay(day, today);
+                const dayAppts = getAppointmentsForDay(day);
+
+                return (
+                  <div
+                    key={dayIdx}
+                    className={`relative border-l border-[#dadce0] ${isToday_ ? "bg-[#1a73e8]/[0.04]" : ""}`}
+                  >
+                    {/* Events */}
+                    {dayAppts.map((apt) => {
+                      const color = getEventColor(apt.id);
+                      const topPos = (apt.time.getHours() + apt.time.getMinutes() / 60) * 60;
+                      return (
+                        <div
+                          key={apt.id}
+                          className="absolute left-[2px] right-[2px] rounded-[4px] px-2 py-1 cursor-pointer overflow-hidden z-10 hover:brightness-95 transition-[filter]"
+                          style={{
+                            top: `${topPos}px`,
+                            minHeight: "44px",
+                            height: "56px",
+                            backgroundColor: color.bg,
+                            color: color.text,
+                          }}
+                          onClick={(e) => handleEventClick(e, apt)}
+                        >
+                          <div className="text-xs font-medium leading-tight truncate">{apt.title}</div>
+                          <div className="text-[11px] leading-tight truncate opacity-90">{apt.customerName}</div>
+                          <div className="text-[10px] leading-tight opacity-75">{formatTime(apt.time)}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
-  // Render month view
+  // ── DAY VIEW ──
+  const renderDayView = () => {
+    const isToday_ = isSameDay(currentDate, today);
+
+    return (
+      <div className="flex flex-col flex-1 min-h-0">
+        {/* Day header */}
+        <div className="flex border-b border-[#dadce0] flex-shrink-0">
+          <div className="w-[56px] flex-shrink-0" />
+          <div className="flex-1 flex flex-col items-center py-2 border-l border-[#dadce0]">
+            <span className={`text-[11px] font-medium tracking-wide ${isToday_ ? "text-[#1a73e8]" : "text-[#70757a]"}`}>
+              {DAY_NAMES_SHORT[currentDate.getDay()]}
+            </span>
+            <span
+              className={`
+                mt-0.5 w-[46px] h-[46px] flex items-center justify-center text-[24px] font-normal rounded-full
+                ${isToday_ ? "bg-[#1a73e8] text-white" : "text-[#3c4043]"}
+              `}
+            >
+              {currentDate.getDate()}
+            </span>
+          </div>
+        </div>
+
+        {/* Scrollable time grid */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0">
+          <div className="flex relative" style={{ height: `${24 * 60}px` }}>
+            {/* Time gutter */}
+            <div className="w-[56px] flex-shrink-0 relative">
+              {HOURS.map((h) => (
+                <div
+                  key={h}
+                  className="absolute right-2 text-[10px] text-[#70757a] leading-none"
+                  style={{ top: `${h * 60 - 5}px` }}
+                >
+                  {h === 0 ? "" : formatHour(h)}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex-1 relative border-l border-[#dadce0]">
+              {/* Hour lines */}
+              {HOURS.map((h) => (
+                <div
+                  key={h}
+                  className="absolute left-0 right-0 border-t border-[#dadce0]"
+                  style={{ top: `${h * 60}px` }}
+                />
+              ))}
+
+              {/* Current time indicator */}
+              {isToday_ && (
+                <div
+                  className="absolute left-0 right-0 z-10 flex items-center pointer-events-none"
+                  style={{ top: `${currentTimeTop}px` }}
+                >
+                  <div className="w-3 h-3 rounded-full bg-[#ea4335] -ml-1.5 flex-shrink-0" />
+                  <div className="flex-1 h-[2px] bg-[#ea4335]" />
+                </div>
+              )}
+
+              {/* Events */}
+              {getAppointmentsForDay(currentDate).map((apt) => {
+                const color = getEventColor(apt.id);
+                const topPos = (apt.time.getHours() + apt.time.getMinutes() / 60) * 60;
+                return (
+                  <div
+                    key={apt.id}
+                    className="absolute left-[2px] right-[2px] rounded-[4px] px-3 py-1.5 cursor-pointer overflow-hidden z-10 hover:brightness-95 transition-[filter]"
+                    style={{
+                      top: `${topPos}px`,
+                      minHeight: "44px",
+                      height: "56px",
+                      backgroundColor: color.bg,
+                      color: color.text,
+                    }}
+                    onClick={(e) => handleEventClick(e, apt)}
+                  >
+                    <div className="text-sm font-medium leading-tight truncate">{apt.title}</div>
+                    <div className="text-xs leading-tight opacity-90">{apt.customerName} &middot; {formatTime(apt.time)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── MONTH VIEW ──
   const renderMonthView = () => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const daysInMonth = getDaysInMonth(year, month);
     const firstDay = getFirstDayOfMonth(year, month);
-    const today = new Date();
 
-    const days: (number | null)[] = [];
-    
-    // Add empty cells for days before the first day of month
-    for (let i = 0; i < firstDay; i++) {
-      days.push(null);
-    }
-    
-    // Add days of the month
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push(i);
-    }
+    const cells: (number | null)[] = [];
+    for (let i = 0; i < firstDay; i++) cells.push(null);
+    for (let i = 1; i <= daysInMonth; i++) cells.push(i);
+    // Fill remaining to complete last row
+    while (cells.length % 7 !== 0) cells.push(null);
+
+    const rows = Math.ceil(cells.length / 7);
 
     return (
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="flex flex-col flex-1 min-h-0">
         {/* Day headers */}
-        <div className="grid grid-cols-7 border-b border-gray-200">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-            <div key={day} className="py-3 text-center text-sm font-medium text-gray-500">
-              {day}
+        <div className="grid grid-cols-7 border-b border-[#dadce0] flex-shrink-0">
+          {DAY_NAMES_SHORT.map((d) => (
+            <div key={d} className="py-2 text-center text-[11px] font-medium text-[#70757a] tracking-wide">
+              {d}
             </div>
           ))}
         </div>
-        
-        {/* Calendar grid */}
-        <div className="grid grid-cols-7">
-          {days.map((day, index) => {
+
+        {/* Month grid - fills remaining space */}
+        <div className="flex-1 grid grid-cols-7 min-h-0" style={{ gridTemplateRows: `repeat(${rows}, 1fr)` }}>
+          {cells.map((day, idx) => {
             const date = day ? new Date(year, month, day) : null;
-            const dayAppointments = date ? getAppointmentsForDay(date) : [];
-            const isToday = date && isSameDay(date, today);
-            
+            const isToday_ = date ? isSameDay(date, today) : false;
+            const dayAppts = date ? getAppointmentsForDay(date) : [];
+
             return (
               <div
-                key={index}
-                className={`
-                  min-h-[120px] p-2 border-b border-r border-gray-100
-                  ${day ? "bg-white hover:bg-gray-50" : "bg-gray-50"}
-                  ${isToday ? "bg-blue-50" : ""}
-                `}
+                key={idx}
+                className={`border-b border-r border-[#dadce0] overflow-hidden ${day ? "" : "bg-[#f8f9fa]"}`}
               >
-                {day && (
-                  <>
+                {day !== null && (
+                  <div className="p-1 h-full flex flex-col">
                     <span
                       className={`
-                        inline-flex items-center justify-center w-7 h-7 text-sm rounded-full
-                        ${isToday ? "bg-[var(--color-primary)] text-white font-semibold" : "text-gray-700"}
+                        inline-flex items-center justify-center w-6 h-6 text-xs rounded-full mb-0.5 self-center
+                        ${isToday_ ? "bg-[#1a73e8] text-white font-medium" : "text-[#3c4043]"}
                       `}
                     >
                       {day}
                     </span>
-                    <div className="mt-1 space-y-1">
-                      {dayAppointments.slice(0, 3).map((apt) => (
-                        <div
-                          key={apt.id}
-                          className="px-2 py-1 text-xs rounded truncate cursor-pointer bg-blue-100 text-blue-700 hover:bg-blue-200 transition"
-                          title={`${formatTime(apt.time)} - ${apt.customerName}`}
-                        >
-                          {formatTime(apt.time)} {apt.customerName}
-                        </div>
-                      ))}
-                      {dayAppointments.length > 3 && (
-                        <div className="text-xs text-gray-500 px-2">
-                          +{dayAppointments.length - 3} more
+                    <div className="flex-1 overflow-hidden space-y-px">
+                      {dayAppts.slice(0, 3).map((apt) => {
+                        const color = getEventColor(apt.id);
+                        return (
+                          <div
+                            key={apt.id}
+                            className="rounded-[4px] px-1.5 py-px text-[11px] leading-tight truncate cursor-pointer hover:brightness-95 transition-[filter]"
+                            style={{ backgroundColor: color.bg, color: color.text }}
+                            onClick={(e) => handleEventClick(e, apt)}
+                          >
+                            {formatTime(apt.time)} {apt.customerName}
+                          </div>
+                        );
+                      })}
+                      {dayAppts.length > 3 && (
+                        <div className="text-[11px] text-[#70757a] pl-1.5 font-medium cursor-pointer hover:text-[#3c4043]">
+                          +{dayAppts.length - 3} more
                         </div>
                       )}
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
             );
@@ -233,164 +555,21 @@ export default function SchedulePage() {
     );
   };
 
-  // Render week view
-  const renderWeekView = () => {
-    const weekDays = getWeekDays(currentDate);
-    const today = new Date();
-
-    return (
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {/* Day headers */}
-        <div className="grid grid-cols-8 border-b border-gray-200">
-          <div className="py-3 px-2 text-center text-sm font-medium text-gray-500 border-r border-gray-200">
-            Time
-          </div>
-          {weekDays.map((day, index) => {
-            const isToday = isSameDay(day, today);
-            return (
-              <div
-                key={index}
-                className={`py-3 text-center ${isToday ? "bg-blue-50" : ""}`}
-              >
-                <div className="text-xs text-gray-500">
-                  {day.toLocaleDateString("en-US", { weekday: "short" })}
-                </div>
-                <div
-                  className={`
-                    inline-flex items-center justify-center w-8 h-8 text-sm rounded-full mt-1
-                    ${isToday ? "bg-[var(--color-primary)] text-white font-semibold" : "text-gray-700"}
-                  `}
-                >
-                  {day.getDate()}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Time grid */}
-        <div className="max-h-[600px] overflow-y-auto">
-          {TIME_SLOTS.map((hour) => (
-            <div key={hour} className="grid grid-cols-8 border-b border-gray-100">
-              <div className="py-4 px-2 text-xs text-gray-500 text-right pr-3 border-r border-gray-200">
-                {hour > 12 ? `${hour - 12} PM` : hour === 12 ? "12 PM" : `${hour} AM`}
-              </div>
-              {weekDays.map((day, dayIndex) => {
-                const hourAppointments = getAppointmentsForHour(day, hour);
-                const isToday = isSameDay(day, today);
-                
-                return (
-                  <div
-                    key={dayIndex}
-                    className={`
-                      min-h-[60px] p-1 border-r border-gray-100
-                      ${isToday ? "bg-blue-50/30" : ""}
-                      hover:bg-gray-50
-                    `}
-                  >
-                    {hourAppointments.map((apt) => (
-                      <div
-                        key={apt.id}
-                        className="px-2 py-1 text-xs rounded mb-1 cursor-pointer bg-blue-100 text-blue-700 border-l-2 border-blue-500 hover:bg-blue-200 transition"
-                      >
-                        <div className="font-medium truncate">{apt.customerName}</div>
-                        <div className="text-[10px] opacity-75">{apt.title}</div>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  // Render day view
-  const renderDayView = () => {
-    const today = new Date();
-    const isToday = isSameDay(currentDate, today);
-
-    return (
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {/* Header */}
-        <div className={`py-4 px-6 border-b border-gray-200 ${isToday ? "bg-blue-50" : ""}`}>
-          <div className="text-lg font-semibold text-gray-900">
-            {currentDate.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-          </div>
-        </div>
-
-        {/* Time slots */}
-        <div className="max-h-[600px] overflow-y-auto">
-          {TIME_SLOTS.map((hour) => {
-            const hourAppointments = getAppointmentsForHour(currentDate, hour);
-            
-            return (
-              <div key={hour} className="flex border-b border-gray-100">
-                <div className="w-20 py-4 px-3 text-xs text-gray-500 text-right border-r border-gray-200 flex-shrink-0">
-                  {hour > 12 ? `${hour - 12} PM` : hour === 12 ? "12 PM" : `${hour} AM`}
-                </div>
-                <div className="flex-1 min-h-[80px] p-2">
-                  {hourAppointments.map((apt) => (
-                    <div
-                      key={apt.id}
-                      className="p-3 rounded-lg mb-2 cursor-pointer bg-blue-50 border border-blue-200 hover:bg-blue-100 hover:border-blue-300 transition"
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <Clock className="h-4 w-4 text-blue-500" />
-                        <span className="text-sm font-medium text-gray-900">
-                          {formatTime(apt.time)}
-                        </span>
-                        <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700">
-                          Scheduled
-                        </span>
-                      </div>
-                      <div className="font-medium text-gray-900 mb-1">{apt.title}</div>
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
-                        <div className="flex items-center gap-1">
-                          <User className="h-3 w-3" />
-                          {apt.customerName}
-                        </div>
-                        {apt.customerPhone && (
-                          <div className="flex items-center gap-1">
-                            <Phone className="h-3 w-3" />
-                            {apt.customerPhone}
-                          </div>
-                        )}
-                      </div>
-                      {apt.customerAddress && (
-                        <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
-                          <MapPin className="h-3 w-3" />
-                          {apt.customerAddress}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
-
   return (
-    <Page title="Schedule" subtitle="View and manage your appointments">
-      {/* Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        {/* View mode toggle */}
-        <div className="flex bg-white rounded-xl border border-gray-200 p-1">
+    <div className="flex flex-col h-[calc(100vh-49px)] -m-4 md:-m-6">
+      {/* Toolbar - Google Cal style */}
+      <div className="flex items-center justify-between px-4 py-2 flex-shrink-0 border-b border-[#dadce0]">
+        {/* Left: view toggle */}
+        <div className="flex items-center gap-1 bg-[#f1f3f4] rounded-lg p-0.5">
           {VIEW_MODES.map((mode) => (
             <button
               key={mode.id}
               onClick={() => setViewMode(mode.id)}
               className={`
-                px-4 py-2 text-sm font-medium rounded-lg transition
+                px-3.5 py-1.5 text-sm font-medium rounded-md transition
                 ${viewMode === mode.id
-                  ? "bg-[var(--color-primary)] text-white"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                  ? "bg-white text-[#1a73e8] shadow-sm"
+                  : "text-[#3c4043] hover:bg-[#e8eaed]"
                 }
               `}
             >
@@ -399,77 +578,45 @@ export default function SchedulePage() {
           ))}
         </div>
 
-        {/* Navigation */}
+        {/* Right: navigation */}
         <div className="flex items-center gap-2">
           <button
             onClick={goToToday}
-            className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition"
+            className="px-4 py-1.5 text-sm font-medium text-[#3c4043] border border-[#dadce0] rounded-md hover:bg-[#f1f3f4] transition"
           >
             Today
           </button>
-          <div className="flex items-center bg-white border border-gray-200 rounded-lg">
-            <button
-              onClick={goToPrevious}
-              className="p-2 hover:bg-gray-50 rounded-l-lg transition"
-              aria-label="Previous"
-            >
-              <ChevronLeft className="h-5 w-5 text-gray-600" />
+          <div className="flex items-center">
+            <button onClick={goToPrevious} className="p-1.5 rounded-full hover:bg-[#f1f3f4] transition">
+              <ChevronLeft className="h-5 w-5 text-[#5f6368]" />
             </button>
-            <div className="px-4 py-2 text-sm font-medium text-gray-900 min-w-[200px] text-center">
-              {getTitle()}
-            </div>
-            <button
-              onClick={goToNext}
-              className="p-2 hover:bg-gray-50 rounded-r-lg transition"
-              aria-label="Next"
-            >
-              <ChevronRight className="h-5 w-5 text-gray-600" />
+            <button onClick={goToNext} className="p-1.5 rounded-full hover:bg-[#f1f3f4] transition">
+              <ChevronRight className="h-5 w-5 text-[#5f6368]" />
             </button>
           </div>
+          <h2 className="text-[22px] font-normal text-[#3c4043] ml-2 select-none">{getTitle()}</h2>
         </div>
       </div>
 
-
-      {/* Calendar */}
+      {/* Calendar body */}
       {isLoading ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-500">
-          Loading schedule...
-        </div>
+        <div className="flex-1 grid place-items-center text-[#5f6368]">Loading schedule...</div>
       ) : (
         <>
-          {viewMode === "month" && renderMonthView()}
           {viewMode === "week" && renderWeekView()}
           {viewMode === "day" && renderDayView()}
+          {viewMode === "month" && renderMonthView()}
         </>
       )}
 
-      {/* Stats */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="text-sm text-gray-500">Total Appointments</div>
-          <div className="text-2xl font-semibold text-gray-900">{appointments.length}</div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="text-sm text-gray-500">This Week</div>
-          <div className="text-2xl font-semibold text-gray-900">
-            {appointments.filter((apt) => {
-              const weekStart = new Date();
-              weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-              weekStart.setHours(0, 0, 0, 0);
-              const weekEnd = new Date(weekStart);
-              weekEnd.setDate(weekEnd.getDate() + 7);
-              return apt.time >= weekStart && apt.time < weekEnd;
-            }).length}
-          </div>
-        </div>
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="text-sm text-gray-500">Today</div>
-          <div className="text-2xl font-semibold text-gray-900">
-            {getAppointmentsForDay(new Date()).length}
-          </div>
-        </div>
-      </div>
-    </Page>
+      {/* Event popover */}
+      {selectedEvent && (
+        <EventPopover
+          appointment={selectedEvent.appointment}
+          anchorRect={selectedEvent.rect}
+          onClose={() => setSelectedEvent(null)}
+        />
+      )}
+    </div>
   );
 }
-

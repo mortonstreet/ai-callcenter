@@ -41,6 +41,7 @@ export interface TaskInstanceWithRelations {
   // Tags and pipeline
   tags: string[] | null;
   pipelineStage: string | null;
+  pipelineStageId: string | null;
 }
 
 export function useTaskInstances(filters?: Partial<Omit<GetTaskInstancesRequest, 'organizationId'>>) {

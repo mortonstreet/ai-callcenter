@@ -1,5 +1,8 @@
 import { config } from '@/config'
 import { app } from '@/api/app'
+import { twilioClient } from '@/clients/twilio.client'
+import { db } from '@/lib/db'
+import logger from '@/lib/logger'
 
 const asciiArt = `
 ╔════════════════════════════════════════════════════════════════╗
@@ -18,7 +21,65 @@ const asciiArt = `
 
 const server = app.listen(config.port, '0.0.0.0', () => {
   console.log(asciiArt)
+
+  // Auto-configure Twilio voice URLs on startup
+  if (config.backendUrl && !config.backendUrl.includes('localhost')) {
+    autoConfigureTwilioVoice().catch((err) =>
+      logger.error('Twilio auto-config on startup failed:', err),
+    )
+  }
 })
+
+async function autoConfigureTwilioVoice() {
+  const configs = await db
+    .selectFrom('twilio_config')
+    .where('accountSid', 'is not', null)
+    .where('authToken', 'is not', null)
+    .where('phoneNumber', 'is not', null)
+    .selectAll()
+    .execute()
+
+  const voiceUrl = `${config.backendUrl}/api/call-center/voice`
+
+  for (const tc of configs) {
+    if (!tc.accountSid || !tc.authToken || !tc.phoneNumber) continue
+
+    try {
+      twilioClient.setCredentials({
+        accountSid: tc.accountSid,
+        authToken: tc.authToken,
+        phoneNumber: tc.phoneNumber,
+        apiKeySid: tc.apiKeySid || undefined,
+        apiKeySecret: tc.apiKeySecret || undefined,
+        twimlAppSid: tc.twimlAppSid || undefined,
+      })
+
+      // 1. Set TwiML App voice URL
+      if (tc.twimlAppSid) {
+        await twilioClient.updateTwimlAppVoiceUrl(tc.twimlAppSid, voiceUrl)
+      }
+
+      // 2. Point phone number to TwiML App (or direct voiceUrl as fallback)
+      await twilioClient.updatePhoneNumberVoiceConfig(
+        tc.phoneNumber,
+        voiceUrl,
+        `${config.backendUrl}/api/call-center/webhook`,
+        tc.twimlAppSid || undefined,
+      )
+
+      logger.info(
+        `Startup: configured Twilio voice for org ${tc.organizationId} → ${voiceUrl}`,
+      )
+    } catch (err: any) {
+      logger.error(
+        `Startup: failed to configure Twilio for org ${tc.organizationId}:`,
+        err,
+      )
+    } finally {
+      twilioClient.clearCredentials()
+    }
+  }
+}
 
 server.on('error', (err: NodeJS.ErrnoException) => {
   if (err.code === 'EADDRINUSE') {

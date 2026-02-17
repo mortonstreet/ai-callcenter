@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSession } from "@/lib/auth-client";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -7,6 +7,14 @@ import AuthCard from "@/components/AuthCard";
 import Button from "@/components/ui/Button";
 
 export default function AcceptInvitationPage() {
+  return (
+    <Suspense>
+      <AcceptInvitationContent />
+    </Suspense>
+  );
+}
+
+function AcceptInvitationContent() {
   const { data: session, isPending } = useSession();
   const router = useRouter();
   const params = useParams();

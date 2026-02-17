@@ -110,6 +110,7 @@ export const createTaskInstance = async (
     estimatedValue,
     tags: JSON.stringify(tags),
     pipelineStage: PipelineStage.NEW,
+    pipelineStageId: null,
     calcomBookingId: null,
     calcomEventId: null,
     appointmentTime: null,
