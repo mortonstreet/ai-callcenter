@@ -10,6 +10,9 @@ import {
   House,
   Zap,
   Sparkles,
+  Wrench,
+  ShieldAlert,
+  DoorClosed,
   Headset,
   PhoneOutgoing,
   CalendarRange,
@@ -45,8 +48,11 @@ const STEP_LABELS: Record<Step, string> = {
 const INDUSTRY_ICONS: Record<string, LucideIcon> = {
   hvac: Snowflake,
   pest_control: Bug,
+  plumbing: Wrench,
   electrical: Zap,
   roofing: House,
+  fire_safety: ShieldAlert,
+  garage_doors: DoorClosed,
   cleaning_services: Sparkles,
 };
 

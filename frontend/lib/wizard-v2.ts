@@ -25,8 +25,11 @@ export interface WizardInputV2 {
 export const WIZARD_INDUSTRY_OPTIONS = [
   { value: "hvac", label: "HVAC" },
   { value: "pest_control", label: "Pest Control" },
+  { value: "plumbing", label: "Plumbing" },
   { value: "electrical", label: "Electrical" },
   { value: "roofing", label: "Roofing" },
+  { value: "fire_safety", label: "Fire Safety" },
+  { value: "garage_doors", label: "Garage Doors" },
   { value: "cleaning_services", label: "Cleaning Services" },
 ];
 
@@ -43,6 +46,12 @@ export const WIZARD_SERVICE_PRESETS: Record<string, string[]> = {
     "General pest control",
     "Wildlife removal",
   ],
+  plumbing: [
+    "Drain cleaning",
+    "Water heater repair",
+    "Leak detection and repair",
+    "Fixture installation",
+  ],
   electrical: [
     "Panel upgrade",
     "Outlet and lighting install",
@@ -54,6 +63,18 @@ export const WIZARD_SERVICE_PRESETS: Record<string, string[]> = {
     "Roof inspection",
     "Shingle replacement",
     "Storm damage assessment",
+  ],
+  fire_safety: [
+    "Fire alarm inspection",
+    "Sprinkler system service",
+    "Extinguisher maintenance",
+    "Code compliance testing",
+  ],
+  garage_doors: [
+    "Spring replacement",
+    "Opener repair",
+    "Track alignment",
+    "New door installation",
   ],
   cleaning_services: [
     "Deep cleaning",
@@ -74,6 +95,11 @@ export const WIZARD_DISCOVERY_PRESETS: Record<string, string[]> = {
     "How long has this been happening?",
     "Have you tried any treatment already?",
   ],
+  plumbing: [
+    "What issue are you experiencing (leak, clog, no hot water)?",
+    "Is this causing active water damage right now?",
+    "Where in the property is the issue located?",
+  ],
   electrical: [
     "What specifically stopped working?",
     "Are there safety concerns like sparking or burning smell?",
@@ -83,6 +109,16 @@ export const WIZARD_DISCOVERY_PRESETS: Record<string, string[]> = {
     "Where is the leak or damage located?",
     "Was this caused by a recent storm?",
     "When was the roof last repaired or replaced?",
+  ],
+  fire_safety: [
+    "Which system needs service (alarm, sprinkler, extinguisher)?",
+    "Is this routine maintenance or a failed inspection issue?",
+    "What is the property type and occupancy?",
+  ],
+  garage_doors: [
+    "Is the door stuck open, closed, or moving unevenly?",
+    "Do you hear grinding, snapping, or unusual noises?",
+    "Is this residential or commercial?",
   ],
   cleaning_services: [
     "How many bedrooms and bathrooms need cleaning?",

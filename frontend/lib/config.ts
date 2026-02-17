@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 const envSchema = z.object({
-  API_URL: z.url().default('http://localhost:8000/api'),
+  API_URL: z.url().default('https://api.revcenter.ai/api'),
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
     .default('development'),
@@ -44,7 +44,7 @@ export const QUERY_KEYS = {
     ['tasks', orgId, agentId] as const,
   agentConfig: (orgId?: string, agentId?: string) =>
     ['agentConfig', orgId, agentId] as const,
-  voices: () => ['voices'] as const,
+  voices: (orgId?: string) => ['voices', orgId] as const,
   agentAnalytics: (
     orgId?: string,
     agentId?: string,

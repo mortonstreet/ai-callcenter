@@ -1,6 +1,7 @@
 import { config } from '@/config'
 import { app } from '@/api/app'
 import { twilioClient } from '@/clients/twilio.client'
+import { initElevenLabsClient } from '@/clients/elevenlabs.client'
 import { db } from '@/lib/db'
 import logger from '@/lib/logger'
 
@@ -18,6 +19,10 @@ const asciiArt = `
 ║                                                                ║
 ╚════════════════════════════════════════════════════════════════╝
 `
+
+if (config.elevenLabs.apiKey) {
+  initElevenLabsClient(config.elevenLabs.apiKey)
+}
 
 const server = app.listen(config.port, '0.0.0.0', () => {
   console.log(asciiArt)

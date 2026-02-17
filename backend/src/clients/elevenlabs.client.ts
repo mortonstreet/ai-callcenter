@@ -1,4 +1,5 @@
 import logger from '@/lib/logger'
+import { config } from '@/config'
 
 const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1'
 
@@ -278,8 +279,10 @@ export class ElevenLabsClient {
 let elevenLabsClientInstance: ElevenLabsClient | null = null
 
 export const getElevenLabsClient = (apiKey?: string): ElevenLabsClient => {
-  if (!elevenLabsClientInstance && apiKey) {
-    elevenLabsClientInstance = new ElevenLabsClient(apiKey)
+  const resolvedApiKey = (apiKey || config.elevenLabs.apiKey || '').trim()
+
+  if (!elevenLabsClientInstance && resolvedApiKey) {
+    elevenLabsClientInstance = new ElevenLabsClient(resolvedApiKey)
   }
   if (!elevenLabsClientInstance) {
     throw new Error('ElevenLabs client not initialized. Provide API key.')
