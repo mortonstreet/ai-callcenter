@@ -175,7 +175,7 @@ export default function OnboardingPage() {
       },
       {
         onSuccess: () => {
-          router.push("/dashboard");
+          router.push("/onboarding/provisioning");
         },
       },
     );
@@ -193,6 +193,24 @@ export default function OnboardingPage() {
       <div className="space-y-5">
         <Input label="Company name" value={orgName} onChange={(e) => setOrgName(e.target.value)} required />
         <Input label="Company domain" placeholder="www.example.com" value={domain} onChange={(e) => setDomain(e.target.value)} />
+
+        <label className="block space-y-1">
+          <span className="text-sm font-medium text-foreground">Your role</span>
+          <div className="relative">
+            <select
+              className="w-full appearance-none rounded-xl border border-border bg-background px-3 py-2 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-ring"
+              value={businessRole}
+              onChange={(e) => setBusinessRole(e.target.value)}
+            >
+              {BUSINESS_ROLE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+        </label>
 
         <label className="block space-y-1">
           <span className="text-sm font-medium text-foreground">Industry</span>
@@ -238,6 +256,114 @@ export default function OnboardingPage() {
                 </button>
               );
             })}
+          </div>
+        </div>
+
+        <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Demo intent</label>
+            <p className="text-xs text-muted-foreground">Tell us whether you want a guided demo workspace or a paid rollout path.</p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setDemoIntent(true)}
+              className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+                demoIntent
+                  ? "border-[#1b191a] bg-[#1b191a]/[0.04] ring-1 ring-[#1b191a]"
+                  : "border-border hover:border-foreground/30"
+              }`}
+            >
+              Guided demo first
+            </button>
+            <button
+              type="button"
+              onClick={() => setDemoIntent(false)}
+              className={`rounded-xl border px-3 py-2 text-left text-sm transition ${
+                !demoIntent
+                  ? "border-[#1b191a] bg-[#1b191a]/[0.04] ring-1 ring-[#1b191a]"
+                  : "border-border hover:border-foreground/30"
+              }`}
+            >
+              Paid rollout
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-4 rounded-xl border border-border bg-card p-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Qualification details</label>
+            <p className="text-xs text-muted-foreground">These inputs help us tune onboarding and provisioning steps.</p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block space-y-1">
+              <span className="text-sm font-medium text-foreground">Team size</span>
+              <div className="relative">
+                <select
+                  className="w-full appearance-none rounded-xl border border-border bg-background px-3 py-2 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-ring"
+                  value={teamSize}
+                  onChange={(e) => setTeamSize(e.target.value)}
+                >
+                  <option value="">Select</option>
+                  {TEAM_SIZE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+            </label>
+
+            <label className="block space-y-1">
+              <span className="text-sm font-medium text-foreground">Monthly lead volume</span>
+              <div className="relative">
+                <select
+                  className="w-full appearance-none rounded-xl border border-border bg-background px-3 py-2 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-ring"
+                  value={monthlyLeadVolume}
+                  onChange={(e) => setMonthlyLeadVolume(e.target.value)}
+                >
+                  <option value="">Select</option>
+                  {LEAD_VOLUME_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+            </label>
+          </div>
+
+          <label className="block space-y-1">
+            <span className="text-sm font-medium text-foreground">Rollout timeline</span>
+            <div className="relative">
+              <select
+                className="w-full appearance-none rounded-xl border border-border bg-background px-3 py-2 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-ring"
+                value={rolloutTimeline}
+                onChange={(e) => setRolloutTimeline(e.target.value)}
+              >
+                <option value="">Select</option>
+                {ROLLOUT_TIMELINE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+          </label>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-1">Additional notes</label>
+            <textarea
+              value={qualificationNotes}
+              onChange={(e) => setQualificationNotes(e.target.value)}
+              rows={2}
+              placeholder="Any implementation constraints or launch details we should know?"
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-1 focus:ring-ring placeholder:text-muted-foreground/60"
+            />
           </div>
         </div>
       </div>

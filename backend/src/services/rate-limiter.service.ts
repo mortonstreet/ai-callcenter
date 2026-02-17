@@ -23,8 +23,14 @@ export class RedisRateLimiter {
       const windowStart = now - options.windowSeconds * 1000
 
       try {
+        const redis = getRedis()
+        if (!redis) {
+          // Redis unavailable - fail open
+          return next()
+        }
+
         // Use Redis pipeline for atomic operations
-        const pipeline = getRedis().pipeline()
+        const pipeline = redis.pipeline()
 
         // Remove old entries outside the window
         pipeline.zremrangebyscore(key, '-inf', windowStart)
@@ -45,7 +51,7 @@ export class RedisRateLimiter {
         if (currentRequests >= options.maxRequests) {
           logger.info(`Rate limit exceeded for key: ${key}`)
           // Get the oldest request to calculate retry time
-          const oldestRequest = await getRedis().zrange(key, 0, 0, 'WITHSCORES')
+          const oldestRequest = await redis.zrange(key, 0, 0, 'WITHSCORES')
           const retryAfter =
             oldestRequest.length > 0
               ? Math.ceil(
@@ -101,7 +107,7 @@ export class RedisRateLimiter {
             (options.skipSuccessfulRequests && res.statusCode < 400) ||
             (options.skipFailedRequests && res.statusCode >= 400)
           ) {
-            getRedis().zrem(key, `${now}-${Math.random()}`)
+            redis.zrem(key, `${now}-${Math.random()}`)
           }
 
           originalEnd.apply(res, args)

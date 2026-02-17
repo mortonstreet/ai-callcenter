@@ -3,7 +3,11 @@ import { config } from '@/config'
 import { setRequestContext } from '@/lib/context'
 import logger from '@/lib/logger'
 import Sentry from '@/lib/sentry'
-import { getDeadLetterQueue, queueRegistry } from '@/queues'
+import {
+  getDeadLetterQueue,
+  getQueueRegistry,
+  initQueuesIfAvailable,
+} from '@/queues'
 import { resolveTaxonomyFromQueue } from '@/lib/error-taxonomy'
 import {
   recordCampaignSendMetric,
@@ -115,6 +119,13 @@ export class WorkerRuntime {
 
   async start() {
     if (this.workers.size > 0) {
+      return
+    }
+
+    // Ensure queues are initialized before starting workers
+    const queuesReady = await initQueuesIfAvailable()
+    if (!queuesReady) {
+      logger.warn('Redis unavailable - queue workers will not start')
       return
     }
 
@@ -236,6 +247,18 @@ export class WorkerRuntime {
   }
 
   async getHealth(): Promise<WorkerRuntimeHealth> {
+    const queueRegistry = getQueueRegistry()
+
+    if (!queueRegistry) {
+      return {
+        started: false,
+        startedAt: null,
+        lastHeartbeatAt: null,
+        queueWorkerCount: 0,
+        queues: [],
+      }
+    }
+
     const queueSnapshots = await Promise.all(
       ALL_QUEUE_NAMES.map(async (queueName) => {
         const counts = await queueRegistry[queueName].getJobCounts(
@@ -558,7 +581,15 @@ export class WorkerRuntime {
     },
   ) {
     try {
-      await getDeadLetterQueue(queueName).add(
+      const dlq = getDeadLetterQueue(queueName)
+      if (!dlq) {
+        logger.warn(
+          { queueName, jobId: job.id },
+          'Dead letter queue not available',
+        )
+        return
+      }
+      await dlq.add(
         `${job.name}:dead-letter`,
         {
           ...job.data,

@@ -64,6 +64,11 @@ interface ListConversationsResponse {
   last_history_id?: string
 }
 
+interface CreateAgentResponse {
+  agent_id: string
+  name?: string
+}
+
 export class ElevenLabsClient {
   private apiKey: string
 
@@ -96,57 +101,32 @@ export class ElevenLabsClient {
   }
 
   /**
-   * Create an agent via ElevenLabs API
+   * Create a new conversational AI agent
    */
-  async createAgent(config: {
-    name: string
-    conversation_config: {
-      agent?: {
-        prompt?: {
-          prompt?: string
-          llm?: string
-          temperature?: number
-          max_tokens?: number
-          tools?: any[]
-          knowledge_base?: any[]
-        }
-        first_message?: string
-        language?: string
-      }
-      tts?: {
-        voice_id?: string
-        stability?: number
-        similarity_boost?: number
-        speed?: number
-      }
-      conversation?: {
-        max_duration_seconds?: number
-        client_events?: string[]
-      }
-    }
-    platform_settings?: Record<string, any>
-  }): Promise<{ agent_id: string; [key: string]: any }> {
-    return this.request('/convai/agents/create', {
+  async createAgent(
+    payload: Record<string, any>,
+  ): Promise<CreateAgentResponse> {
+    return this.request<CreateAgentResponse>('/convai/agents/create', {
       method: 'POST',
-      body: JSON.stringify(config),
+      body: JSON.stringify(payload),
     })
   }
 
   /**
-   * Update an existing agent
+   * Update a conversational AI agent
    */
   async updateAgent(
     agentId: string,
-    config: Record<string, any>,
+    payload: Record<string, any>,
   ): Promise<any> {
-    return this.request(`/convai/agents/${agentId}`, {
+    return this.request<any>(`/convai/agents/${agentId}`, {
       method: 'PATCH',
-      body: JSON.stringify(config),
+      body: JSON.stringify(payload),
     })
   }
 
   /**
-   * Get agent configuration
+   * Get a conversational AI agent's configuration
    */
   async getAgent(agentId: string): Promise<any> {
     return this.request(`/convai/agents/${agentId}`)
@@ -175,31 +155,12 @@ export class ElevenLabsClient {
   /**
    * List available voices
    */
-  async listVoices(search?: string): Promise<{
-    voices: Array<{
-      voice_id: string
-      name: string
-      category: string
-      labels?: Record<string, string>
-      preview_url?: string
-    }>
-  }> {
-    // Use v2 voices endpoint
-    const url = `https://api.elevenlabs.io/v2/voices${search ? `?search=${encodeURIComponent(search)}` : ''}`
-    const response = await fetch(url, {
-      headers: {
-        'xi-api-key': this.apiKey,
-      },
-    })
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`ElevenLabs API error: ${response.status} - ${errorText}`)
-    }
-    return response.json()
+  async listVoices(): Promise<any> {
+    return this.request<any>('/voices')
   }
 
   /**
-   * Add knowledge base URL to agent
+   * Delete a conversational AI agent
    */
   async addKnowledgeBaseUrl(agentId: string, url: string): Promise<any> {
     return this.request(`/convai/agents/${agentId}/add-to-knowledge-base`, {

@@ -105,6 +105,14 @@ model Organization {
   logo                     String?
   createdAt                DateTime
   metadata                 String?
+  lifecycleStatus          String                    @default("workspace_active")
+  planType                 String                    @default("paid")
+  provisioningStatus       String                    @default("completed")
+  onboardingIdempotencyKey String?                   @unique
+  onboardingBusinessRole   String?
+  onboardingDemoIntent     Boolean                   @default(false)
+  onboardingQualification  Json?
+  onboardingCompletedAt    DateTime?
   members                  Member[]
   invitations              Invitation[]
   agents                   Agent[]

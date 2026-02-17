@@ -2,6 +2,40 @@ import pino from 'pino'
 import { config } from '@/config'
 import { getRequestContext } from '@/lib/context'
 
+const hasBetterstack =
+  config.logger.betterstackHost &&
+  config.logger.betterstackHost !== 'placeholder' &&
+  config.logger.betterstackToken &&
+  config.logger.betterstackToken !== 'placeholder'
+
+const productionTargets = [
+  ...(hasBetterstack
+    ? [
+        {
+          target: '@logtail/pino',
+          options: {
+            sourceToken: config.logger.betterstackToken,
+            options: {
+              endpoint: `https://${config.logger.betterstackHost}`,
+              batchSize: 1,
+              batchInterval: 1000,
+            },
+          },
+          level: 'info' as const,
+        },
+      ]
+    : []),
+  {
+    target: 'pino-pretty',
+    options: {
+      colorize: true,
+      translateTime: 'SYS:standard',
+      ignore: 'pid,hostname',
+    },
+    level: 'info' as const,
+  },
+]
+
 const transport =
   config.nodeEnv === 'development'
     ? {
@@ -16,29 +50,7 @@ const transport =
       }
     : {
         transport: {
-          targets: [
-            {
-              target: '@logtail/pino',
-              options: {
-                sourceToken: config.logger.betterstackToken,
-                options: {
-                  endpoint: `https://${config.logger.betterstackHost}`,
-                  batchSize: 1,
-                  batchInterval: 1000,
-                },
-              },
-              level: 'info',
-            },
-            {
-              target: 'pino-pretty',
-              options: {
-                colorize: true,
-                translateTime: 'SYS:standard',
-                ignore: 'pid,hostname',
-              },
-              level: 'info',
-            },
-          ],
+          targets: productionTargets,
         },
       }
 

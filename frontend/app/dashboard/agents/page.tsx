@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Page } from "@/components/dashboard/Page";
 import Link from "next/link";
 import { Bot, Loader2, Plus } from "lucide-react";
@@ -39,13 +40,15 @@ export default function AgentsPage() {
       }
     >
       <div className="space-y-4">
-        {!isLoading && !error && degradedAgents.length > 0 && (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-            <p className="text-sm text-amber-900">
-              {degradedAgents.length === 1
-                ? "1 agent is running in degraded mode while provider sync retries in the background."
-                : `${degradedAgents.length} agents are running in degraded mode while provider sync retries in the background.`}
-            </p>
+        {isAdminOrOwner && (
+          <div className="flex justify-end">
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition text-sm font-medium"
+            >
+              <Plus className="h-4 w-4" />
+              New Agent
+            </button>
           </div>
         )}
 
@@ -106,19 +109,12 @@ export default function AgentsPage() {
             <p className="text-muted-foreground mb-4">No agents yet</p>
             {canCreateAgent ? (
               <button
-                onClick={() => setShowWizard(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[#1b191a] text-white rounded-xl hover:bg-[#2d2a2b] transition text-sm font-medium"
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition text-sm font-medium"
               >
                 <Plus className="h-4 w-4" />
                 Create Your First Agent
               </button>
-            ) : (
-              <a
-                href="mailto:support@revcenter.ai"
-                className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition text-sm font-medium"
-              >
-                Contact Support to Get Started
-              </a>
             )}
           </div>
         )}

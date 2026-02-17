@@ -4,6 +4,8 @@ import {
   GetAgentRequest,
   ElevenLabsWebhook,
   CreateTaskRequest,
+  CreateAgentRequest,
+  DeleteAgentRequest,
   GetTasksRequest,
   UpdateTaskRequest,
   DeleteTaskRequest,
@@ -22,6 +24,8 @@ import {
 import {
   findAllByOrganizationId,
   findById as findAgentById,
+  createAgent as createAgentRepo,
+  deleteAgent as deleteAgentRepo,
   createTask as createTaskRepository,
   getAgentTasks,
   updateTask as updateTaskRepository,
@@ -30,6 +34,26 @@ import {
   findTaskInstanceByBookingId,
   updateTaskInstanceBookingStatus,
 } from '@/repositories/agent.repository'
+import { formatTaskFields } from '@/utils/task'
+import { formatToSlug } from '@/utils'
+import logger from '@/lib/logger'
+import {
+  AgentExternalType,
+  PipelineStage,
+  CallQuality,
+} from '@shared/types/src'
+import { getElevenLabsClient } from '@/clients/elevenlabs.client'
+import { randomBytes } from 'crypto'
+import { Request, Response } from 'express'
+import { enqueueQueueJob } from '@/queues'
+import { QUEUE_NAMES } from '@/types/queues'
+import { createAdminAuditLog } from '@/repositories/governance.repository'
+import { findById as findOrganizationById } from '@/repositories/organization.repository'
+import {
+  isProcessableElevenLabsWebhookType,
+  processElevenLabsConversationWebhook,
+  ELEVENLABS_WEBHOOK_RETRY_JOB_NAME,
+} from '@/services/agent-webhook.service'
 import {
   updateElevenLabsAgent as updateElevenLabsAgentService,
   deleteElevenLabsAgent as deleteElevenLabsAgentService,
@@ -113,6 +137,76 @@ export const getAgent: AuthRequestHandler<GetAgentRequest> = async (
   const { id, organizationId } = req.validated
   const agent = await findAgentById(id, organizationId)
   res.json(withAgentContractMetadata(agent))
+}
+
+export const createAgent: AuthRequestHandler<CreateAgentRequest> = async (
+  req,
+  res,
+) => {
+  const { organizationId, name, firstMessage, prompt } = req.validated
+
+  const elevenLabsClient = getElevenLabsClient(process.env.ELEVEN_LABS_API_KEY)
+  const elevenLabsAgent = await elevenLabsClient.createAgent({
+    name,
+    conversation_config: {
+      agent: {
+        first_message: firstMessage,
+        language: 'en',
+        prompt: { prompt },
+      },
+    },
+  })
+
+  logger.info(
+    `Created ElevenLabs agent ${elevenLabsAgent.agent_id} for org ${organizationId}`,
+  )
+
+  const agent = await createAgentRepo({
+    name,
+    slug: formatToSlug(name),
+    organizationId,
+    phoneNumber: '',
+    redirectNumber: '',
+    externalId: elevenLabsAgent.agent_id,
+    externalType: AgentExternalType.ELEVEN_LABS,
+    mcpApiKey: null,
+    webhookSecret: null,
+    mcpEndpointUrl: null,
+  })
+
+  res.json(agent)
+}
+
+export const deleteAgent: AuthRequestHandler<DeleteAgentRequest> = async (
+  req,
+  res,
+) => {
+  const { id, organizationId } = req.validated
+
+  const agent = await findAgentById(id, organizationId)
+  if (!agent) {
+    return res.status(404).json({ error: 'Agent not found' })
+  }
+
+  // Delete from ElevenLabs first
+  try {
+    const elevenLabsClient = getElevenLabsClient(
+      process.env.ELEVEN_LABS_API_KEY,
+    )
+    await elevenLabsClient.deleteAgent(agent.externalId)
+    logger.info(`Deleted ElevenLabs agent ${agent.externalId}`)
+  } catch (error) {
+    logger.error(
+      `Failed to delete ElevenLabs agent ${agent.externalId}:`,
+      error,
+    )
+    // Continue with DB deletion even if ElevenLabs fails
+  }
+
+  const deleted = await deleteAgentRepo(id, organizationId)
+  logger.info(`Deleted agent ${agent.name} (${id}) from org ${organizationId}`)
+
+  res.json(deleted)
 }
 
 export const createTask: AuthRequestHandler<CreateTaskRequest> = async (
@@ -204,7 +298,10 @@ export const agentWebhook: ValidatedRequestHandler<ElevenLabsWebhook> = async (
     const { recording } = await processElevenLabsConversationWebhook(webhook)
     return res.json({ success: true, recordingId: recording.id })
   } catch (error) {
-    logger.error({ error }, 'Error processing ElevenLabs webhook directly')
+    logger.error(
+      { error: error instanceof Error ? { message: error.message, stack: error.stack } : error },
+      'Error processing ElevenLabs webhook directly',
+    )
 
     try {
       await enqueueQueueJob(

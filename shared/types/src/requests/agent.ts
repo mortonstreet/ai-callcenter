@@ -330,17 +330,16 @@ export const RetryAgentProvisioningJobSchema = z
   })
   .strict()
 
-// Update ElevenLabs Agent
 export const UpdateElevenLabsAgentSchema = z.object({
   id: z.string(),
   organizationId: z.string(),
-  name: z.string().min(1).optional(),
+  name: z.string().optional(),
   firstMessage: z.string().optional(),
   systemPrompt: z.string().optional(),
   voiceId: z.string().optional(),
   language: z.string().optional(),
   llmModel: z.string().optional(),
-  temperature: z.number().min(0).max(2).optional(),
+  temperature: z.number().optional(),
   maxTokens: z.number().optional(),
   stability: z.number().min(0).max(1).optional(),
   similarityBoost: z.number().min(0).max(1).optional(),
@@ -406,7 +405,9 @@ export const OwnerUpdateAgentSchema = z.object({
   id: z.string(),
   organizationId: z.string(),
   firstMessage: z.string().optional(),
+  systemPrompt: z.string().optional(),
   voiceId: z.string().optional(),
+  status: AgentStatusSchema.optional(),
 })
 
 export const DeleteElevenLabsAgentSchema = z.object({
@@ -424,7 +425,7 @@ export const GetAgentAnalyticsSchema = z.object({
   organizationId: z.string(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
-  granularity: z.enum(['hour', 'day', 'week', 'month']).optional().default('day'),
+  granularity: z.enum(['hour', 'day', 'week', 'month']).optional(),
 })
 
 export const GetAgentConversationsSchema = z.object({

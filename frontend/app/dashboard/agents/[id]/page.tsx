@@ -4,7 +4,10 @@ import { Page } from "@/components/dashboard/Page";
 import { use, useEffect, useState } from "react";
 import { Bot, ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useAgent, useAgentConfig, useAgentHealth, useDeleteElevenLabsAgent } from "@/hooks/api/useAgent";
+import { useAgent, useTasks, useDeleteAgent, useAgentConfig, useAgentHealth, useDeleteElevenLabsAgent } from "@/hooks/api/useAgent";
+import { useRouter } from "next/navigation";
+import Modal from "@/components/ui/Modal";
+import Button from "@/components/ui/Button";
 import { AgentExternalType } from "@/lib/shared-types";
 import { useCurrentOrganizationRole } from "@/hooks/api/useOrganization";
 import { useRouter } from "next/navigation";
@@ -15,11 +18,6 @@ import { KnowledgeBaseTab } from "@/components/agent/tabs/KnowledgeBaseTab";
 import { ToolsTab } from "@/components/agent/tabs/ToolsTab";
 import { AdvancedTab } from "@/components/agent/tabs/AdvancedTab";
 import { TestTab } from "@/components/agent/tabs/TestTab";
-
-const OWNER_TABS = [
-  { key: "agent", label: "Agent" },
-  { key: "test", label: "Test" },
-];
 
 const ADMIN_TABS = [
   { key: "agent", label: "Agent" },
@@ -70,8 +68,8 @@ function getCheckStatusClasses(status?: "ok" | "degraded" | "failed" | "blocked"
 
 export default function AgentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const router = useRouter();
   const { data: agent, isLoading, error } = useAgent(id);
+  const { data: tasks, isLoading: isLoadingTasks } = useTasks(id);
   const { data: agentConfig } = useAgentConfig(id);
   const { data: health, isLoading: healthLoading } = useAgentHealth(id);
   const currentRole = useCurrentOrganizationRole();
@@ -89,13 +87,15 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
     }
   }, [isAdminOrOwner, activeTab]);
 
-  const handleDelete = async () => {
+  const handleDeleteAgent = async () => {
     if (!agent) return;
-    if (!confirm(`Are you sure you want to delete "${agent.name}"? This will also delete it from ElevenLabs. This cannot be undone.`)) {
-      return;
+    try {
+      await deleteAgentMutation.mutateAsync(agent.id);
+      toast.success("Agent deleted successfully");
+      router.push("/dashboard/agents");
+    } catch {
+      // Error toast is handled by the hook
     }
-    await deleteAgent.mutateAsync(agent.id);
-    router.push("/dashboard/agents");
   };
 
   if (isLoading) {
@@ -134,12 +134,12 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
       actions={
         isAdminOrOwner ? (
           <button
-            onClick={handleDelete}
-            disabled={deleteAgent.isPending}
+            onClick={() => setShowDeleteModal(true)}
+            disabled={deleteAgentMutation.isPending}
             className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 active:scale-[0.98] disabled:opacity-50"
           >
             <Trash2 className="h-4 w-4" />
-            {deleteAgent.isPending ? "Deleting..." : "Delete"}
+            {deleteAgentMutation.isPending ? "Deleting..." : "Delete"}
           </button>
         ) : undefined
       }
@@ -191,6 +191,7 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
           </div>
         </div>
 
+        {/* Provider health */}
         <div className="rounded-xl border border-border bg-card p-4">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -275,7 +276,48 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
             <TestTab agentId={agent.externalId} />
           )}
         </div>
+
+        {/* Danger zone */}
+        {isAdminOrOwner && (
+          <div className="bg-white rounded-lg border border-red-200 p-6">
+            <h3 className="text-lg font-semibold text-red-600 mb-2">Danger Zone</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Permanently delete this agent and remove it from ElevenLabs. This action cannot be undone.
+            </p>
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-medium"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Agent
+            </button>
+          </div>
+        )}
       </div>
+
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete Agent"
+        subtitle={`Are you sure you want to delete "${agent.name}"?`}
+      >
+        <p className="text-sm text-gray-600 mb-6">
+          This will permanently delete the agent from both RevCenter and ElevenLabs. All associated services and data will be lost. This action cannot be undone.
+        </p>
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteAgent}
+            loading={deleteAgentMutation.isPending}
+            disabled={deleteAgentMutation.isPending}
+            className="!bg-red-600 hover:!bg-red-700"
+          >
+            Delete Agent
+          </Button>
+        </div>
+      </Modal>
     </Page>
   );
 }

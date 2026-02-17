@@ -12,6 +12,10 @@ export function simpleCache(options: SimpleCacheOptions) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const redis = getRedis()
+      if (!redis) {
+        // Redis unavailable - skip caching
+        return next()
+      }
 
       // Build cache key (static string or dynamic function)
       const cacheKey =
