@@ -1,0 +1,2 @@
+-- No-op migration placeholder.
+-- Metadata/profile fields are introduced in neighboring migrations in this branch.

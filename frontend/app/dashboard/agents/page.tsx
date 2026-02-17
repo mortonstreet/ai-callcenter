@@ -5,12 +5,17 @@ import Link from "next/link";
 import { Bot, Loader2, Plus } from "lucide-react";
 import { useAgents } from "@/hooks/api/useAgent";
 import { useIsAdminOrOwner } from "@/hooks/api/useOrganization";
+import { useSession } from "@/lib/auth-client";
+import { DBUser } from "@/lib/shared-types";
 import { useState } from "react";
 import { CreateAgentWizard } from "@/components/agent/CreateAgentWizard";
 
 export default function AgentsPage() {
   const { data: agents, isLoading, error } = useAgents();
   const isAdminOrOwner = useIsAdminOrOwner();
+  const { data: session } = useSession();
+  const isGlobalAdmin = (session?.user as DBUser | undefined)?.isAdmin === true;
+  const canCreateAgent = isGlobalAdmin || isAdminOrOwner;
   const [showWizard, setShowWizard] = useState(false);
   const degradedAgents = (agents || []).filter(
     (agent: any) =>
@@ -22,7 +27,7 @@ export default function AgentsPage() {
       title="Agents"
       subtitle="Your AI agents"
       actions={
-        isAdminOrOwner ? (
+        canCreateAgent ? (
           <button
             onClick={() => setShowWizard(true)}
             className="inline-flex items-center gap-2 rounded-xl bg-[#1b191a] px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#2d2a2b] hover:shadow-md active:scale-[0.98]"
@@ -99,7 +104,7 @@ export default function AgentsPage() {
           <div className="text-center py-12">
             <Bot className="h-12 w-12 text-muted-foreground/70 mx-auto mb-4" />
             <p className="text-muted-foreground mb-4">No agents yet</p>
-            {isAdminOrOwner ? (
+            {canCreateAgent ? (
               <button
                 onClick={() => setShowWizard(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-[#1b191a] text-white rounded-xl hover:bg-[#2d2a2b] transition text-sm font-medium"
@@ -119,7 +124,10 @@ export default function AgentsPage() {
         )}
       </div>
 
-      <CreateAgentWizard isOpen={showWizard} onClose={() => setShowWizard(false)} />
+      <CreateAgentWizard
+        isOpen={showWizard}
+        onClose={() => setShowWizard(false)}
+      />
     </Page>
   );
 }

@@ -6,6 +6,7 @@ import { QUERY_KEYS } from '@/lib/config';
 import { useEffectiveOrganization } from '@/lib/admin-store';
 import { DBAgent, CreateTaskRequest, UpdateTaskRequest, DBTask } from '@/lib/shared-types';
 import { toast } from 'sonner';
+import { WizardInputV2 } from '@/lib/wizard-v2';
 
 /**
  * Get all agents for the active organization
@@ -152,27 +153,26 @@ export function useCreateElevenLabsAgent() {
   const activeOrganization = useEffectiveOrganization();
 
   return useMutation({
-    mutationFn: async (data: {
-      name: string;
-      industry?: string;
-      useCase?: string;
-      website?: string;
-      mainGoal?: string;
-      voiceId?: string;
-      firstMessage?: string;
-      systemPrompt?: string;
-    }) => {
+    mutationFn: async (wizard_input_v2: WizardInputV2) => {
       if (!activeOrganization?.data?.id) {
         throw new Error('No active organization');
       }
-      return await post<DBAgent>(`/agent/${activeOrganization.data.id}/create-agent`, {
-        ...data,
+      return await post<DBAgent | {
+        jobId: string;
+        agentId: string;
+        status: string;
+        correlationId: string;
+        idempotentReplay?: boolean;
+      }>(`/agent/${activeOrganization.data.id}/create-agent`, {
         organizationId: activeOrganization.data.id,
+        wizard_input_v2,
       });
     },
     onSuccess: (agent: any) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.agents(activeOrganization?.data?.id) });
-      if (agent?.degradedMode?.enabled) {
+      if (typeof agent?.jobId === 'string') {
+        toast.success('Agent provisioning started');
+      } else if (agent?.degradedMode?.enabled) {
         toast.warning('Agent created in degraded mode. Provider sync is queued for retry.');
       } else {
         toast.success('Agent created successfully');
@@ -185,7 +185,7 @@ export function useCreateElevenLabsAgent() {
 }
 
 /**
- * Update an ElevenLabs agent (admin/owner full access)
+ * Update an ElevenLabs agent (admin full access)
  */
 export function useUpdateElevenLabsAgent() {
   const queryClient = useQueryClient();
@@ -197,6 +197,35 @@ export function useUpdateElevenLabsAgent() {
         throw new Error('No active organization');
       }
       return await patch<DBAgent>(`/agent/${activeOrganization.data.id}/${data.id}/update-agent`, {
+        ...data,
+        organizationId: activeOrganization.data.id,
+      });
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.agents(activeOrganization?.data?.id) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.agent(activeOrganization?.data?.id, variables.id) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.agentConfig(activeOrganization?.data?.id, variables.id) });
+      toast.success('Agent updated successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to update agent');
+    },
+  });
+}
+
+/**
+ * Update an ElevenLabs agent (owner limited: greeting + voice)
+ */
+export function useOwnerUpdateElevenLabsAgent() {
+  const queryClient = useQueryClient();
+  const activeOrganization = useEffectiveOrganization();
+
+  return useMutation({
+    mutationFn: async (data: { id: string; firstMessage?: string; voiceId?: string }) => {
+      if (!activeOrganization?.data?.id) {
+        throw new Error('No active organization');
+      }
+      return await patch<DBAgent>(`/agent/${activeOrganization.data.id}/${data.id}/owner-update`, {
         ...data,
         organizationId: activeOrganization.data.id,
       });
@@ -309,18 +338,62 @@ export function useAgentConversations(agentId: string) {
 }
 
 /**
- * Get provider health + sync state for an agent
+ * Agent readiness/health contract
+ */
+export interface AgentHealthCheck {
+  status: 'ok' | 'degraded' | 'failed' | 'blocked';
+  checkedAt: string;
+  message: string;
+  blocking: boolean;
+  remediationAction?: string;
+}
+
+export interface AgentHealthResponse {
+  agentId: string;
+  organizationId: string;
+  status: 'healthy' | 'degraded' | 'blocked';
+  degradedMode: {
+    enabled: boolean;
+    reason:
+      | 'local_fallback_agent'
+      | 'provider_unavailable'
+      | 'readiness_checks_failed'
+      | 'readiness_blocked'
+      | null;
+  };
+  activation: {
+    allowed: boolean;
+    deniedBy: Array<
+      'provider' | 'profile' | 'workflow' | 'knowledge_base' | 'tools_mcp' | 'webhook' | 'tests' | 'queues'
+    >;
+  };
+  checks: {
+    provider: AgentHealthCheck & { provider?: string };
+    profile: AgentHealthCheck;
+    workflow: AgentHealthCheck;
+    knowledge_base: AgentHealthCheck;
+    tools_mcp: AgentHealthCheck;
+    webhook: AgentHealthCheck;
+    tests: AgentHealthCheck;
+    queues: AgentHealthCheck;
+  };
+}
+
+/**
+ * Get readiness health status for an agent
  */
 export function useAgentHealth(agentId: string) {
   const activeOrganization = useEffectiveOrganization();
 
-  return useQuery<any>({
+  return useQuery<AgentHealthResponse>({
     queryKey: ["agent-health", activeOrganization?.data?.id, agentId],
     queryFn: async () => {
       if (!activeOrganization?.data?.id) {
         throw new Error('No active organization');
       }
-      return await get(`/agent/${activeOrganization.data.id}/${agentId}/health`);
+      return await get<AgentHealthResponse>(
+        `/agent/${activeOrganization.data.id}/${agentId}/health`,
+      );
     },
     enabled: !!activeOrganization?.data?.id && !!agentId,
   });

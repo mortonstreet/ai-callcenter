@@ -1,0 +1,3 @@
+-- Compatibility placeholder for environments that already applied
+-- 20260216090000_add_onboarding_provisioning_orchestration.
+-- Canonical wizard-v2 schema changes are applied by subsequent migrations.

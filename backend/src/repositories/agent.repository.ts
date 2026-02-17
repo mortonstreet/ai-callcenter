@@ -180,6 +180,10 @@ export const updateAgent = async (
     website: string | null
     mainGoal: string | null
     voiceId: string | null
+    promptProfileVersion: string | null
+    configProfileVersion: string | null
+    profileHash: string | null
+    wizardIntentProfile: unknown | null
     status: string
     externalId: string
     externalType: string
@@ -189,6 +193,11 @@ export const updateAgent = async (
     lastSyncAt: Date | null
     lastSyncError: string | null
     providerCorrelationKey: string | null
+    readinessStatus: string
+    provisioningState: string
+    mcpApiKey: string | null
+    webhookSecret: string | null
+    mcpEndpointUrl: string | null
   }>,
 ) => {
   return await db

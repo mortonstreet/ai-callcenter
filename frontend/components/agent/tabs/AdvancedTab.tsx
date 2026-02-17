@@ -219,7 +219,7 @@ export function AdvancedTab({ agentId, config }: AdvancedTabProps) {
             type="url"
             value={postCallWebhookUrl}
             onChange={(e) => setPostCallWebhookUrl(e.target.value)}
-            placeholder="https://api.example.com/webhook/post-call"
+            placeholder="https://api.revcenter.ai/webhooks/elevenlabs/post-call"
             className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-border"
           />
         </div>

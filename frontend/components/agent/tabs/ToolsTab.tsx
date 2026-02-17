@@ -165,7 +165,7 @@ export function ToolsTab({ agentId, config }: ToolsTabProps) {
               type="url"
               value={newWebhook.url}
               onChange={(e) => setNewWebhook((prev) => ({ ...prev, url: e.target.value }))}
-              placeholder="https://api.example.com/webhook"
+              placeholder="https://api.revcenter.ai/webhooks/elevenlabs/tool-action"
               className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-border"
             />
           </div>

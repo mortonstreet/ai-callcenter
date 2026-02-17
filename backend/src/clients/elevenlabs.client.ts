@@ -168,9 +168,7 @@ export class ElevenLabsClient {
       logger.error(
         `ElevenLabs delete agent error: ${response.status} - ${errorText}`,
       )
-      throw new Error(
-        `ElevenLabs API error: ${response.status} - ${errorText}`,
-      )
+      throw new Error(`ElevenLabs API error: ${response.status} - ${errorText}`)
     }
   }
 
@@ -203,10 +201,7 @@ export class ElevenLabsClient {
   /**
    * Add knowledge base URL to agent
    */
-  async addKnowledgeBaseUrl(
-    agentId: string,
-    url: string,
-  ): Promise<any> {
+  async addKnowledgeBaseUrl(agentId: string, url: string): Promise<any> {
     return this.request(`/convai/agents/${agentId}/add-to-knowledge-base`, {
       method: 'POST',
       body: JSON.stringify({

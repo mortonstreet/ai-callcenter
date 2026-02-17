@@ -15,5 +15,12 @@ export const DEAD_LETTER_QUEUE_SUFFIX = 'dlq'
 export interface QueueJobPayload {
   organizationId?: string
   idempotencyKey?: string
+  correlationId?: string
+  integrationJobId?: string
+  provider?: string
+  direction?: 'pull' | 'push'
+  provisioningJobId?: string
+  agentId?: string
+  webhookPayload?: unknown
   [key: string]: unknown
 }

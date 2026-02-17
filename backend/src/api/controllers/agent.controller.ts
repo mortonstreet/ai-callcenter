@@ -8,6 +8,8 @@ import {
   UpdateTaskRequest,
   DeleteTaskRequest,
   CreateElevenLabsAgentRequest,
+  GetAgentProvisioningJobStatusRequest,
+  RetryAgentProvisioningJobRequest,
   UpdateElevenLabsAgentRequest,
   OwnerUpdateAgentRequest,
   DeleteElevenLabsAgentRequest,
@@ -29,7 +31,6 @@ import {
   updateTaskInstanceBookingStatus,
 } from '@/repositories/agent.repository'
 import {
-  createElevenLabsAgent as createElevenLabsAgentService,
   updateElevenLabsAgent as updateElevenLabsAgentService,
   deleteElevenLabsAgent as deleteElevenLabsAgentService,
   getElevenLabsAgentConfig as getElevenLabsAgentConfigService,
@@ -37,7 +38,14 @@ import {
   getAgentAnalytics as getAgentAnalyticsService,
   getAgentConversations as getAgentConversationsService,
   getAgentHealth as getAgentHealthService,
+  AgentActivationBlockedError,
 } from '@/services/agent.service'
+import {
+  AgentProvisioningContractError,
+  getWizardProvisioningContractStatus,
+  retryWizardProvisioningContract,
+  startWizardProvisioningContract,
+} from '@/services/agent-provisioning-contract.service'
 import {
   processElevenLabsConversationWebhook,
   isProcessableElevenLabsWebhookType,
@@ -51,7 +59,7 @@ import { Request, Response } from 'express'
 import { enqueueQueueJob } from '@/queues'
 import { QUEUE_NAMES } from '@/types/queues'
 import { createAdminAuditLog } from '@/repositories/governance.repository'
-import { findById as findOrganizationById } from '@/repositories/organization.repository'
+import { getCorrelationId, sendApiError } from '@/api/utils/error-contract'
 
 const getAgentDegradedModeMetadata = (agent: {
   externalType: string
@@ -351,41 +359,142 @@ export const getAgentMcpConfig: AuthRequestHandler<{
 
 // ===== ElevenLabs Agent Management =====
 
+const resolveIdempotencyKey = (
+  req: Request & { validated?: { idempotencyKey?: string } },
+) => {
+  const fromPayload = req.validated?.idempotencyKey?.trim()
+  if (fromPayload) {
+    return fromPayload
+  }
+
+  const fromHeader =
+    req.get('idempotency-key')?.trim() ||
+    req.get('Idempotency-Key')?.trim() ||
+    req.get('x-idempotency-key')?.trim()
+
+  return fromHeader || undefined
+}
+
 export const createElevenLabsAgent: AuthRequestHandler<
   CreateElevenLabsAgentRequest
 > = async (req, res) => {
-  const {
-    organizationId,
-    name,
-    industry,
-    useCase,
-    website,
-    mainGoal,
-    voiceId,
-    firstMessage,
-    systemPrompt,
-  } = req.validated
+  const { organizationId } = req.validated
+  const requestCorrelationId = getCorrelationId(req, res)
+  const correlationId =
+    requestCorrelationId === 'unknown'
+      ? `wizard-contract:${organizationId}`
+      : requestCorrelationId
 
   try {
-    const organization = await findOrganizationById(organizationId)
-
-    const agent = await createElevenLabsAgentService({
+    const result = await startWizardProvisioningContract({
       organizationId,
-      companyName: organization.name,
-      name,
-      industry,
-      useCase,
-      website,
-      mainGoal,
-      voiceId,
-      firstMessage,
-      systemPrompt,
+      requestPayload: req.validated,
+      requestedByUserId: req.user.id,
+      correlationId,
+      idempotencyKey: resolveIdempotencyKey(req),
     })
 
-    res.json(withAgentContractMetadata(agent))
+    return res.status(202).json({
+      jobId: result.job.id,
+      agentId: result.agentId,
+      status: result.job.status,
+      correlationId: result.job.correlationId,
+      idempotentReplay: result.idempotentReplay,
+    })
   } catch (error) {
-    logger.error('Failed to create ElevenLabs agent:', error)
-    res.status(500).json({ error: 'Failed to create agent' })
+    if (error instanceof AgentProvisioningContractError) {
+      return sendApiError(req, res, error.status, {
+        code: error.code,
+        message: error.message,
+        userMessage: error.message,
+        details: error.details,
+      })
+    }
+
+    logger.error('Failed to start wizard provisioning job:', error)
+    return sendApiError(req, res, 500, {
+      code: 'AGENT_PROVISIONING_START_FAILED',
+      message: 'Failed to start agent provisioning job',
+      userMessage: 'Failed to start provisioning. Please retry.',
+      retryable: true,
+    })
+  }
+}
+
+export const getAgentProvisioningJobStatus: AuthRequestHandler<
+  GetAgentProvisioningJobStatusRequest
+> = async (req, res) => {
+  const { organizationId, jobId } = req.validated
+
+  try {
+    const result = await getWizardProvisioningContractStatus({
+      organizationId,
+      jobId,
+    })
+
+    return res.json(result)
+  } catch (error) {
+    if (error instanceof AgentProvisioningContractError) {
+      return sendApiError(req, res, error.status, {
+        code: error.code,
+        message: error.message,
+        userMessage: error.message,
+        details: error.details,
+      })
+    }
+
+    logger.error('Failed to load provisioning job status:', error)
+    return sendApiError(req, res, 500, {
+      code: 'AGENT_PROVISIONING_STATUS_FAILED',
+      message: 'Failed to load provisioning job status',
+      userMessage: 'Unable to load provisioning status right now.',
+      retryable: true,
+    })
+  }
+}
+
+export const retryAgentProvisioningJob: AuthRequestHandler<
+  RetryAgentProvisioningJobRequest
+> = async (req, res) => {
+  const { organizationId, jobId } = req.validated
+  const correlationId =
+    req.get('x-correlation-id') ||
+    req.get('x-request-id') ||
+    `wizard-contract-retry:${organizationId}:${jobId}`
+
+  try {
+    const result = await retryWizardProvisioningContract({
+      organizationId,
+      jobId,
+      requestedByUserId: req.user.id,
+      correlationId,
+      idempotencyKey: resolveIdempotencyKey(req),
+    })
+
+    return res.status(202).json({
+      jobId: result.job.id,
+      agentId: result.agentId,
+      status: result.job.status,
+      correlationId: result.job.correlationId,
+      idempotentReplay: result.idempotentReplay,
+    })
+  } catch (error) {
+    if (error instanceof AgentProvisioningContractError) {
+      return sendApiError(req, res, error.status, {
+        code: error.code,
+        message: error.message,
+        userMessage: error.message,
+        details: error.details,
+      })
+    }
+
+    logger.error('Failed to retry provisioning job:', error)
+    return sendApiError(req, res, 500, {
+      code: 'AGENT_PROVISIONING_RETRY_FAILED',
+      message: 'Failed to retry provisioning job',
+      userMessage: 'Failed to enqueue retry. Please retry.',
+      retryable: true,
+    })
   }
 }
 
@@ -402,6 +511,14 @@ export const updateElevenLabsAgent: AuthRequestHandler<
     )
     res.json(withAgentContractMetadata(agent))
   } catch (error) {
+    if (error instanceof AgentActivationBlockedError) {
+      return res.status(409).json({
+        error: error.message,
+        code: 'agent_activation_blocked',
+        health: error.health,
+      })
+    }
+
     logger.error('Failed to update ElevenLabs agent:', error)
     res.status(500).json({ error: 'Failed to update agent' })
   }
@@ -470,15 +587,23 @@ export const getAgentConfig: AuthRequestHandler<GetAgentConfigRequest> = async (
 }
 
 export const listVoices: AuthRequestHandler<Record<string, never>> = async (
-  _req,
+  req,
   res,
 ) => {
   try {
     const voices = await getVoicesService()
-    res.json(voices)
+    res.json({
+      ...voices,
+      correlationId: getCorrelationId(req, res),
+    })
   } catch (error) {
     logger.error('Failed to list voices:', error)
-    res.status(500).json({ error: 'Failed to list voices' })
+    return sendApiError(req, res, 500, {
+      code: 'VOICE_CATALOG_UNAVAILABLE',
+      message: 'Failed to list voices',
+      userMessage: 'Voice catalog is unavailable. Please retry.',
+      retryable: true,
+    })
   }
 }
 

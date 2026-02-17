@@ -24,6 +24,7 @@
 22. `agent-factory/templates/{elevenlabs-v3-system-prompt,elevenlabs-workflow,core-agent-tabs-config}*` - templates for prompt generation, workflow settings, and full tab profiles.
 23. `agent-factory/{workflows,core-tabs}/*` - default common-request workflow and default core-tab configuration profile for provisioning.
 24. `agent-factory/parallel-execution-matrix.md` - branch/worktree lane matrix for parallel industry spec and implementation execution.
+25. `15-elevenlabs-wizard-v2-handoff-spec.md` + `wizard-v2-handoff/*` - concise wizard v2 source plus split S0-S6 execution specs (contract lock, RBAC surface, profile compiler, orchestration/retries, auto-provisioning, health/readiness, status/rollout).
 
 Execution note:
 1. The active wave/parallel branch source of truth is `specs/v1/10-implementation-roadmap.md` section 10.
