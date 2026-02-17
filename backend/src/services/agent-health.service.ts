@@ -2,7 +2,7 @@ import { createHash } from 'crypto'
 import { getElevenLabsClient } from '@/clients/elevenlabs.client'
 import logger from '@/lib/logger'
 import { findById } from '@/repositories/agent.repository'
-import { queueRegistry } from '@/queues'
+import { getQueueRegistry } from '@/queues'
 import { QUEUE_NAMES } from '@/types/queues'
 import {
   AgentExternalType,
@@ -619,30 +619,43 @@ export async function evaluateAgentHealth(
 
   let queuesCheck: AgentHealthCheckResult
   try {
-    const queueCounts = await queueRegistry[
-      QUEUE_NAMES.INTEGRATION_SYNC
-    ].getJobCounts('waiting', 'active', 'delayed')
-    const backlogDepth =
-      Number(queueCounts.waiting || 0) +
-      Number(queueCounts.active || 0) +
-      Number(queueCounts.delayed || 0)
+    const queueRegistry = getQueueRegistry()
+    if (!queueRegistry) {
+      queuesCheck = buildCheck({
+        status: 'degraded',
+        checkedAt,
+        message:
+          'Retry queue health check unavailable: Redis/queues are not initialized.',
+        blocking: false,
+        remediationAction:
+          'Provision Redis and restart services/workers to re-enable retry queues.',
+      })
+    } else {
+      const queueCounts = await queueRegistry[
+        QUEUE_NAMES.INTEGRATION_SYNC
+      ].getJobCounts('waiting', 'active', 'delayed')
+      const backlogDepth =
+        Number(queueCounts.waiting || 0) +
+        Number(queueCounts.active || 0) +
+        Number(queueCounts.delayed || 0)
 
-    queuesCheck =
-      backlogDepth > QUEUE_BACKLOG_WARNING_THRESHOLD
-        ? buildCheck({
-            status: 'degraded',
-            checkedAt,
-            message: `Retry queue backlog is elevated (${backlogDepth} pending jobs).`,
-            blocking: false,
-            remediationAction:
-              'Drain integration sync retries and monitor worker throughput.',
-          })
-        : buildCheck({
-            status: 'ok',
-            checkedAt,
-            message: `Retry queue backlog is within threshold (${backlogDepth} pending jobs).`,
-            blocking: false,
-          })
+      queuesCheck =
+        backlogDepth > QUEUE_BACKLOG_WARNING_THRESHOLD
+          ? buildCheck({
+              status: 'degraded',
+              checkedAt,
+              message: `Retry queue backlog is elevated (${backlogDepth} pending jobs).`,
+              blocking: false,
+              remediationAction:
+                'Drain integration sync retries and monitor worker throughput.',
+            })
+          : buildCheck({
+              status: 'ok',
+              checkedAt,
+              message: `Retry queue backlog is within threshold (${backlogDepth} pending jobs).`,
+              blocking: false,
+            })
+    }
   } catch (error) {
     queuesCheck = buildCheck({
       status: 'degraded',

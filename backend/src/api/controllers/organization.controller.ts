@@ -1,4 +1,3 @@
-import { randomUUID } from 'crypto'
 import { AuthRequestHandler } from '@/types/handlers'
 import { config } from '@/config'
 import { db } from '@/lib/db'
@@ -16,59 +15,7 @@ export const OrganizationOnboardingSchema = z
   })
   .strict()
 
-export const OrganizationProvisioningStatusSchema = z.object({
-  organizationId: z.string().optional(),
-})
-
-export const OrganizationProvisioningRetrySchema = z.object({
-  organizationId: z.string().optional(),
-})
-
 type OrgOnboardingRequest = z.infer<typeof OrganizationOnboardingSchema>
-type OrgProvisioningStatusRequest = z.infer<
-  typeof OrganizationProvisioningStatusSchema
->
-type OrgProvisioningRetryRequest = z.infer<
-  typeof OrganizationProvisioningRetrySchema
->
-
-const getCorrelationId = (headers: Record<string, unknown>): string => {
-  const headerValue = headers['x-correlation-id']
-  if (typeof headerValue === 'string' && headerValue.trim().length > 0) {
-    return headerValue.trim()
-  }
-  return randomUUID()
-}
-
-const getIdempotencyKey = (input: {
-  headers: Record<string, unknown>
-  bodyKey?: string
-}): string => {
-  const fromHeader = input.headers['x-idempotency-key']
-
-  if (typeof fromHeader === 'string' && fromHeader.trim().length > 0) {
-    return fromHeader.trim()
-  }
-
-  if (input.bodyKey && input.bodyKey.trim().length > 0) {
-    return input.bodyKey.trim()
-  }
-
-  return randomUUID()
-}
-
-const sendOnboardingServiceError = (
-  req: Parameters<AuthRequestHandler<any>>[0],
-  res: Parameters<AuthRequestHandler<any>>[1],
-  error: OnboardingProvisioningServiceError,
-) => {
-  return sendApiError(req, res, error.status, {
-    code: error.code,
-    message: error.message,
-    userMessage: error.userMessage,
-    details: error.details,
-  })
-}
 
 const resolveWizardInputFromOnboarding = (
   payload: OrgOnboardingRequest,

@@ -4,8 +4,6 @@ import { getExample } from '@/api/controllers/example.controller'
 import { validateAndMerge } from '@/api/middlewares/validationMiddleware'
 import {
   AgentWebhookSchema,
-  CreateAgentRequestSchema,
-  DeleteAgentRequestSchema,
   CreateTaskRequestSchema,
   GetAgentRequestSchema,
   GetAgentsRequestSchema,
@@ -29,8 +27,6 @@ import { authenticatedRoute, validatedRoute } from './utils'
 import {
   getAgent,
   getAgents,
-  createAgent,
-  deleteAgent,
   agentWebhook,
   createTask,
   getTasks,
@@ -90,16 +86,6 @@ router.get(
   authenticatedRoute(getAgents),
 )
 
-router.post(
-  '/:organizationId',
-  validateAndMerge(CreateAgentRequestSchema),
-  validateMemberOfOrganizationIsOrAdmin([
-    OrganizationRole.ADMIN,
-    OrganizationRole.OWNER,
-  ]),
-  authenticatedRoute(createAgent),
-)
-
 router.get(
   '/:organizationId/:id',
   validateAndMerge(GetAgentRequestSchema),
@@ -154,15 +140,53 @@ router.patch(
 
 // Delete agent
 router.delete(
-  '/:organizationId/:id',
-  validateAndMerge(DeleteAgentRequestSchema),
+  '/:organizationId/:id/delete-agent',
+  validateAndMerge(DeleteElevenLabsAgentSchema),
   validateMemberOfOrganizationIsOrAdmin([
     OrganizationRole.ADMIN,
     OrganizationRole.OWNER,
   ]),
-  authenticatedRoute(deleteAgent),
+  authenticatedRoute(deleteElevenLabsAgent),
 )
 
+// Get full ElevenLabs config
+router.get(
+  '/:organizationId/:id/config',
+  validateAndMerge(GetAgentConfigSchema),
+  validateMemberOfOrganizationIsOrAdmin([
+    OrganizationRole.ADMIN,
+    OrganizationRole.OWNER,
+  ]),
+  authenticatedRoute(getAgentConfig),
+)
+
+// Agent analytics (admin only)
+router.get(
+  '/:organizationId/:id/analytics',
+  validateAndMerge(GetAgentAnalyticsSchema),
+  validateMemberOfOrganizationIsOrAdmin([OrganizationRole.ADMIN]),
+  authenticatedRoute(getAgentAnalytics),
+)
+
+// Agent conversations
+router.get(
+  '/:organizationId/:id/conversations',
+  validateAndMerge(GetAgentConversationsSchema),
+  validateMemberOfOrganizationIsOrAdmin([
+    OrganizationRole.ADMIN,
+    OrganizationRole.OWNER,
+  ]),
+  authenticatedRoute(getAgentConversations),
+)
+
+router.get(
+  '/:organizationId/:id/health',
+  validateAndMerge(GetAgentHealthSchema),
+  validateMemberOfOrganizationOrAdmin,
+  authenticatedRoute(getAgentHealth),
+)
+
+// ===== Task (Service) CRUD =====
 router.post(
   '/:organizationId/task',
   validateAndMerge(CreateTaskRequestSchema),
@@ -219,35 +243,6 @@ router.put(
     OrganizationRole.OWNER,
   ]),
   authenticatedRoute(updateAgentMcpConfig),
-)
-
-// ===== Agent Config, Health, Analytics, Conversations =====
-router.get(
-  '/:organizationId/:id/config',
-  validateAndMerge(GetAgentConfigSchema),
-  validateMemberOfOrganizationOrAdmin,
-  authenticatedRoute(getAgentConfig),
-)
-
-router.get(
-  '/:organizationId/:id/health',
-  validateAndMerge(GetAgentHealthSchema),
-  validateMemberOfOrganizationOrAdmin,
-  authenticatedRoute(getAgentHealth),
-)
-
-router.get(
-  '/:organizationId/:id/analytics',
-  validateAndMerge(GetAgentAnalyticsSchema),
-  validateMemberOfOrganizationOrAdmin,
-  authenticatedRoute(getAgentAnalytics),
-)
-
-router.get(
-  '/:organizationId/:id/conversations',
-  validateAndMerge(GetAgentConversationsSchema),
-  validateMemberOfOrganizationOrAdmin,
-  authenticatedRoute(getAgentConversations),
 )
 
 export default router
