@@ -16,8 +16,11 @@ export type AgentExternalType =
 export const Industry = {
   PEST_CONTROL: 'pest_control',
   HVAC: 'hvac',
+  PLUMBING: 'plumbing',
   ROOFING: 'roofing',
   ELECTRICAL: 'electrical',
+  FIRE_SAFETY: 'fire_safety',
+  GARAGE_DOORS: 'garage_doors',
   CLEANING_SERVICES: 'cleaning_services',
 } as const
 export type Industry = (typeof Industry)[keyof typeof Industry]

@@ -43,7 +43,12 @@ import { buildElevenLabsUpdatePayload as buildElevenLabsPayload } from '@/servic
 let voicesCache: { data: any; timestamp: number } | null = null
 const VOICE_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 const CURATED_VOICE_LIMIT = 30
-const CURATED_VOICE_CATEGORIES = new Set(['premade', 'professional'])
+const CURATED_VOICE_CATEGORIES = new Set([
+  'premade',
+  'professional',
+  'cloned',
+  'generated',
+])
 const CURATED_VOICE_ALLOWLIST = (
   process.env.ELEVEN_LABS_CURATED_VOICE_IDS || ''
 )

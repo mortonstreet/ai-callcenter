@@ -1,5 +1,11 @@
 import { workerRuntime } from '@/queues/workers'
 import logger from '@/lib/logger'
+import { config } from '@/config'
+import { initElevenLabsClient } from '@/clients/elevenlabs.client'
+
+if (config.elevenLabs.apiKey) {
+  initElevenLabsClient(config.elevenLabs.apiKey)
+}
 
 const startWorker = async () => {
   await workerRuntime.start()
