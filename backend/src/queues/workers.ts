@@ -501,7 +501,9 @@ export class WorkerRuntime {
     const result = await processQueuedIntegrationSyncJob({
       integrationJobId,
       organizationId,
-      provider: provider as Parameters<typeof processQueuedIntegrationSyncJob>[0]['provider'],
+      provider: provider as Parameters<
+        typeof processQueuedIntegrationSyncJob
+      >[0]['provider'],
       direction,
       correlationId:
         typeof job.data.correlationId === 'string'

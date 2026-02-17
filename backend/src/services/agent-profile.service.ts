@@ -574,8 +574,12 @@ const buildAgentProfileFromAssets = (): AgentProfileV1 => {
     true,
   )
 
-  const workflowRequestTypes = extractWorkflowRequestTypes(workflowAsset.content)
-  const requiredDiscoveryFields = extractCollectIntakeFields(workflowAsset.content)
+  const workflowRequestTypes = extractWorkflowRequestTypes(
+    workflowAsset.content,
+  )
+  const requiredDiscoveryFields = extractCollectIntakeFields(
+    workflowAsset.content,
+  )
 
   const enabledSystemTools = extractEnabledSystemTools(coreTabsAsset.content)
 
@@ -620,7 +624,11 @@ const buildAgentProfileFromAssets = (): AgentProfileV1 => {
     10,
   )
 
-  const dailyCap = extractNumber(coreTabsAsset.content, /daily_cap:\s*([0-9]+)/, 1000)
+  const dailyCap = extractNumber(
+    coreTabsAsset.content,
+    /daily_cap:\s*([0-9]+)/,
+    1000,
+  )
 
   const maxDurationSeconds = extractNumber(
     coreTabsAsset.content,
@@ -803,12 +811,16 @@ export const resolveVoiceSelection = (params: {
 }): ResolvedVoiceConfig => {
   const profile = params.profile || getAgentProfileV1()
 
-  const curatedVoiceIds = profile.voice.curatedCatalog.map((voice) => voice.voiceId)
+  const curatedVoiceIds = profile.voice.curatedCatalog.map(
+    (voice) => voice.voiceId,
+  )
   const curatedVoiceSet = new Set(curatedVoiceIds)
 
   const availableVoiceSet = params.availableVoiceIds?.length
     ? new Set(
-        params.availableVoiceIds.filter((voiceId) => curatedVoiceSet.has(voiceId)),
+        params.availableVoiceIds.filter((voiceId) =>
+          curatedVoiceSet.has(voiceId),
+        ),
       )
     : null
 
@@ -1130,7 +1142,8 @@ export const agentProfileV1 = {
     mcpApprovalPolicy: profile.defaults.tools.approvalPolicy,
   },
   security: {
-    postCallWebhookUrl: 'https://api.revcenter.ai/webhooks/elevenlabs/post-call',
+    postCallWebhookUrl:
+      'https://api.revcenter.ai/webhooks/elevenlabs/post-call',
     webhookEvents: ['post_call_transcription', 'post_call_audio'],
     authTokenEnabled: profile.defaults.security.authTokenEnabled,
     allowedOrigins: profile.defaults.security.allowedOrigins,

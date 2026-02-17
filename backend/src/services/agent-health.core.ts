@@ -32,7 +32,9 @@ export const getActivationDeniedChecks = (
   checks: AgentHealthChecks,
 ): AgentHealthCheckName[] => {
   return toEntries(checks)
-    .filter(([, check]) => check.blocking && isFailingHealthCheckStatus(check.status))
+    .filter(
+      ([, check]) => check.blocking && isFailingHealthCheckStatus(check.status),
+    )
     .map(([checkName]) => checkName)
 }
 
@@ -54,11 +56,12 @@ export const resolveAgentHealthStatus = (
     return 'blocked'
   }
 
-  const hasNonOkCheck = toEntries(checks).some(([, check]) => check.status !== 'ok')
+  const hasNonOkCheck = toEntries(checks).some(
+    ([, check]) => check.status !== 'ok',
+  )
   if (hasNonOkCheck) {
     return 'degraded'
   }
 
   return 'healthy'
 }
-

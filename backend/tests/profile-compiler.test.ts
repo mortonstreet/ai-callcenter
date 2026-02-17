@@ -14,7 +14,8 @@ const buildIntent = () =>
     agentName: 'Northside Dispatch',
     industry: 'hvac',
     useCase: 'customer_support',
-    mainObjective: 'Book urgent service calls and collect complete intake data.',
+    mainObjective:
+      'Book urgent service calls and collect complete intake data.',
     services: ['AC repair', 'Heating repair'],
     discoveryQuestions: [
       'What is the service address?',

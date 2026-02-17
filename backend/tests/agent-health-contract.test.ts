@@ -143,4 +143,3 @@ test('AgentHealthResponseSchema rejects missing per-check blocking flag', () => 
 
   assert.throws(() => AgentHealthResponseSchema.parse(invalidPayload))
 })
-

@@ -126,11 +126,10 @@ type AgentRecord = {
   promptProfileVersion: string | null
 }
 
-type ProvisioningJobRecord = Awaited<
-  ReturnType<typeof findAgentProvisioningJobById>
-> extends infer T
-  ? NonNullable<T>
-  : never
+type ProvisioningJobRecord =
+  Awaited<ReturnType<typeof findAgentProvisioningJobById>> extends infer T
+    ? NonNullable<T>
+    : never
 
 type ProvisioningStepRecord = Awaited<
   ReturnType<typeof listAgentProvisioningSteps>
@@ -435,7 +434,9 @@ const assertOrganizationAccess = async (input: {
 const loadProvisioningSnapshot = async (jobId: string) => {
   const job = await findAgentProvisioningJobById(jobId)
   if (!job) {
-    throw new ProvisioningNotFoundError(`Provisioning job ${jobId} was not found.`)
+    throw new ProvisioningNotFoundError(
+      `Provisioning job ${jobId} was not found.`,
+    )
   }
 
   const [organization, steps] = await Promise.all([
@@ -525,11 +526,13 @@ const resolveLastError = (input: {
   steps: ProvisioningStepRecord[]
   fallbackOccurredAt: string
 }): ProvisioningLastError | null => {
-  const failedStep = input.steps.find((step) => step.status === 'failed') || null
+  const failedStep =
+    input.steps.find((step) => step.status === 'failed') || null
   const errorCode =
     asString(input.job.lastErrorCode) || asString(failedStep?.lastErrorCode)
   const errorMessage =
-    asString(input.job.lastErrorMessage) || asString(failedStep?.lastErrorMessage)
+    asString(input.job.lastErrorMessage) ||
+    asString(failedStep?.lastErrorMessage)
 
   if (!errorCode && !errorMessage) {
     return null
@@ -673,7 +676,9 @@ export const retryProvisioningJobById = async (input: {
     requireRetryRole: true,
   })
 
-  const correlationId = resolveCorrelationId(asString(snapshot.job.correlationId))
+  const correlationId = resolveCorrelationId(
+    asString(snapshot.job.correlationId),
+  )
 
   try {
     await retryProvisioningOrchestrationJob({

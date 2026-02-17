@@ -16,9 +16,7 @@ import {
   WizardIntentProfileV1Schema,
 } from '@shared/types/src'
 import { createAgent } from '@/repositories/agent.repository'
-import {
-  AGENT_PROVISIONING_ORCHESTRATOR_JOB_NAME,
-} from '@/services/provisioning-orchestrator.service'
+import { AGENT_PROVISIONING_ORCHESTRATOR_JOB_NAME } from '@/services/provisioning-orchestrator.service'
 import {
   createAgentProvisioningJob,
   createAgentProvisioningSteps,
@@ -109,9 +107,7 @@ const buildWizardIntentProfile = (wizardInput: WizardInputV2) => {
 }
 
 const buildProfileHash = (profile: WizardIntentProfileV1) => {
-  return createHash('sha256')
-    .update(stableJsonStringify(profile))
-    .digest('hex')
+  return createHash('sha256').update(stableJsonStringify(profile)).digest('hex')
 }
 
 const normalizeIdempotencyKey = (

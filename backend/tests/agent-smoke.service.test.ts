@@ -42,7 +42,9 @@ test('runAgentSmokeTestBundle skips webhook signature call in runtime mode', asy
 
   ;(globalThis as { fetch: typeof fetch }).fetch = async () => {
     fetchCalls += 1
-    throw new Error('runtime mode should not call fetch for webhook signature scenario')
+    throw new Error(
+      'runtime mode should not call fetch for webhook signature scenario',
+    )
   }
 
   try {
@@ -54,10 +56,7 @@ test('runAgentSmokeTestBundle skips webhook signature call in runtime mode', asy
     assert.equal(fetchCalls, 0)
     assert.equal(result.status, 'ok')
     assert.equal(webhookScenario?.status, 'passed')
-    assert.match(
-      webhookScenario?.message || '',
-      /skipped in runtime mode/i,
-    )
+    assert.match(webhookScenario?.message || '', /skipped in runtime mode/i)
   } finally {
     ;(globalThis as { fetch: typeof fetch }).fetch = originalFetch
   }

@@ -48,8 +48,7 @@ export const PROVISIONING_STEP_STATUSES = [
   'skipped',
 ] as const
 
-export type ProvisioningStepStatus =
-  (typeof PROVISIONING_STEP_STATUSES)[number]
+export type ProvisioningStepStatus = (typeof PROVISIONING_STEP_STATUSES)[number]
 
 export const PROVISIONING_STEP_DEFINITIONS = [
   {
@@ -94,12 +93,7 @@ export type ProvisioningStepId =
   (typeof PROVISIONING_STEP_DEFINITIONS)[number]['stepId']
 
 interface ProvisioningStepEvent {
-  type:
-    | 'queued'
-    | 'running'
-    | 'completed'
-    | 'failed'
-    | 'retry_requested'
+  type: 'queued' | 'running' | 'completed' | 'failed' | 'retry_requested'
   at: string
   attempt: number
   correlationId: string
@@ -242,8 +236,7 @@ class ProvisioningStepError extends Error {
     this.name = 'ProvisioningStepError'
     this.code = input.code
     this.recoverable = input.recoverable
-    this.manualInterventionRequired =
-      input.manualInterventionRequired === true
+    this.manualInterventionRequired = input.manualInterventionRequired === true
   }
 }
 
@@ -404,9 +397,7 @@ const normalizeWizardInput = (
       services: normalizeStringArray(raw.services),
       useCase: normalizeString(raw.useCase) || 'customer_support',
       website:
-        normalizeString(raw.website) ||
-        websiteFromKnowledgeSource ||
-        null,
+        normalizeString(raw.website) || websiteFromKnowledgeSource || null,
       mainGoal:
         normalizeString(raw.mainObjective) ||
         normalizeString(raw.mainGoal) ||
@@ -637,7 +628,9 @@ const updateOrganizationProvisioningMetadata = async (input: {
     normalizeString(lifecycle.lifecycleStatus) ||
     'provisioning_pending'
   const planType =
-    normalizeString(metadata.planType) || normalizeString(lifecycle.planType) || 'paid'
+    normalizeString(metadata.planType) ||
+    normalizeString(lifecycle.planType) ||
+    'paid'
 
   const provisioningStatus = toOrganizationProvisioningStatus(input.status)
   const lifecycleStatus = deriveLifecycleStatus({
@@ -876,7 +869,10 @@ const executeStep = async (input: {
     }
 
     case 'register_and_run_smoke_tests': {
-      const agent = await findAgentById(input.job.agentId, input.job.organizationId)
+      const agent = await findAgentById(
+        input.job.agentId,
+        input.job.organizationId,
+      )
       if (
         agent.externalType !== AgentExternalType.ELEVEN_LABS ||
         agent.syncPending ||
@@ -956,7 +952,9 @@ const getJobSnapshot = async (
   }
 }
 
-const findFailedStepId = async (jobId: string): Promise<ProvisioningStepId | null> => {
+const findFailedStepId = async (
+  jobId: string,
+): Promise<ProvisioningStepId | null> => {
   const steps = await listAgentProvisioningSteps(jobId)
   const failedStep = steps.find((step) => step.status === 'failed')
   if (!failedStep) return null
@@ -1274,7 +1272,9 @@ export const processProvisioningOrchestrationJob = async (
     normalizeString(job.correlationId) ||
     randomUUID()
 
-  const wizardInput = normalizeWizardInput(job.wizardInput as WizardOnboardingInput)
+  const wizardInput = normalizeWizardInput(
+    job.wizardInput as WizardOnboardingInput,
+  )
   const organization = await db
     .selectFrom('organization')
     .where('id', '=', job.organizationId)
@@ -1439,11 +1439,12 @@ export const processProvisioningOrchestrationJob = async (
         stepMap.set(definition.stepId, failedStep)
       }
 
-      const nextStatus: ProvisioningJobStatus = failure.manualInterventionRequired
-        ? 'blocked_manual'
-        : failure.recoverable
-          ? 'retrying'
-          : 'failed'
+      const nextStatus: ProvisioningJobStatus =
+        failure.manualInterventionRequired
+          ? 'blocked_manual'
+          : failure.recoverable
+            ? 'retrying'
+            : 'failed'
 
       const shouldComplete =
         nextStatus === 'failed' || nextStatus === 'blocked_manual'
@@ -1610,7 +1611,10 @@ export const retryProvisioningJob = async (input: {
   const failedStepId = await findFailedStepId(existing.id)
 
   if (failedStepId) {
-    const failedStep = await findAgentProvisioningStep(existing.id, failedStepId)
+    const failedStep = await findAgentProvisioningStep(
+      existing.id,
+      failedStepId,
+    )
     if (failedStep) {
       await updateAgentProvisioningStepByStepId(existing.id, failedStepId, {
         status: 'pending',
@@ -1666,7 +1670,9 @@ export const retryProvisioningJob = async (input: {
 
   const snapshot = await getJobSnapshot(existing.id)
   if (!snapshot) {
-    throw new Error(`Provisioning job ${existing.id} missing after retry enqueue`)
+    throw new Error(
+      `Provisioning job ${existing.id} missing after retry enqueue`,
+    )
   }
 
   return snapshot
