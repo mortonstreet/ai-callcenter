@@ -212,16 +212,6 @@ export const updateAgent = async (
     .executeTakeFirstOrThrow()
 }
 
-// Delete agent
-export const deleteAgent = async (id: string, organizationId: string) => {
-  return await db
-    .deleteFrom('agent')
-    .where('id', '=', id)
-    .where('organizationId', '=', organizationId)
-    .returningAll()
-    .executeTakeFirstOrThrow()
-}
-
 // Get recording aggregates for analytics
 export const getRecordingAggregates = async (
   organizationId: string,

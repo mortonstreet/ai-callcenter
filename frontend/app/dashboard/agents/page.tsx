@@ -17,17 +17,6 @@ export default function AgentsPage() {
     <Page
       title="Agents"
       subtitle="Your AI agents"
-      actions={
-        isAdminOrOwner ? (
-          <button
-            onClick={() => setShowWizard(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#1b191a] px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#2d2a2b] hover:shadow-md active:scale-[0.98]"
-          >
-            <Plus className="h-4 w-4" />
-            New Agent
-          </button>
-        ) : undefined
-      }
     >
       <div className="space-y-4">
         {isAdminOrOwner && (
