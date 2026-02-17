@@ -75,7 +75,9 @@ const resolvePrompt = (
 
   return (
     asTrimmedString(promptConfig.prompt) ||
-    asTrimmedString((providerConfig as Record<string, unknown>).system_prompt) ||
+    asTrimmedString(
+      (providerConfig as Record<string, unknown>).system_prompt,
+    ) ||
     asTrimmedString(fallback)
   )
 }
@@ -93,12 +95,16 @@ const resolveGreeting = (
 
   return (
     asTrimmedString(agentConfig.first_message) ||
-    asTrimmedString((providerConfig as Record<string, unknown>).first_message) ||
+    asTrimmedString(
+      (providerConfig as Record<string, unknown>).first_message,
+    ) ||
     asTrimmedString(fallback)
   )
 }
 
-const resolveTools = (providerConfig: Record<string, unknown> | null): unknown[] => {
+const resolveTools = (
+  providerConfig: Record<string, unknown> | null,
+): unknown[] => {
   if (!providerConfig) {
     return []
   }
@@ -135,7 +141,9 @@ const resolveWorkflowNodes = (
     return []
   }
 
-  const workflow = asRecord((providerConfig as Record<string, unknown>).workflow)
+  const workflow = asRecord(
+    (providerConfig as Record<string, unknown>).workflow,
+  )
   const workflowNodes = asArray<Record<string, unknown>>(workflow.nodes)
   if (workflowNodes.length > 0) {
     return workflowNodes
@@ -143,7 +151,9 @@ const resolveWorkflowNodes = (
 
   const conversationConfig = asRecord(providerConfig.conversation_config)
   const conversationWorkflow = asRecord(conversationConfig.workflow)
-  const conversationNodes = asArray<Record<string, unknown>>(conversationWorkflow.nodes)
+  const conversationNodes = asArray<Record<string, unknown>>(
+    conversationWorkflow.nodes,
+  )
   if (conversationNodes.length > 0) {
     return conversationNodes
   }
@@ -160,8 +170,13 @@ const resolveWorkflowHasFallbackRoute = (
     return false
   }
 
-  const workflow = asRecord((providerConfig as Record<string, unknown>).workflow)
-  if (typeof workflow.fallback_node === 'string' && workflow.fallback_node.trim()) {
+  const workflow = asRecord(
+    (providerConfig as Record<string, unknown>).workflow,
+  )
+  if (
+    typeof workflow.fallback_node === 'string' &&
+    workflow.fallback_node.trim()
+  ) {
     return true
   }
 
@@ -188,7 +203,9 @@ const resolveWebhookUrl = (
     return platformWebhookUrl
   }
 
-  const providerWebhooks = asRecord((providerConfig as Record<string, unknown>).webhooks)
+  const providerWebhooks = asRecord(
+    (providerConfig as Record<string, unknown>).webhooks,
+  )
   const providerWebhookUrl = asTrimmedString(providerWebhooks.post_call_url)
   if (providerWebhookUrl) {
     return providerWebhookUrl
@@ -290,10 +307,15 @@ export const runAgentSmokeTestBundle = async (
   const prompt = resolvePrompt(input.providerConfig, input.promptOverride)
   const greeting = resolveGreeting(input.providerConfig, input.greetingOverride)
   const workflowNodes = resolveWorkflowNodes(input.providerConfig)
-  const hasWorkflowFallback = resolveWorkflowHasFallbackRoute(input.providerConfig)
+  const hasWorkflowFallback = resolveWorkflowHasFallbackRoute(
+    input.providerConfig,
+  )
   const tools = resolveTools(input.providerConfig)
   const knowledgeSources = resolveKnowledgeSources(input.providerConfig)
-  const webhookUrl = resolveWebhookUrl(input.providerConfig, input.webhookUrlOverride)
+  const webhookUrl = resolveWebhookUrl(
+    input.providerConfig,
+    input.webhookUrlOverride,
+  )
 
   const scenarios: SmokeScenarioResult[] = []
 
@@ -316,7 +338,8 @@ export const runAgentSmokeTestBundle = async (
 
   const hasWorkflowSignal =
     (workflowNodes.length > 0 && hasWorkflowFallback) ||
-    (Boolean(input.agent.useCase) && /fallback|handoff|transfer|escalat/i.test(prompt))
+    (Boolean(input.agent.useCase) &&
+      /fallback|handoff|transfer|escalat/i.test(prompt))
   scenarios.push({
     id: 'intent_routing_sample_scenarios',
     name: 'Intent routing sample scenarios',
@@ -332,7 +355,9 @@ export const runAgentSmokeTestBundle = async (
 
   const malformedToolCount = tools.filter((tool) => {
     const parsedTool = asRecord(tool)
-    return !asTrimmedString(parsedTool.name) && !asTrimmedString(parsedTool.type)
+    return (
+      !asTrimmedString(parsedTool.name) && !asTrimmedString(parsedTool.type)
+    )
   }).length
   const toolsDryRunPassed = tools.length > 0 && malformedToolCount === 0
   scenarios.push({

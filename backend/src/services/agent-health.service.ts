@@ -70,7 +70,9 @@ const resolvePrompt = (
 
   return (
     asTrimmedString(promptConfig.prompt) ||
-    asTrimmedString((providerConfig as Record<string, unknown>).system_prompt) ||
+    asTrimmedString(
+      (providerConfig as Record<string, unknown>).system_prompt,
+    ) ||
     asTrimmedString(fallback)
   )
 }
@@ -88,7 +90,9 @@ const resolveGreeting = (
 
   return (
     asTrimmedString(agentConfig.first_message) ||
-    asTrimmedString((providerConfig as Record<string, unknown>).first_message) ||
+    asTrimmedString(
+      (providerConfig as Record<string, unknown>).first_message,
+    ) ||
     asTrimmedString(fallback)
   )
 }
@@ -100,7 +104,9 @@ const resolveWorkflowNodes = (
     return []
   }
 
-  const workflow = asRecord((providerConfig as Record<string, unknown>).workflow)
+  const workflow = asRecord(
+    (providerConfig as Record<string, unknown>).workflow,
+  )
   const workflowNodes = asArray<Record<string, unknown>>(workflow.nodes)
   if (workflowNodes.length > 0) {
     return workflowNodes
@@ -108,7 +114,9 @@ const resolveWorkflowNodes = (
 
   const conversationConfig = asRecord(providerConfig.conversation_config)
   const conversationWorkflow = asRecord(conversationConfig.workflow)
-  const conversationNodes = asArray<Record<string, unknown>>(conversationWorkflow.nodes)
+  const conversationNodes = asArray<Record<string, unknown>>(
+    conversationWorkflow.nodes,
+  )
   if (conversationNodes.length > 0) {
     return conversationNodes
   }
@@ -125,7 +133,9 @@ const hasExplicitWorkflowConfig = (
     return false
   }
 
-  const workflow = asRecord((providerConfig as Record<string, unknown>).workflow)
+  const workflow = asRecord(
+    (providerConfig as Record<string, unknown>).workflow,
+  )
   if (Object.keys(workflow).length > 0) {
     return true
   }
@@ -148,8 +158,13 @@ const resolveWorkflowHasFallbackRoute = (
     return false
   }
 
-  const workflow = asRecord((providerConfig as Record<string, unknown>).workflow)
-  if (typeof workflow.fallback_node === 'string' && workflow.fallback_node.trim()) {
+  const workflow = asRecord(
+    (providerConfig as Record<string, unknown>).workflow,
+  )
+  if (
+    typeof workflow.fallback_node === 'string' &&
+    workflow.fallback_node.trim()
+  ) {
     return true
   }
 
@@ -179,7 +194,9 @@ const resolveKnowledgeSources = (
   return asArray((providerConfig as Record<string, unknown>).knowledge_base)
 }
 
-const resolveTools = (providerConfig: Record<string, unknown> | null): unknown[] => {
+const resolveTools = (
+  providerConfig: Record<string, unknown> | null,
+): unknown[] => {
   if (!providerConfig) {
     return []
   }
@@ -204,7 +221,9 @@ const resolveWebhookUrl = (
     return platformWebhookUrl
   }
 
-  const providerWebhooks = asRecord((providerConfig as Record<string, unknown>).webhooks)
+  const providerWebhooks = asRecord(
+    (providerConfig as Record<string, unknown>).webhooks,
+  )
   return asTrimmedString(providerWebhooks.post_call_url)
 }
 
@@ -424,7 +443,8 @@ export async function evaluateAgentHealth(
     workflowCheck = buildCheck({
       status: 'degraded',
       checkedAt,
-      message: 'Workflow graph cannot be validated while provider is unavailable.',
+      message:
+        'Workflow graph cannot be validated while provider is unavailable.',
       blocking: true,
       remediationAction: 'Retry provider sync and re-validate workflow graph.',
     })
@@ -441,7 +461,8 @@ export async function evaluateAgentHealth(
       checkedAt,
       message: 'Workflow validation failed: no fallback route detected.',
       blocking: true,
-      remediationAction: 'Add canonical fallback/handoff route to workflow graph.',
+      remediationAction:
+        'Add canonical fallback/handoff route to workflow graph.',
     })
   } else if (explicitWorkflowConfig) {
     workflowCheck = buildCheck({
@@ -458,7 +479,8 @@ export async function evaluateAgentHealth(
       message:
         'Workflow graph is not exposed by provider response; full route validation deferred.',
       blocking: true,
-      remediationAction: 'Ensure provisioning applies canonical workflow graph.',
+      remediationAction:
+        'Ensure provisioning applies canonical workflow graph.',
     })
   }
 
@@ -499,10 +521,13 @@ export async function evaluateAgentHealth(
       checkedAt,
       message: 'No baseline tools configured and MCP endpoint is missing.',
       blocking: false,
-      remediationAction: 'Enable baseline tools or configure MCP endpoint and API key.',
+      remediationAction:
+        'Enable baseline tools or configure MCP endpoint and API key.',
     })
   } else if (agent.mcpEndpointUrl) {
-    const mcpReachability = await checkEndpointReachability(agent.mcpEndpointUrl)
+    const mcpReachability = await checkEndpointReachability(
+      agent.mcpEndpointUrl,
+    )
     if (!mcpReachability.reachable) {
       toolsMcpCheck = buildCheck({
         status: 'failed',
@@ -545,7 +570,8 @@ export async function evaluateAgentHealth(
     webhookCheck = buildCheck({
       status: 'failed',
       checkedAt,
-      message: 'Webhook check failed: webhook URL or signing secret is missing.',
+      message:
+        'Webhook check failed: webhook URL or signing secret is missing.',
       blocking: true,
       remediationAction:
         'Configure post-call webhook URL and webhook secret before activation.',
@@ -593,11 +619,9 @@ export async function evaluateAgentHealth(
 
   let queuesCheck: AgentHealthCheckResult
   try {
-    const queueCounts = await queueRegistry[QUEUE_NAMES.INTEGRATION_SYNC].getJobCounts(
-      'waiting',
-      'active',
-      'delayed',
-    )
+    const queueCounts = await queueRegistry[
+      QUEUE_NAMES.INTEGRATION_SYNC
+    ].getJobCounts('waiting', 'active', 'delayed')
     const backlogDepth =
       Number(queueCounts.waiting || 0) +
       Number(queueCounts.active || 0) +
@@ -661,22 +685,26 @@ export async function evaluateAgentHealth(
               enabled: true,
               reason: 'readiness_blocked' as const,
             }
-        : status !== 'healthy'
-          ? {
-              enabled: true,
-              reason: 'readiness_checks_failed' as const,
-            }
-          : {
-              enabled: false,
-              reason: null,
-            }
+          : status !== 'healthy'
+            ? {
+                enabled: true,
+                reason: 'readiness_checks_failed' as const,
+              }
+            : {
+                enabled: false,
+                reason: null,
+              }
 
   return {
     agentId: agent.id,
     organizationId: agent.organizationId,
     status,
     readinessStatus:
-      status === 'healthy' ? 'ready' : status === 'blocked' ? 'blocked' : 'degraded',
+      status === 'healthy'
+        ? 'ready'
+        : status === 'blocked'
+          ? 'blocked'
+          : 'degraded',
     degradedMode,
     activation,
     checks,

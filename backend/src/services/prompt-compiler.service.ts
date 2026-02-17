@@ -124,13 +124,13 @@ const buildBaseTemplateReplacements = (
         : 'General caller support and routing',
     service_area_policy:
       'Handle supported service areas only and escalate unsupported locations.',
-    hours_policy:
-      intentProfile.routing.businessTimezone
-        ? `Operate using ${intentProfile.routing.businessTimezone} business hours.`
-        : 'Operate using configured business hours and dispatch policies.',
+    hours_policy: intentProfile.routing.businessTimezone
+      ? `Operate using ${intentProfile.routing.businessTimezone} business hours.`
+      : 'Operate using configured business hours and dispatch policies.',
     language_policy: `Primary language policy: ${languages}.`,
     safety_trigger_1: 'Any immediate safety hazard or life-critical concern',
-    safety_trigger_2: 'Caller reports fire, gas, electrical, or structural danger',
+    safety_trigger_2:
+      'Caller reports fire, gas, electrical, or structural danger',
     safety_trigger_3: 'Caller requests urgent emergency escalation',
     emergency_escalation_target:
       intentProfile.routing.transferNumber || 'live dispatch team',
@@ -138,8 +138,7 @@ const buildBaseTemplateReplacements = (
       workflowIntentDirectives[0]?.id || 'routine_repair_or_service_booking',
     workflow_node_1:
       workflowIntentDirectives[0]?.entryNode || 'collect_service_intake',
-    intent_2:
-      workflowIntentDirectives[1]?.id || 'pricing_quote_plan_inquiry',
+    intent_2: workflowIntentDirectives[1]?.id || 'pricing_quote_plan_inquiry',
     workflow_node_2:
       workflowIntentDirectives[1]?.entryNode || 'pricing_quote_information',
     intent_3: workflowIntentDirectives[2]?.id || 'human_handoff_request',
@@ -219,9 +218,9 @@ const buildFragments = (
     },
   }
 
-  const orderedFragments = SECTION_ORDER.map(({ id }) => fragmentsById[id]).filter(
-    Boolean,
-  )
+  const orderedFragments = SECTION_ORDER.map(
+    ({ id }) => fragmentsById[id],
+  ).filter(Boolean)
 
   return [
     {

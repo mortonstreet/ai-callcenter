@@ -7,7 +7,9 @@ import {
 } from '../src/services/agent-health.core'
 
 const buildChecks = (
-  overrides: Partial<Record<keyof AgentHealthChecks, AgentHealthChecks[keyof AgentHealthChecks]>>,
+  overrides: Partial<
+    Record<keyof AgentHealthChecks, AgentHealthChecks[keyof AgentHealthChecks]>
+  >,
 ): AgentHealthChecks => {
   const baseCheck = {
     status: 'ok' as const,
@@ -94,4 +96,3 @@ test('resolveAgentHealthStatus returns healthy when all checks pass', () => {
   assert.equal(activation.allowed, true)
   assert.deepEqual(activation.deniedBy, [])
 })
-
