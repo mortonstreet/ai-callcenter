@@ -1,11 +1,13 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { Page } from "@/components/dashboard/Page";
-import { use } from "react";
-import { Bot, ArrowLeft, Loader2, Edit2, Plus, Trash2 } from "lucide-react";
+import { use, useState } from "react";
+import { Bot, ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useAgent, useTasks, useUpdateTask, useDeleteTask } from "@/hooks/api/useAgent";
+import { useAgent, useTasks, useUpdateTask, useDeleteTask, useDeleteAgent } from "@/hooks/api/useAgent";
+import { useRouter } from "next/navigation";
+import Modal from "@/components/ui/Modal";
+import Button from "@/components/ui/Button";
 import { AgentExternalType, TaskFieldRequest, TaskFieldType } from "@/lib/shared-types";
 import { ElevenLabsConversation } from "@/components/agent/ElevenLabsConversation";
 import { CreateTaskForm } from "@/components/agent/CreateTaskForm";
@@ -38,81 +40,37 @@ const FIELD_TYPE_OPTIONS = [
   { value: TaskFieldType.DATE_TIME, label: "Date and Time" },
 ];
 
-function TaskCard({ task, fields, agentId, isEditing, onEdit, onCancel, onUpdate, onDelete, isAdminOrOwner }: TaskCardProps) {
-  const updateTaskMutation = useUpdateTask();
-  const deleteTaskMutation = useDeleteTask();
-  const { data: membersData } = useListOrganizationMembers();
-  const members = membersData?.data?.members || [];
-  const [name, setName] = useState(task.name);
-  const [description, setDescription] = useState(task.description || "");
-  const [dispatcherUserId, setDispatcherUserId] = useState<string>(task.dispatcherUserId || "");
-  const [taskFields, setTaskFields] = useState<TaskFieldRequest[]>(
-    fields.map(f => ({ 
-      name: f.name, 
-      type: f.type as TaskFieldType, 
-      description: f.description 
-    }))
-  );
+const ADMIN_TABS = [
+  { key: "agent", label: "Agent" },
+  { key: "analysis", label: "Analysis" },
+  { key: "knowledge", label: "Knowledge Base" },
+  { key: "tools", label: "Tools" },
+  { key: "advanced", label: "Advanced" },
+  { key: "test", label: "Test" },
+];
 
-  const addField = () => {
-    setTaskFields([...taskFields, { name: "", type: TaskFieldType.STRING, description: "" }]);
-  };
+export default function AgentPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const router = useRouter();
+  const { data: agent, isLoading, error } = useAgent(id);
+  const { data: agentConfig } = useAgentConfig(id);
+  const { data: health, isLoading: healthLoading } = useAgentHealth(id);
+  const isAdminOrOwner = useIsAdminOrOwner();
+  const deleteAgent = useDeleteElevenLabsAgent();
+  const [activeTab, setActiveTab] = useState("agent");
 
-  const removeField = (index: number) => {
-    setTaskFields(taskFields.filter((_, i) => i !== index));
-  };
-
-  const updateField = (index: number, updates: Partial<TaskFieldRequest>) => {
-    const newFields = [...taskFields];
-    newFields[index] = { ...newFields[index], ...updates };
-    setTaskFields(newFields);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!name.trim()) {
-      toast.error("Task name is required");
-      return;
-    }
-
-    const validFields = taskFields.filter(f => f.name.trim());
-    if (validFields.length === 0) {
-      toast.error("At least one field is required");
-      return;
-    }
-
-    try {
-      await updateTaskMutation.mutateAsync({
-        id: task.id,
-        name: name.trim(),
-        description: description.trim() || undefined,
-        fields: validFields,
-        dispatcherUserId: dispatcherUserId || undefined,
-        agentId,
-      });
-      toast.success("Task updated successfully");
-      onUpdate();
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to update task");
-    }
-  };
+  // Determine if user is admin (has full tab access) vs owner (limited)
+  // For now, isAdminOrOwner gives access to admin tabs
+  const isAdmin = isAdminOrOwner;
+  const tabs = isAdmin ? ADMIN_TABS : OWNER_TABS;
 
   const handleDelete = async () => {
-    if (!confirm(`Are you sure you want to delete "${task.name}"? This action cannot be undone.`)) {
+    if (!agent) return;
+    if (!confirm(`Are you sure you want to delete "${agent.name}"? This will also delete it from ElevenLabs. This cannot be undone.`)) {
       return;
     }
-
-    try {
-      await deleteTaskMutation.mutateAsync({
-        id: task.id,
-        agentId,
-      });
-      toast.success("Task deleted successfully");
-      onDelete();
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to delete task");
-    }
+    await deleteAgent.mutateAsync(agent.id);
+    router.push("/dashboard/agents");
   };
 
   if (isEditing) {
@@ -310,12 +268,26 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
   const isAdminOrOwner = useIsAdminOrOwner();
   const [showCreateTask, setShowCreateTask] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const deleteAgentMutation = useDeleteAgent();
+  const router = useRouter();
+
+  const handleDeleteAgent = async () => {
+    if (!agent) return;
+    try {
+      await deleteAgentMutation.mutateAsync(agent.id);
+      toast.success("Agent deleted successfully");
+      router.push("/dashboard/agents");
+    } catch {
+      // Error toast is handled by the hook
+    }
+  };
 
   if (isLoading) {
     return (
       <Page title="Loading...">
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+          <Loader2 className="h-8 w-8 text-muted-foreground/70 animate-spin" />
         </div>
       </Page>
     );
@@ -325,8 +297,8 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
     return (
       <Page title="Agent Not Found">
         <div className="text-center py-12">
-          <p className="text-gray-600 mb-4">Agent not found</p>
-          <Link href="/dashboard" className="text-[var(--color-primary)] hover:underline">
+          <p className="text-muted-foreground mb-4">Agent not found</p>
+          <Link href="/dashboard/agents" className="text-primary hover:underline">
             Back to Agents
           </Link>
         </div>
@@ -337,125 +309,165 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
   const isElevenLabs = agent.externalType === AgentExternalType.ELEVEN_LABS;
 
   return (
-    <Page title={agent.name}>
+    <Page
+      title={agent.name}
+      actions={
+        isAdminOrOwner ? (
+          <button
+            onClick={handleDelete}
+            disabled={deleteAgent.isPending}
+            className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 active:scale-[0.98] disabled:opacity-50"
+          >
+            <Trash2 className="h-4 w-4" />
+            {deleteAgent.isPending ? "Deleting..." : "Delete"}
+          </button>
+        ) : undefined
+      }
+    >
       <div className="space-y-6">
         <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition"
+          href="/dashboard/agents"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Agents
         </Link>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-start justify-between mb-6">
+        {/* Agent header card */}
+        <div className="bg-card rounded-xl border border-border p-6">
+          <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-[var(--color-primary)]/10 flex items-center justify-center">
-                <Bot className="h-6 w-6 text-[var(--color-primary)]" />
+              <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
+                <Bot className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">{agent.name}</h2>
+                <h2 className="text-xl font-semibold text-foreground">{agent.name}</h2>
+                <div className="flex items-center gap-3 mt-1">
+                  {agent.industry && (
+                    <span className="text-xs text-muted-foreground capitalize">{agent.industry.replace(/_/g, " ")}</span>
+                  )}
+                  {agent.useCase && (
+                    <>
+                      <span className="text-xs text-muted-foreground/30">|</span>
+                      <span className="text-xs text-muted-foreground capitalize">{agent.useCase.replace(/_/g, " ")}</span>
+                    </>
+                  )}
+                  <span className="text-xs text-muted-foreground/30">|</span>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    agent.status === "active" ? "bg-green-100 text-green-800" :
+                    agent.status === "paused" ? "bg-yellow-100 text-yellow-800" :
+                    agent.status === "error" ? "bg-red-100 text-red-800" :
+                    "bg-gray-100 text-gray-700"
+                  }`}>
+                    {agent.status || "draft"}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <p className="text-xs font-medium text-gray-500 uppercase mb-1">Created</p>
-              <p className="text-sm text-gray-900">{new Date(agent.createdAt).toLocaleDateString()}</p>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-gray-500 uppercase mb-1">Updated</p>
-              <p className="text-sm text-gray-900">{new Date(agent.updatedAt).toLocaleDateString()}</p>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-gray-500 uppercase mb-1">Agent ID</p>
-              <p className="text-sm text-gray-900 font-mono">{agent.id}</p>
-            </div>
-            <div>
-              <p className="text-xs font-medium text-gray-500 uppercase mb-1">Organization ID</p>
-              <p className="text-sm text-gray-900 font-mono">{agent.organizationId}</p>
+            <div className="text-right text-xs text-muted-foreground">
+              <p>Phone: {agent.phoneNumber}</p>
+              <p>Created {new Date(agent.createdAt).toLocaleDateString()}</p>
             </div>
           </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase mb-1">Phone Number</p>
-                <p className="text-sm text-gray-900">{agent.phoneNumber}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase mb-1">Redirect Number</p>
-                <p className="text-sm text-gray-900">{agent.redirectNumber}</p>
-              </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">Provider health</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {health?.checks?.provider?.message || "Checking provider sync status..."}
+              </p>
             </div>
+            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+              healthLoading
+                ? "bg-gray-100 text-gray-700"
+                : health?.status === "healthy"
+                  ? "bg-green-100 text-green-800"
+                  : "bg-amber-100 text-amber-800"
+            }`}>
+              {healthLoading ? "checking" : health?.status === "healthy" ? "healthy" : "degraded"}
+            </span>
           </div>
-
-          {isElevenLabs && (
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Test Your Agent</h3>
-              <ElevenLabsConversation agentId={agent.externalId} />
-            </div>
+          {agent.syncPending && (
+            <p className="text-xs text-amber-700 mt-3">
+              Sync pending: latest provider update is queued for retry.
+            </p>
+          )}
+          {agent.lastSyncError && (
+            <p className="text-xs text-red-700 mt-2">Last sync error: {agent.lastSyncError}</p>
           )}
         </div>
 
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Services</h3>
-            {!showCreateTask && isAdminOrOwner && (
-              <button
-                onClick={() => setShowCreateTask(true)}
-                className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition text-sm font-medium"
-              >
-                Create Service
-              </button>
-            )}
-          </div>
+        {/* Tab navigation */}
+        <TabNavigation
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
 
-          {showCreateTask ? (
-            <CreateTaskForm
-              agentId={agent.id}
-              onSuccess={() => setShowCreateTask(false)}
-              onCancel={() => setShowCreateTask(false)}
-            />
-          ) : isLoadingTasks ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-6 w-6 text-gray-400 animate-spin" />
-            </div>
-          ) : tasks && tasks.length > 0 ? (
-            <div className="space-y-4">
-              {tasks.map((task) => {
-                const fields = typeof task.requiredInfo === 'string' 
-                  ? JSON.parse(task.requiredInfo) 
-                  : task.requiredInfo;
-                const isEditing = editingTaskId === task.id;
-                
-                return (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    fields={fields}
-                    agentId={agent.id}
-                    organizationId={agent.organizationId}
-                    isEditing={isEditing}
-                    onEdit={() => setEditingTaskId(task.id)}
-                    onCancel={() => setEditingTaskId(null)}
-                    onUpdate={() => setEditingTaskId(null)}
-                    onDelete={() => setEditingTaskId(null)}
-                    isAdminOrOwner={isAdminOrOwner}
-                  />
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-500">No services yet. Create your first service to get started.</p>
+        {/* Tab content */}
+        <div>
+          {activeTab === "agent" && (
+            <AgentTab agentId={agent.id} isAdmin={isAdmin} />
+          )}
+          {activeTab === "analysis" && isAdmin && (
+            <AnalysisTab agentId={agent.id} />
+          )}
+          {activeTab === "knowledge" && isAdmin && (
+            <KnowledgeBaseTab agentId={agent.id} config={agentConfig} />
+          )}
+          {activeTab === "tools" && isAdmin && (
+            <ToolsTab agentId={agent.id} config={agentConfig} />
+          )}
+          {activeTab === "advanced" && isAdmin && (
+            <AdvancedTab agentId={agent.id} config={agentConfig} />
+          )}
+          {activeTab === "test" && isElevenLabs && (
+            <TestTab agentId={agent.externalId} />
           )}
         </div>
+
+        {isAdminOrOwner && (
+          <div className="bg-white rounded-lg border border-red-200 p-6">
+            <h3 className="text-lg font-semibold text-red-600 mb-2">Danger Zone</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Permanently delete this agent and remove it from ElevenLabs. This action cannot be undone.
+            </p>
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-medium"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Agent
+            </button>
+          </div>
+        )}
       </div>
+
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        title="Delete Agent"
+        subtitle={`Are you sure you want to delete "${agent.name}"?`}
+      >
+        <p className="text-sm text-gray-600 mb-6">
+          This will permanently delete the agent from both RevCenter and ElevenLabs. All associated services and data will be lost. This action cannot be undone.
+        </p>
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDeleteAgent}
+            loading={deleteAgentMutation.isPending}
+            disabled={deleteAgentMutation.isPending}
+            className="!bg-red-600 hover:!bg-red-700"
+          >
+            Delete Agent
+          </Button>
+        </div>
+      </Modal>
     </Page>
   );
 }
-

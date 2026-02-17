@@ -15,7 +15,7 @@ const QUALITY_CONFIG: Record<string, { label: string; color: string; bgColor: st
   short_call: { label: "Short Call", color: "text-yellow-700", bgColor: "bg-yellow-100", icon: Zap },
   no_conversation: { label: "No Conversation", color: "text-orange-700", bgColor: "bg-orange-100", icon: Phone },
   robocall: { label: "Robocall", color: "text-red-700", bgColor: "bg-red-100", icon: Bot },
-  spam: { label: "Spam", color: "text-gray-700", bgColor: "bg-gray-100", icon: Ban },
+  spam: { label: "Spam", color: "text-muted-foreground", bgColor: "bg-muted", icon: Ban },
 };
 
 const QUALITY_OPTIONS = [
@@ -130,7 +130,7 @@ export default function RecordingsPage() {
   if (isLoading) {
     return (
       <Page title="Recordings" subtitle="Listen to call recordings">
-        <div className="text-center text-gray-500">Loading recordings...</div>
+        <div className="text-center text-muted-foreground">Loading recordings...</div>
       </Page>
     );
   }
@@ -151,7 +151,7 @@ export default function RecordingsPage() {
         <button
           onClick={handleSync}
           disabled={syncRecordings.isPending}
-          className="flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition disabled:opacity-50"
         >
           <RefreshCw className={`h-4 w-4 ${syncRecordings.isPending ? 'animate-spin' : ''}`} />
           {syncRecordings.isPending ? 'Syncing...' : 'Sync Recordings'}
@@ -159,32 +159,32 @@ export default function RecordingsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-card rounded-xl border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-muted border-b border-border">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Date & Time
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Duration
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Quality
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Summary
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Audio
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-card divide-y divide-border">
               {recordings.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
                     <div className="space-y-2">
                       <p>No recordings found</p>
                       <p className="text-sm">Click &quot;Sync Recordings&quot; to pull recent call recordings</p>
@@ -200,17 +200,17 @@ export default function RecordingsPage() {
                     <tr 
                       key={recording.id} 
                       onClick={(e) => handleRowClick(recording, e)}
-                      className={`hover:bg-gray-50 ${recording.taskInstanceId ? 'cursor-pointer' : ''}`}
+                      className={`hover:bg-accent ${recording.taskInstanceId ? 'cursor-pointer' : ''}`}
                     >
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-foreground">
                           {new Date(recording.createdAt).toLocaleDateString()}
                         </div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-muted-foreground">
                           {new Date(recording.createdAt).toLocaleTimeString()}
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
+                      <td className="px-6 py-4 text-sm font-mono text-foreground">
                         {formatDuration(recording.callDurationSeconds)}
                       </td>
                       <td className="px-6 py-4">
@@ -223,7 +223,7 @@ export default function RecordingsPage() {
                             onBlur={() => setEditingQualityId(null)}
                             onClick={(e) => e.stopPropagation()}
                             autoFocus
-                            className="text-xs px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
+                            className="text-xs px-2 py-1 border border-border rounded-md focus:ring-2 focus:ring-ring focus:border-transparent"
                           >
                             {QUALITY_OPTIONS.map(opt => (
                               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -238,8 +238,8 @@ export default function RecordingsPage() {
                             className={`
                               inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full
                               transition hover:opacity-80
-                              ${QUALITY_CONFIG[(recording as any).callQuality || 'productive']?.bgColor || 'bg-gray-100'}
-                              ${QUALITY_CONFIG[(recording as any).callQuality || 'productive']?.color || 'text-gray-700'}
+                              ${QUALITY_CONFIG[(recording as any).callQuality || 'productive']?.bgColor || 'bg-muted'}
+                              ${QUALITY_CONFIG[(recording as any).callQuality || 'productive']?.color || 'text-muted-foreground'}
                             `}
                           >
                             {(() => {
@@ -264,9 +264,9 @@ export default function RecordingsPage() {
                                   }}
                                   className={`
                                     flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md transition flex-shrink-0
-                                    ${isExpanded 
-                                      ? 'bg-[var(--color-primary)] text-white' 
-                                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    ${isExpanded
+                                      ? 'bg-primary text-primary-foreground'
+                                      : 'bg-muted text-muted-foreground hover:bg-accent'
                                     }
                                   `}
                                   aria-label={isExpanded ? 'Collapse summary' : 'Expand summary'}
@@ -284,26 +284,26 @@ export default function RecordingsPage() {
                                   )}
                                 </button>
                                 {!isExpanded && (
-                                  <div className="text-sm text-gray-600 truncate max-w-sm">
+                                  <div className="text-sm text-muted-foreground truncate max-w-sm">
                                     {recording.transcriptSummary}
                                   </div>
                                 )}
                                 {recording.taskInstanceId && (
-                                  <ExternalLink className="h-4 w-4 text-gray-400 flex-shrink-0 ml-auto" />
+                                  <ExternalLink className="h-4 w-4 text-muted-foreground/70 flex-shrink-0 ml-auto" />
                                 )}
                               </div>
                               {/* Expanded summary */}
                               {isExpanded && (
-                                <div className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3 border border-gray-200 mt-1">
+                                <div className="text-sm text-foreground/80 bg-muted rounded-lg p-3 border border-border mt-1">
                                   {recording.transcriptSummary}
                                 </div>
                               )}
                             </>
                           ) : (
                             <div className="flex items-center gap-2">
-                              <span className="text-sm text-gray-400 italic">No summary available</span>
+                              <span className="text-sm text-muted-foreground/70 italic">No summary available</span>
                               {recording.taskInstanceId && (
-                                <ExternalLink className="h-4 w-4 text-gray-400 flex-shrink-0 ml-auto" />
+                                <ExternalLink className="h-4 w-4 text-muted-foreground/70 flex-shrink-0 ml-auto" />
                               )}
                             </div>
                           )}
@@ -313,7 +313,7 @@ export default function RecordingsPage() {
                         {loadingId === recording.id ? (
                           <button
                             disabled
-                            className="p-2 text-gray-400 rounded-lg"
+                            className="p-2 text-muted-foreground/70 rounded-lg"
                             aria-label="Loading audio"
                           >
                             <Loader2 className="h-5 w-5 animate-spin" />
@@ -331,7 +331,7 @@ export default function RecordingsPage() {
                         ) : (
                           <button
                             onClick={() => handlePlayAudio(recording)}
-                            className="p-2 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 rounded-lg transition"
+                            className="p-2 text-primary hover:bg-primary/10 rounded-lg transition"
                             aria-label="Play recording"
                           >
                             <Play className="h-5 w-5" />
@@ -348,8 +348,8 @@ export default function RecordingsPage() {
 
         {/* Pagination */}
         {pagination && pagination.totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-            <div className="text-sm text-gray-700">
+          <div className="px-6 py-4 border-t border-border flex items-center justify-between bg-card">
+            <div className="text-sm text-foreground/80">
               Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
               {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
               {pagination.total} results
@@ -358,7 +358,7 @@ export default function RecordingsPage() {
               <button
                 onClick={() => setPage(page - 1)}
                 disabled={!pagination.hasPrevPage}
-                className="px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                className="px-3 py-1 border border-border rounded-lg hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
               >
                 <ChevronLeft className="h-4 w-4" />
                 Previous
@@ -366,7 +366,7 @@ export default function RecordingsPage() {
               <button
                 onClick={() => setPage(page + 1)}
                 disabled={!pagination.hasNextPage}
-                className="px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                className="px-3 py-1 border border-border rounded-lg hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
               >
                 Next
                 <ChevronRight className="h-4 w-4" />

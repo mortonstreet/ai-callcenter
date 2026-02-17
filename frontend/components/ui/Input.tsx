@@ -13,16 +13,17 @@ export default function Input({ label, error, hint, className = "", type, ...res
 
   return (
     <label className="block space-y-1">
-      {label && <span className="text-sm font-medium text-gray-800">{label}</span>}
+      {label && <span className="text-sm font-medium text-foreground">{label}</span>}
 
       <div className="relative">
         <input
           {...rest}
           type={isPassword ? (show ? "text" : "password") : type}
           className={`w-full rounded-xl border px-3 py-2 text-sm outline-none transition
-                      focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]
-                      ${error ? "border-red-500" : "border-gray-300"}
-                      text-black placeholder:text-gray-400
+                      bg-background border-border
+                      focus:border-primary focus:ring-1 focus:ring-ring
+                      ${error ? "border-destructive" : ""}
+                      text-foreground placeholder:text-muted-foreground/70
                       ${isPassword ? "pr-10" : ""}
                       ${className}`}
         />
@@ -31,7 +32,7 @@ export default function Input({ label, error, hint, className = "", type, ...res
           <button
             type="button"
             onClick={() => setShow((s) => !s)}
-            className="absolute inset-y-0 right-2 my-auto inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:bg-black/5 hover:text-[var(--color-primary)]"
+            className="absolute inset-y-0 right-2 my-auto inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
             aria-label={show ? "Hide password" : "Show password"}
             tabIndex={0}
           >
@@ -56,8 +57,8 @@ export default function Input({ label, error, hint, className = "", type, ...res
         )}
       </div>
 
-      {error && <span className="text-xs text-red-600">{error}</span>}
-      {!error && hint && <span className="text-xs text-gray-500">{hint}</span>}
+      {error && <span className="text-xs text-destructive">{error}</span>}
+      {!error && hint && <span className="text-xs text-muted-foreground">{hint}</span>}
     </label>
   );
 }

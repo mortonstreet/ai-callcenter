@@ -5,6 +5,10 @@ interface RequestContext {
   jobId: string
   userId?: string
   sessionId?: string
+  organizationId?: string
+  correlationId?: string
+  service?: string
+  operation?: string
 }
 
 export const asyncLocalStorage = new AsyncLocalStorage<RequestContext>()

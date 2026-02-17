@@ -20,19 +20,12 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     }
   }, [session, isPending, router, isAcceptInvitationPage, isVerifyWithInvitation]);
 
-  if (isPending) {
-    return (
-      <div className="min-h-screen grid place-items-center">
-        <div className="text-gray-500">Loading...</div>
-      </div>
-    );
+  // If we know the user is logged in and will be redirected, show nothing
+  if (!isPending && session && !isAcceptInvitationPage && !isVerifyWithInvitation) {
+    return null;
   }
 
-  // Only return null if logged in AND being redirected (not on special pages)
-  if (session && !isAcceptInvitationPage && !isVerifyWithInvitation) {
-    return null; // Will redirect, so return nothing
-  }
-
+  // Always render children (login/signup forms) immediately - don't block on session check
   return <>{children}</>;
 }
 

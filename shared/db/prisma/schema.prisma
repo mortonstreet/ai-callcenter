@@ -34,12 +34,19 @@ model User {
   lastActiveOrganizationId String?
   isAdmin                  Boolean  @default(false)
 
-  sessions        Session[]
-  accounts        Account[]
-  members         Member[]
-  invitations     Invitation[]
-  dispatchedTasks TaskInstance[]
-  Task            Task[]
+  sessions            Session[]
+  accounts            Account[]
+  members             Member[]
+  invitations         Invitation[]
+  dispatchedTasks     TaskInstance[]
+  Task                Task[]
+  createdIntegrations Integration[]   @relation("integration_created_by_user")
+  createdCampaigns    Campaign[]      @relation("campaign_created_by_user")
+  campaignMemberships CampaignUser[]
+  createdSmsCampaigns SmsCampaign[]   @relation("sms_campaign_created_by_user")
+  resolvedErrorLogs   ErrorLog[]      @relation("error_log_resolved_by_user")
+  adminAuditEntries   AdminAuditLog[] @relation("admin_audit_actor_user")
+  onboardingProvisioningJobs OnboardingProvisioningJob[]
 
   @@unique([email])
   @@map("user")
@@ -92,18 +99,48 @@ model Verification {
 }
 
 model Organization {
-  id            String         @id
-  name          String
-  slug          String
-  logo          String?
-  createdAt     DateTime
-  metadata      String?
-  members       Member[]
-  invitations   Invitation[]
-  agents        Agent[]
-  tasks         Task[]
-  taskInstances TaskInstance[]
-  Recording     Recording[]
+  id                       String                    @id
+  name                     String
+  slug                     String
+  logo                     String?
+  createdAt                DateTime
+  metadata                 String?
+  lifecycleStatus          String                    @default("workspace_active")
+  planType                 String                    @default("paid")
+  provisioningStatus       String                    @default("completed")
+  onboardingIdempotencyKey String?                   @unique
+  onboardingBusinessRole   String?
+  onboardingDemoIntent     Boolean                   @default(false)
+  onboardingQualification  Json?
+  onboardingCompletedAt    DateTime?
+  members                  Member[]
+  invitations              Invitation[]
+  agents                   Agent[]
+  tasks                    Task[]
+  taskInstances            TaskInstance[]
+  Recording                Recording[]
+  pipelineStages           PipelineStage[]
+  twilioConfig             TwilioConfig?
+  callDispositions         CallDisposition[]
+  callLogs                 CallLog[]
+  leads                    Lead[]
+  integrations             Integration[]
+  integrationSyncJobs      IntegrationSyncJob[]
+  integrationSyncLogs      IntegrationSyncLog[]
+  integrationWebhookEvents IntegrationWebhookEvent[]
+  campaigns                Campaign[]
+  campaignLeads            CampaignLead[]
+  campaignUsers            CampaignUser[]
+  campaignLists            CampaignList[]
+  campaignOrchestrations   CampaignOrchestration[]
+  smsCampaigns             SmsCampaign[]
+  agentEmailConfigs        AgentEmailConfig[]
+  agentMessages            AgentMessage[]
+  agentWorkflows           AgentWorkflow[]
+  errorLogs                ErrorLog[]
+  adminAuditLogs           AdminAuditLog[]
+  onboardingProvisioningJobs OnboardingProvisioningJob[]
+  onboardingProvisioningEvents OnboardingProvisioningEvent[]
 
   @@unique([slug])
   @@map("organization")
@@ -173,14 +210,31 @@ model Agent {
   externalType   String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
-  
-  // MCP Configuration - allows each agent to have unique credentials
-  mcpApiKey      String?  // API key for MCP authentication
-  webhookSecret  String?  // Secret for webhook signature verification  
-  mcpEndpointUrl String?  // Public URL for this agent's MCP endpoint (e.g., ngrok URL)
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  // Agent configuration fields
+  industry String? // pest_control, hvac, roofing, electrical, cleaning_services
+  useCase  String? // customer_support, outbound_sales, scheduling, lead_qualification, answering_service
+  website  String?
+  mainGoal String?
+  voiceId  String? // ElevenLabs voice ID
+  status   String  @default("draft") // draft, active, paused, archived, error
+
+  // Provider sync lifecycle fields
+  syncPending            Boolean   @default(false)
+  lastSyncAt             DateTime?
+  lastSyncError          String?
+  providerCorrelationKey String?
+
+  // MCP Configuration - allows each agent to have unique credentials
+  mcpApiKey      String? // API key for MCP authentication
+  webhookSecret  String? // Secret for webhook signature verification
+  mcpEndpointUrl String? // Public URL for this agent's MCP endpoint (e.g., ngrok URL)
+
+  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   tasks        Task[]
+  emailConfigs AgentEmailConfig[]
+  messages     AgentMessage[]
+  workflows    AgentWorkflow[]
 
   @@unique([mcpApiKey]) // Ensure API keys are unique for lookup
   @@map("agent")
@@ -205,6 +259,22 @@ model Task {
   @@map("task")
 }
 
+model PipelineStage {
+  id             String   @id @default(uuid())
+  organizationId String
+  label          String
+  color          String   @default("#6B7280")
+  sortOrder      Int      @default(0)
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  taskInstances TaskInstance[]
+  leads         Lead[]
+
+  @@map("pipeline_stage")
+}
+
 model TaskInstance {
   id             String   @id @default(uuid())
   taskId         String
@@ -219,36 +289,127 @@ model TaskInstance {
   updatedAt      DateTime @updatedAt
 
   // Lead Classification
-  leadType       String?  // "booking" | "non_booking"
-  resolutionType String?  // "resolved" | "unresolved"
-  
-  // Customer Classification
-  customerType   String?  // "new_customer" | "active_customer"
-  
-  // Lead Scoring
-  leadScore      Int?     // 1-100 quality score
-  estimatedValue Float?   // Estimated revenue potential in dollars
-  
-  // Cal.com Integration
-  calcomBookingId  String?   // Cal.com booking UID
-  calcomEventId    Int?      // Cal.com event type ID
-  appointmentTime  DateTime? // Scheduled appointment time
-  bookingStatus    String?   // "confirmed" | "cancelled" | "rescheduled" | "completed" | "no_show"
-  bookingCancelledAt DateTime? // When the booking was cancelled
-  bookingCancelReason String?  // Reason for cancellation
-  
-  // Tags for filtering (JSON array of strings)
-  tags           Json?    // ["human_caller", "urgent", "robo_caller", etc.]
-  
-  // Pipeline stage for Kanban view
-  pipelineStage  String?  @default("new") // "new" | "follow_up" | "dispatched" | "closed_won" | "closed_lost"
+  leadType       String? // "booking" | "non_booking"
+  resolutionType String? // "resolved" | "unresolved"
 
-  task         Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  dispatcher   User?         @relation(fields: [dispatcherId], references: [id], onDelete: SetNull)
-  Organization Organization? @relation(fields: [organizationId], references: [id])
-  Recording    Recording[]
+  // Customer Classification
+  customerType String? // "new_customer" | "active_customer"
+
+  // Lead Scoring
+  leadScore      Int? // 1-100 quality score
+  estimatedValue Float? // Estimated revenue potential in dollars
+
+  // Cal.com Integration
+  calcomBookingId     String? // Cal.com booking UID
+  calcomEventId       Int? // Cal.com event type ID
+  appointmentTime     DateTime? // Scheduled appointment time
+  bookingStatus       String? // "confirmed" | "cancelled" | "rescheduled" | "completed" | "no_show"
+  bookingCancelledAt  DateTime? // When the booking was cancelled
+  bookingCancelReason String? // Reason for cancellation
+
+  // Tags for filtering (JSON array of strings)
+  tags Json? // ["human_caller", "urgent", "robo_caller", etc.]
+
+  // Pipeline stage for Kanban view
+  pipelineStage   String? @default("new") // Legacy string-based stage
+  pipelineStageId String? // FK to dynamic PipelineStage
+
+  task             Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  dispatcher       User?          @relation(fields: [dispatcherId], references: [id], onDelete: SetNull)
+  Organization     Organization?  @relation(fields: [organizationId], references: [id])
+  pipelineStageRef PipelineStage? @relation(fields: [pipelineStageId], references: [id], onDelete: SetNull)
+  Recording        Recording[]
 
   @@map("task_instance")
+}
+
+model TwilioConfig {
+  id             String   @id @default(uuid())
+  organizationId String   @unique
+  accountSid     String?
+  authToken      String? // Stored encrypted in production
+  phoneNumber    String?
+  apiKeySid      String?
+  apiKeySecret   String?
+  twimlAppSid    String?
+  autoRecord     Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("twilio_config")
+}
+
+model CallDisposition {
+  id             String   @id @default(uuid())
+  organizationId String
+  label          String
+  color          String?  @default("#6B7280")
+  sortOrder      Int      @default(0)
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  calls        CallLog[]
+
+  @@map("call_disposition")
+}
+
+model CallLog {
+  id             String    @id @default(uuid())
+  organizationId String
+  userId         String?
+  callSid        String?
+  direction      String // 'inbound' | 'outbound'
+  fromNumber     String
+  toNumber       String
+  status         String    @default("initiated")
+  duration       Int       @default(0)
+  recordingUrl   String?
+  recordingSid   String?
+  outcome        String?
+  notes          String?
+  dispositionId  String?
+  leadId         String?
+  startedAt      DateTime  @default(now())
+  endedAt        DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  disposition  CallDisposition? @relation(fields: [dispositionId], references: [id], onDelete: SetNull)
+
+  @@map("call_log")
+}
+
+model Lead {
+  id              String    @id @default(uuid())
+  organizationId  String
+  firstName       String?
+  lastName        String?
+  email           String?
+  phone           String?
+  normalizedPhone String?
+  company         String?
+  title           String?
+  linkedInUrl     String?
+  website         String?
+  customFields    Json?
+  pipelineStageId String?
+  dealValue       Decimal?  @db.Decimal(12, 2)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
+
+  organization     Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  pipelineStageRef PipelineStage?          @relation(fields: [pipelineStageId], references: [id], onDelete: SetNull)
+  campaignLeads    CampaignLead[]
+  smsEnrollments   SmsCampaignEnrollment[]
+  smsMessages      SmsCampaignMessage[]
+  agentMessages    AgentMessage[]
+
+  @@map("lead")
 }
 
 model Recording {
@@ -261,8 +422,8 @@ model Recording {
   cost                Float
   transcriptSummary   String?
   payload             Json
-  callQuality         String?  // "productive" | "short_call" | "robocall" | "spam" | "no_conversation"
-  callQualityReason   String?  // Explanation for the quality classification
+  callQuality         String? // "productive" | "short_call" | "robocall" | "spam" | "no_conversation"
+  callQualityReason   String? // Explanation for the quality classification
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -270,4 +431,496 @@ model Recording {
   taskInstance TaskInstance? @relation(fields: [taskInstanceId], references: [id], onDelete: Cascade)
 
   @@map("recording")
+}
+
+model Integration {
+  id                String    @id @default(uuid())
+  organizationId    String
+  provider          String
+  status            String    @default("disconnected")
+  displayName       String?
+  config            Json?
+  accessToken       String?
+  refreshToken      String?
+  tokenExpiresAt    DateTime?
+  scopes            String?
+  externalAccountId String?
+  lastSyncAt        DateTime?
+  lastSyncStatus    String?
+  lastSyncMessage   String?
+  createdByUserId   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  organization  Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdByUser User?                     @relation("integration_created_by_user", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  syncJobs      IntegrationSyncJob[]
+  syncLogs      IntegrationSyncLog[]
+  webhookEvents IntegrationWebhookEvent[]
+
+  @@unique([organizationId, provider])
+  @@index([organizationId, status])
+  @@index([lastSyncAt])
+  @@map("integration")
+}
+
+model IntegrationSyncJob {
+  id             String    @id @default(uuid())
+  integrationId  String
+  organizationId String
+  provider       String
+  jobType        String    @default("manual")
+  status         String    @default("queued")
+  startedAt      DateTime?
+  completedAt    DateTime?
+  lastCursor     String?
+  recordsSynced  Int       @default(0)
+  errorMessage   String?
+  payload        Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  integration  Integration          @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  syncLogs     IntegrationSyncLog[]
+
+  @@index([integrationId, createdAt])
+  @@index([organizationId, status, createdAt])
+  @@map("integration_sync_job")
+}
+
+model IntegrationSyncLog {
+  id             String   @id @default(uuid())
+  integrationId  String
+  syncJobId      String?
+  organizationId String
+  level          String   @default("info")
+  message        String
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  integration  Integration         @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+  syncJob      IntegrationSyncJob? @relation(fields: [syncJobId], references: [id], onDelete: SetNull)
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([integrationId, createdAt])
+  @@index([syncJobId])
+  @@index([organizationId, createdAt])
+  @@map("integration_sync_log")
+}
+
+model IntegrationWebhookEvent {
+  id             String    @id @default(uuid())
+  integrationId  String?
+  organizationId String
+  provider       String
+  eventId        String
+  eventType      String?
+  payload        Json
+  status         String    @default("received")
+  processedAt    DateTime?
+  errorMessage   String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  integration  Integration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, eventId])
+  @@index([organizationId, createdAt])
+  @@index([status, createdAt])
+  @@map("integration_webhook_event")
+}
+
+model OnboardingProvisioningJob {
+  id              String   @id @default(uuid())
+  organizationId  String
+  submittedByUserId String
+  correlationId   String
+  idempotencyKey  String   @unique
+  status          String   @default("pending")
+  lifecycleTarget String?
+  errorMessage    String?
+  payload         Json?
+  attempts        Int      @default(0)
+  queuedAt        DateTime @default(now())
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  submittedBy  User                         @relation(fields: [submittedByUserId], references: [id], onDelete: Cascade)
+  events       OnboardingProvisioningEvent[]
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, status, createdAt])
+  @@index([correlationId])
+  @@map("onboarding_provisioning_job")
+}
+
+model OnboardingProvisioningEvent {
+  id                String   @id @default(uuid())
+  provisioningJobId String
+  organizationId    String
+  correlationId     String
+  level             String   @default("info")
+  eventType         String
+  message           String
+  metadata          Json?
+  createdAt         DateTime @default(now())
+
+  job          OnboardingProvisioningJob @relation(fields: [provisioningJobId], references: [id], onDelete: Cascade)
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([provisioningJobId, createdAt])
+  @@index([organizationId, createdAt])
+  @@index([correlationId])
+  @@map("onboarding_provisioning_event")
+}
+
+model Campaign {
+  id              String    @id @default(uuid())
+  organizationId  String
+  name            String
+  description     String?
+  channel         String    @default("voice")
+  status          String    @default("draft")
+  startAt         DateTime?
+  endAt           DateTime?
+  launchedAt      DateTime?
+  archivedAt      DateTime?
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organization  Organization           @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdByUser User?                  @relation("campaign_created_by_user", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  leads         CampaignLead[]
+  users         CampaignUser[]
+  lists         CampaignList[]
+  orchestration CampaignOrchestration?
+  smsCampaigns  SmsCampaign[]
+  messages      AgentMessage[]
+
+  @@index([organizationId, status, startAt, endAt])
+  @@index([organizationId, archivedAt])
+  @@map("campaign")
+}
+
+model CampaignLead {
+  id             String    @id @default(uuid())
+  campaignId     String
+  leadId         String
+  organizationId String
+  status         String    @default("pending")
+  enrolledAt     DateTime  @default(now())
+  completedAt    DateTime?
+  lastActivityAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  campaign     Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  lead         Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, leadId])
+  @@index([organizationId, status])
+  @@index([lastActivityAt])
+  @@map("campaign_lead")
+}
+
+model CampaignUser {
+  id             String   @id @default(uuid())
+  campaignId     String
+  userId         String
+  organizationId String
+  role           String   @default("owner")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  campaign     Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, userId])
+  @@index([organizationId, role])
+  @@map("campaign_user")
+}
+
+model CampaignList {
+  id             String   @id @default(uuid())
+  campaignId     String
+  listId         String
+  organizationId String
+  source         String?
+  filter         Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  campaign     Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, listId])
+  @@index([organizationId])
+  @@map("campaign_list")
+}
+
+model CampaignOrchestration {
+  id             String    @id @default(uuid())
+  campaignId     String    @unique
+  organizationId String
+  status         String    @default("draft")
+  version        Int       @default(1)
+  state          Json?
+  activatedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  campaign     Campaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@map("campaign_orchestration")
+}
+
+model SmsCampaign {
+  id              String   @id @default(uuid())
+  campaignId      String
+  organizationId  String
+  name            String
+  status          String   @default("draft")
+  fromNumber      String?
+  timezone        String?
+  sendWindowStart String?
+  sendWindowEnd   String?
+  dailySendLimit  Int?
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  campaign      Campaign                @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  organization  Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdByUser User?                   @relation("sms_campaign_created_by_user", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  steps         SmsCampaignStep[]
+  lists         SmsCampaignList[]
+  enrollments   SmsCampaignEnrollment[]
+  messages      SmsCampaignMessage[]
+
+  @@index([organizationId, status])
+  @@map("sms_campaign")
+}
+
+model SmsCampaignStep {
+  id              String   @id @default(uuid())
+  campaignId      String
+  stepNumber      Int
+  delayMinutes    Int      @default(0)
+  messageTemplate String
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  campaign SmsCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, stepNumber])
+  @@index([campaignId, isActive])
+  @@map("sms_campaign_step")
+}
+
+model SmsCampaignList {
+  id         String   @id @default(uuid())
+  campaignId String
+  listId     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  campaign SmsCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, listId])
+  @@map("sms_campaign_list")
+}
+
+model SmsCampaignEnrollment {
+  id                String    @id @default(uuid())
+  campaignId        String
+  leadId            String
+  status            String    @default("pending")
+  currentStepNumber Int       @default(0)
+  nextSendAt        DateTime?
+  lastMessageAt     DateTime?
+  completedAt       DateTime?
+  errorMessage      String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  campaign SmsCampaign          @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  lead     Lead                 @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  messages SmsCampaignMessage[]
+
+  @@unique([campaignId, leadId])
+  @@index([status, nextSendAt])
+  @@index([campaignId, currentStepNumber])
+  @@map("sms_campaign_enrollment")
+}
+
+model SmsCampaignMessage {
+  id                String    @id @default(uuid())
+  campaignId        String
+  enrollmentId      String
+  leadId            String
+  stepNumber        Int
+  direction         String    @default("outbound")
+  status            String    @default("queued")
+  body              String
+  twilioMessageSid  String?   @unique
+  providerMessageId String?
+  errorMessage      String?
+  queuedAt          DateTime  @default(now())
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  failedAt          DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  campaign   SmsCampaign           @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  enrollment SmsCampaignEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lead       Lead                  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, status])
+  @@index([leadId, createdAt])
+  @@index([enrollmentId, createdAt])
+  @@map("sms_campaign_message")
+}
+
+model AgentEmailConfig {
+  id             String    @id @default(uuid())
+  agentId        String    @unique
+  organizationId String
+  provider       String
+  fromEmail      String?
+  fromName       String?
+  replyToEmail   String?
+  accessToken    String?
+  refreshToken   String?
+  tokenExpiresAt DateTime?
+  smtpHost       String?
+  smtpPort       Int?
+  smtpSecure     Boolean?
+  smtpUsername   String?
+  smtpPassword   String?
+  isEnabled      Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  agent        Agent          @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  messages     AgentMessage[]
+
+  @@index([organizationId, provider])
+  @@map("agent_email_config")
+}
+
+model AgentMessage {
+  id                String    @id @default(uuid())
+  organizationId    String
+  agentId           String
+  leadId            String?
+  campaignId        String?
+  emailConfigId     String?
+  messageType       String    @default("email")
+  direction         String    @default("outbound")
+  status            String    @default("queued")
+  subject           String?
+  body              String
+  providerMessageId String?
+  threadId          String?
+  metadata          Json?
+  queuedAt          DateTime  @default(now())
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  openedAt          DateTime?
+  clickedAt         DateTime?
+  failedAt          DateTime?
+  errorMessage      String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  agent        Agent             @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  lead         Lead?             @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  campaign     Campaign?         @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  emailConfig  AgentEmailConfig? @relation(fields: [emailConfigId], references: [id], onDelete: SetNull)
+
+  @@unique([providerMessageId])
+  @@index([agentId])
+  @@index([leadId])
+  @@index([status])
+  @@index([messageType])
+  @@index([direction])
+  @@map("agent_message")
+}
+
+model AgentWorkflow {
+  id             String   @id @default(uuid())
+  agentId        String
+  organizationId String
+  name           String
+  status         String   @default("draft")
+  definition     Json?
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  agent        Agent        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, name])
+  @@index([organizationId, status])
+  @@map("agent_workflow")
+}
+
+model ErrorLog {
+  id               String    @id @default(uuid())
+  organizationId   String?
+  source           String
+  severity         String    @default("error")
+  code             String?
+  message          String
+  context          Json?
+  resolvedAt       DateTime?
+  resolvedByUserId String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  resolvedByUser User?         @relation("error_log_resolved_by_user", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([severity, createdAt])
+  @@index([source, createdAt])
+  @@map("error_log")
+}
+
+model AdminAuditLog {
+  id             String   @id @default(uuid())
+  organizationId String?
+  actorUserId    String?
+  action         String
+  resourceType   String
+  resourceId     String?
+  before         Json?
+  after          Json?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  actorUser    User?         @relation("admin_audit_actor_user", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([resourceType, resourceId])
+  @@index([action, createdAt])
+  @@map("admin_audit_log")
 }

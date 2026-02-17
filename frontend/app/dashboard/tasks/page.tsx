@@ -6,12 +6,12 @@ import { useTaskInstances, useUpdateTaskInstancePipeline, TaskInstanceWithRelati
 import { PipelineStage } from "@/lib/shared-types";
 import { useListOrganizationMembers } from "@/hooks/api/useOrganization";
 import { useSession } from "@/lib/auth-client";
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Search, 
-  Phone, 
-  MapPin, 
+import {
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  Phone,
+  MapPin,
   Calendar,
   DollarSign,
   TrendingUp,
@@ -19,15 +19,18 @@ import {
   Loader2,
   X,
   FileSpreadsheet,
+  MoreHorizontal,
+  ExternalLink,
 } from "lucide-react";
 import { Page } from "@/components/dashboard/Page";
 import { useRouter } from "next/navigation";
 import { useEffectiveOrganization } from "@/lib/admin-store";
 import { toast } from "sonner";
+import Link from "next/link";
 
 const PIPELINE_OPTIONS = Object.values(PipelineStage);
 
-// Export field options (removed fullTranscript - not clean for export)
+// Export field options
 const EXPORT_FIELDS = [
   { id: 'name', label: 'Name', default: true },
   { id: 'phone', label: 'Phone', default: true },
@@ -59,7 +62,7 @@ const PIPELINE_COLORS: Record<string, string> = {
   booked: "bg-purple-100 text-purple-800 border-purple-300",
   dispatched: "bg-blue-100 text-blue-800 border-blue-300",
   closed_won: "bg-green-100 text-green-800 border-green-300",
-  closed_lost: "bg-gray-100 text-gray-600 border-gray-300",
+  closed_lost: "bg-muted text-muted-foreground border-border",
 };
 
 // Helper to extract customer info from task instance
@@ -103,7 +106,7 @@ export default function TasksPage() {
   );
   const [exportFilename, setExportFilename] = useState("");
   const [dateRangePreset, setDateRangePreset] = useState<DateRangePreset>('30days');
-  
+
   // Set default dispatcher filter to current user once loaded
   useEffect(() => {
     if (session?.user?.id && !hasSetDefaultDispatcher) {
@@ -111,29 +114,29 @@ export default function TasksPage() {
       setHasSetDefaultDispatcher(true);
     }
   }, [session?.user?.id, hasSetDefaultDispatcher]);
-  
+
   // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
       if (search !== debouncedSearch) {
-        setPage(1); // Reset to first page when search changes
+        setPage(1);
       }
     }, 300);
-    
+
     return () => clearTimeout(timer);
   }, [search, debouncedSearch]);
-  
-  // Memoize filters to prevent unnecessary re-renders
+
+  // Memoize filters
   const filters = useMemo(() => ({
     page,
     limit: 20,
     search: debouncedSearch || undefined,
     dispatcherId: dispatcherFilter || undefined,
   }), [page, debouncedSearch, dispatcherFilter]);
-  
+
   const { data, isLoading } = useTaskInstances(filters);
-  
+
   const { data: membersData } = useListOrganizationMembers();
   const members = membersData?.data?.members || [];
   const updatePipeline = useUpdateTaskInstancePipeline();
@@ -143,11 +146,7 @@ export default function TasksPage() {
   };
 
   const handleRowClick = (taskInstance: TaskInstanceWithRelations, e: React.MouseEvent) => {
-    // Don't navigate if clicking on dropdowns/selects
-    if ((e.target as HTMLElement).closest('select')) {
-      return;
-    }
-    
+    if ((e.target as HTMLElement).closest('select')) return;
     router.push(`/dashboard/tasks/${taskInstance.id}`);
   };
 
@@ -176,7 +175,7 @@ export default function TasksPage() {
     const now = new Date();
     let startDate: string | undefined;
     let endDate: string | undefined = now.toISOString();
-    
+
     switch (dateRangePreset) {
       case '30days':
         startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -197,7 +196,7 @@ export default function TasksPage() {
         endDate = undefined;
         break;
     }
-    
+
     return { startDate, endDate };
   };
 
@@ -214,20 +213,16 @@ export default function TasksPage() {
 
     setIsExporting(true);
     try {
-      // Use the API URL - same as other API calls in the app
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
-      
-      // Get date range from preset or custom
       const { startDate, endDate } = getDateRangeFromPreset();
-      
-      // Build query params
+
       const params = new URLSearchParams();
       if (startDate) params.append('startDate', startDate);
       if (endDate) params.append('endDate', endDate);
       params.append('fields', Array.from(exportFields).join(','));
-      
+
       const exportUrl = `${apiUrl}/task/${activeOrganization.data.id}/export?${params.toString()}`;
-      
+
       const response = await fetch(exportUrl, {
         method: 'GET',
         credentials: 'include',
@@ -239,22 +234,19 @@ export default function TasksPage() {
         throw new Error('Failed to export leads');
       }
 
-      // Get the blob and download it
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      
-      // Use custom filename or generate one
+
       if (exportFilename.trim()) {
         a.download = `${exportFilename.trim()}.csv`;
       } else {
-        // Get filename from Content-Disposition header or generate one
         const contentDisposition = response.headers.get('Content-Disposition');
         const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
         a.download = filenameMatch ? filenameMatch[1] : `leads-export-${new Date().toISOString().split('T')[0]}.csv`;
       }
-      
+
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -277,32 +269,22 @@ export default function TasksPage() {
     return instances.filter(i => i.pipelineStage === pipelineFilter);
   }, [data?.data, pipelineFilter]);
 
-  if (isLoading) {
-    return (
-      <Page title="Leads" subtitle="Manage and track all leads">
-        <div className="text-center text-gray-500">Loading leads...</div>
-      </Page>
-    );
-  }
-
   const taskInstances = filteredInstances;
   const pagination = data?.pagination;
 
   return (
     <Page title="Leads" subtitle="Manage and track all leads">
-      {/* Filters and Export */}
-      <div className="mb-6 flex gap-4 flex-wrap items-center">
-        <div className="flex-1 min-w-[200px]">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by lead name..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-black"
-            />
-          </div>
+      {/* Search and Filter Bar */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search leads..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 text-sm text-foreground placeholder-muted-foreground bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+          />
         </div>
 
         <select
@@ -311,7 +293,7 @@ export default function TasksPage() {
             setPipelineFilter(e.target.value);
             setPage(1);
           }}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-black"
+          className="px-4 py-2 text-sm border border-border rounded-lg bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           aria-label="Filter by pipeline stage"
         >
           <option value="">All Pipeline Stages</option>
@@ -326,10 +308,10 @@ export default function TasksPage() {
           value={dispatcherFilter}
           onChange={(e) => {
             setDispatcherFilter(e.target.value);
-            setHasSetDefaultDispatcher(true); // Mark as manually changed
+            setHasSetDefaultDispatcher(true);
             setPage(1);
           }}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-black"
+          className="px-4 py-2 text-sm border border-border rounded-lg bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
           aria-label="Filter by assignee"
         >
           <option value="">All Assignees</option>
@@ -345,10 +327,9 @@ export default function TasksPage() {
             ))}
         </select>
 
-        {/* Export Button */}
         <button
           onClick={() => setShowExportModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition"
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-primary text-white rounded-lg hover:opacity-90 transition"
         >
           <Download className="h-4 w-4" />
           Export CSV
@@ -357,28 +338,25 @@ export default function TasksPage() {
 
       {/* Export Modal */}
       {showExportModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-card border border-border rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <div className="flex items-center gap-3">
-                <FileSpreadsheet className="h-5 w-5 text-[var(--color-primary)]" />
-                <h2 className="text-lg font-semibold text-gray-900">Export Leads</h2>
+                <FileSpreadsheet className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold text-foreground">Export Leads</h2>
               </div>
               <button
                 onClick={() => setShowExportModal(false)}
-                className="p-1 hover:bg-gray-100 rounded-lg transition"
+                className="p-1 hover:bg-accent rounded-lg transition"
               >
-                <X className="h-5 w-5 text-gray-500" />
+                <X className="h-5 w-5 text-muted-foreground" />
               </button>
             </div>
 
-            {/* Content */}
             <div className="px-6 py-4 space-y-6 max-h-[60vh] overflow-y-auto">
-              {/* Filename (optional) */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  File Name <span className="text-gray-400 font-normal">(optional)</span>
+                <label className="block text-sm font-medium text-foreground/80 mb-2">
+                  File Name <span className="text-muted-foreground/70 font-normal">(optional)</span>
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -386,15 +364,14 @@ export default function TasksPage() {
                     value={exportFilename}
                     onChange={(e) => setExportFilename(e.target.value)}
                     placeholder="Auto-generated if empty"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-gray-900 placeholder-gray-400"
+                    className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground placeholder-muted-foreground/70 focus:outline-none focus:ring-2 focus:ring-primary"
                   />
-                  <span className="text-gray-500 text-sm">.csv</span>
+                  <span className="text-muted-foreground text-sm">.csv</span>
                 </div>
               </div>
 
-              {/* Date Range Presets */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-foreground/80 mb-2">
                   Date Range
                 </label>
                 <div className="flex flex-wrap gap-2 mb-3">
@@ -404,55 +381,45 @@ export default function TasksPage() {
                       onClick={() => setDateRangePreset(preset.id)}
                       className={`px-3 py-1.5 text-sm rounded-lg border transition ${
                         dateRangePreset === preset.id
-                          ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                          ? 'bg-primary text-white border-primary'
+                          : 'bg-card text-foreground/80 border-border hover:bg-accent'
                       }`}
                     >
                       {preset.label}
                     </button>
                   ))}
                 </div>
-                
-                {/* Custom date inputs - only show when custom is selected */}
+
                 {dateRangePreset === 'custom' && (
                   <div className="flex items-center gap-3 mt-2">
                     <input
                       type="date"
                       value={exportStartDate}
                       onChange={(e) => setExportStartDate(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-gray-900"
-                      placeholder="Start date"
+                      className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                     />
-                    <span className="text-gray-400">to</span>
+                    <span className="text-muted-foreground/70">to</span>
                     <input
                       type="date"
                       value={exportEndDate}
                       onChange={(e) => setExportEndDate(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent text-gray-900"
-                      placeholder="End date"
+                      className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
                     />
                   </div>
                 )}
               </div>
 
-              {/* Field Selection */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className="block text-sm font-medium text-foreground/80">
                     Fields to Export
                   </label>
                   <div className="flex gap-2">
-                    <button
-                      onClick={selectAllFields}
-                      className="text-xs text-[var(--color-primary)] hover:underline"
-                    >
+                    <button onClick={selectAllFields} className="text-xs text-primary hover:underline">
                       Select All
                     </button>
-                    <span className="text-gray-300">|</span>
-                    <button
-                      onClick={deselectAllFields}
-                      className="text-xs text-gray-500 hover:underline"
-                    >
+                    <span className="text-muted-foreground/50">|</span>
+                    <button onClick={deselectAllFields} className="text-xs text-muted-foreground hover:underline">
                       Deselect All
                     </button>
                   </div>
@@ -461,33 +428,32 @@ export default function TasksPage() {
                   {EXPORT_FIELDS.map((field) => (
                     <label
                       key={field.id}
-                      className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer"
+                      className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent cursor-pointer"
                     >
                       <input
                         type="checkbox"
                         checked={exportFields.has(field.id)}
                         onChange={() => toggleExportField(field.id)}
-                        className="w-4 h-4 text-[var(--color-primary)] border-gray-300 rounded focus:ring-[var(--color-primary)]"
+                        className="w-4 h-4 text-primary border-border rounded focus:ring-primary"
                       />
-                      <span className="text-sm text-gray-700">{field.label}</span>
+                      <span className="text-sm text-foreground/80">{field.label}</span>
                     </label>
                   ))}
                 </div>
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+            <div className="px-6 py-4 border-t border-border flex justify-end gap-3">
               <button
                 onClick={() => setShowExportModal(false)}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                className="px-4 py-2 text-sm text-foreground/80 hover:bg-accent rounded-lg transition"
               >
                 Cancel
               </button>
               <button
                 onClick={handleExport}
                 disabled={isExporting || exportFields.size === 0}
-                className="flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-primary text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
               >
                 {isExporting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -502,80 +468,78 @@ export default function TasksPage() {
       )}
 
       {/* Table */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Customer / Service
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contact
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Pipeline Stage
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Value / Score
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Appointment
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {taskInstances.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
-                    No leads found
-                  </td>
+      {isLoading ? (
+        <div className="space-y-2">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-16 bg-muted rounded animate-pulse" />
+          ))}
+        </div>
+      ) : taskInstances.length === 0 ? (
+        <div className="text-center py-12 border rounded-xl bg-card">
+          <h3 className="text-lg font-medium text-foreground mb-2">No leads found</h3>
+          <p className="text-muted-foreground">Try adjusting your search or filters.</p>
+        </div>
+      ) : (
+        <>
+          {/* Desktop Table */}
+          <div className="hidden sm:block border rounded-xl overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted border-b border-border">
+                  <th className="text-left py-3 px-4 font-medium text-foreground">Name</th>
+                  <th className="text-left py-3 px-4 font-medium text-foreground">Contact</th>
+                  <th className="text-left py-3 px-4 font-medium text-foreground">Pipeline Stage</th>
+                  <th className="text-left py-3 px-4 font-medium text-foreground">Value / Score</th>
+                  <th className="text-left py-3 px-4 font-medium text-foreground">Appointment</th>
+                  <th className="w-10"></th>
                 </tr>
-              ) : (
-                taskInstances.map((instance: TaskInstanceWithRelations) => {
+              </thead>
+              <tbody className="bg-card divide-y divide-border">
+                {taskInstances.map((instance: TaskInstanceWithRelations) => {
                   const customer = extractCustomerInfo(instance);
                   const currentStage = instance.pipelineStage || "new";
                   return (
-                    <tr 
-                      key={instance.id} 
+                    <tr
+                      key={instance.id}
                       onClick={(e) => handleRowClick(instance, e)}
-                      className="hover:bg-gray-50 cursor-pointer"
+                      className="hover:bg-muted/50 cursor-pointer transition"
                     >
-                      {/* Customer / Service */}
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">
+                      <td className="py-3 px-4">
+                        <Link
+                          href={`/dashboard/tasks/${instance.id}`}
+                          className="font-medium text-foreground hover:text-primary transition-colors"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           {customer.name}
-                        </div>
-                        <div className="text-sm text-gray-500">
+                        </Link>
+                        <div className="text-xs text-muted-foreground mt-0.5">
                           {instance.taskName}
                         </div>
                       </td>
 
-                      {/* Contact Info */}
-                      <td className="px-6 py-4">
+                      <td className="py-3 px-4">
                         {customer.phone && (
-                          <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                             <Phone className="h-3 w-3" />
                             <span>{customer.phone}</span>
                           </div>
                         )}
                         {customer.address && (
-                          <div className="flex items-center gap-1.5 text-sm text-gray-500 mt-1">
+                          <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
                             <MapPin className="h-3 w-3" />
                             <span className="truncate max-w-[200px]">{customer.address}</span>
                           </div>
                         )}
                       </td>
 
-                      {/* Pipeline Stage - Editable */}
-                      <td className="px-6 py-4">
+                      <td className="py-3 px-4">
                         <select
                           value={currentStage}
                           onChange={(e) => handlePipelineChange(instance.id, e.target.value)}
                           disabled={updatePipeline.isPending}
                           aria-label="Change pipeline stage"
-                          className={`px-3 py-1.5 text-xs font-semibold rounded-full border cursor-pointer focus:ring-2 focus:ring-[var(--color-primary)] focus:outline-none ${
-                            PIPELINE_COLORS[currentStage] || "bg-gray-100 text-gray-800 border-gray-300"
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-full border cursor-pointer focus:ring-2 focus:ring-primary focus:outline-none ${
+                            PIPELINE_COLORS[currentStage] || "bg-muted text-foreground border-border"
                           }`}
                         >
                           {PIPELINE_OPTIONS.map((stage) => (
@@ -586,8 +550,7 @@ export default function TasksPage() {
                         </select>
                       </td>
 
-                      {/* Value / Score */}
-                      <td className="px-6 py-4">
+                      <td className="py-3 px-4">
                         {instance.estimatedValue && (
                           <div className="flex items-center gap-1 text-sm font-medium text-green-600">
                             <DollarSign className="h-3 w-3" />
@@ -596,7 +559,7 @@ export default function TasksPage() {
                         )}
                         {instance.leadScore && (
                           <div className="flex items-center gap-1 mt-1">
-                            <TrendingUp className="h-3 w-3 text-gray-400" />
+                            <TrendingUp className="h-3 w-3 text-muted-foreground/70" />
                             <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
                               instance.leadScore >= 70 ? "bg-green-100 text-green-700" :
                               instance.leadScore >= 40 ? "bg-yellow-100 text-yellow-700" :
@@ -607,12 +570,11 @@ export default function TasksPage() {
                           </div>
                         )}
                         {!instance.estimatedValue && !instance.leadScore && (
-                          <span className="text-gray-400 text-sm">-</span>
+                          <span className="text-muted-foreground text-sm">-</span>
                         )}
                       </td>
 
-                      {/* Appointment */}
-                      <td className="px-6 py-4">
+                      <td className="py-3 px-4">
                         {instance.appointmentTime ? (
                           <div className="flex items-center gap-1.5 text-sm text-blue-600">
                             <Calendar className="h-3.5 w-3.5" />
@@ -626,46 +588,115 @@ export default function TasksPage() {
                             </span>
                           </div>
                         ) : (
-                          <span className="text-gray-400 text-sm">Not booked</span>
+                          <span className="text-muted-foreground text-sm">Not booked</span>
                         )}
+                      </td>
+
+                      <td className="py-3 px-4">
+                        <Link
+                          href={`/dashboard/tasks/${instance.id}`}
+                          className="p-1 rounded hover:bg-accent transition"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                        </Link>
                       </td>
                     </tr>
                   );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {pagination && pagination.totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-            <div className="text-sm text-gray-700">
-              Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
-              {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
-              {pagination.total} results
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPage(page - 1)}
-                disabled={!pagination.hasPrevPage}
-                className="px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Previous
-              </button>
-              <button
-                onClick={() => setPage(page + 1)}
-                disabled={!pagination.hasNextPage}
-                className="px-3 py-1 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-              >
-                Next
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
+                })}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+
+          {/* Mobile Card View */}
+          <div className="sm:hidden space-y-3">
+            {taskInstances.map((instance: TaskInstanceWithRelations) => {
+              const customer = extractCustomerInfo(instance);
+              const currentStage = instance.pipelineStage || "new";
+              return (
+                <Link
+                  key={instance.id}
+                  href={`/dashboard/tasks/${instance.id}`}
+                  className="block bg-card border border-border rounded-xl p-4 hover:shadow-md transition"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <div className="font-medium text-foreground">{customer.name}</div>
+                      <div className="text-xs text-muted-foreground">{instance.taskName}</div>
+                    </div>
+                    <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border ${
+                      PIPELINE_COLORS[currentStage] || "bg-muted text-foreground border-border"
+                    }`}>
+                      {currentStage.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    {customer.phone && (
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Phone className="h-3 w-3" />
+                        <span>{customer.phone}</span>
+                      </div>
+                    )}
+                    {customer.address && (
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <MapPin className="h-3 w-3" />
+                        <span className="truncate">{customer.address}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between mt-3 pt-2 border-t border-border">
+                    {instance.estimatedValue ? (
+                      <span className="text-xs font-medium text-green-600">
+                        {formatCurrency(instance.estimatedValue)}
+                      </span>
+                    ) : (
+                      <span />
+                    )}
+                    {instance.appointmentTime ? (
+                      <div className="flex items-center gap-1 text-xs text-blue-600">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(instance.appointmentTime).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* Pagination */}
+      {pagination && pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <div className="text-sm text-muted-foreground">
+            Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
+            {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
+            {pagination.total} leads
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage(page - 1)}
+              disabled={!pagination.hasPrevPage}
+              className="flex items-center gap-1 px-3 py-1.5 text-sm bg-card border border-border rounded-lg hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Previous
+            </button>
+            <button
+              onClick={() => setPage(page + 1)}
+              disabled={!pagination.hasNextPage}
+              className="flex items-center gap-1 px-3 py-1.5 text-sm bg-card border border-border rounded-lg hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition"
+            >
+              Next
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </Page>
   );
 }

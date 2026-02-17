@@ -8,8 +8,36 @@
 // =============================================================================
 export const AgentExternalType = {
   ELEVEN_LABS: 'eleven_labs',
+  LOCAL_FALLBACK: 'local_fallback',
 } as const;
 export type AgentExternalType = (typeof AgentExternalType)[keyof typeof AgentExternalType];
+
+export const Industry = {
+  PEST_CONTROL: 'pest_control',
+  HVAC: 'hvac',
+  ROOFING: 'roofing',
+  ELECTRICAL: 'electrical',
+  CLEANING_SERVICES: 'cleaning_services',
+} as const;
+export type Industry = (typeof Industry)[keyof typeof Industry];
+
+export const UseCase = {
+  CUSTOMER_SUPPORT: 'customer_support',
+  OUTBOUND_SALES: 'outbound_sales',
+  SCHEDULING: 'scheduling',
+  LEAD_QUALIFICATION: 'lead_qualification',
+  ANSWERING_SERVICE: 'answering_service',
+} as const;
+export type UseCase = (typeof UseCase)[keyof typeof UseCase];
+
+export const AgentStatus = {
+  DRAFT: 'draft',
+  ACTIVE: 'active',
+  PAUSED: 'paused',
+  ARCHIVED: 'archived',
+  ERROR: 'error',
+} as const;
+export type AgentStatus = (typeof AgentStatus)[keyof typeof AgentStatus];
 
 // =============================================================================
 // ORGANIZATION TYPES
@@ -159,6 +187,14 @@ export interface DBOrganization {
   logo: string | null;
   createdAt: Timestamp;
   metadata: string | null;
+  lifecycleStatus: string;
+  planType: string;
+  provisioningStatus: string;
+  onboardingIdempotencyKey: string | null;
+  onboardingBusinessRole: string | null;
+  onboardingDemoIntent: boolean;
+  onboardingQualification: unknown | null;
+  onboardingCompletedAt: Timestamp | null;
 }
 
 export interface DBAgent {
@@ -172,6 +208,16 @@ export interface DBAgent {
   externalType: string;
   createdAt: Timestamp;
   updatedAt: Timestamp;
+  industry: string | null;
+  useCase: string | null;
+  website: string | null;
+  mainGoal: string | null;
+  voiceId: string | null;
+  status: string;
+  syncPending: boolean;
+  lastSyncAt: Timestamp | null;
+  lastSyncError: string | null;
+  providerCorrelationKey: string | null;
   mcpApiKey: string | null;
   webhookSecret: string | null;
   mcpEndpointUrl: string | null;
@@ -214,6 +260,7 @@ export interface DBTaskInstance {
   bookingCancelReason: string | null;
   tags: unknown | null;
   pipelineStage: string | null;
+  pipelineStageId: string | null;
 }
 
 export interface DBRecording {
@@ -264,6 +311,26 @@ export interface DBSubscription {
   trialEnd: Timestamp | null;
   cancelAtPeriodEnd: boolean | null;
   seats: number | null;
+}
+
+export interface DBLead {
+  id: string;
+  organizationId: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  phone: string | null;
+  normalizedPhone: string | null;
+  company: string | null;
+  title: string | null;
+  linkedInUrl: string | null;
+  website: string | null;
+  customFields: unknown | null;
+  pipelineStageId: string | null;
+  dealValue: string | null;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  deletedAt: Timestamp | null;
 }
 
 // =============================================================================
@@ -375,6 +442,14 @@ export interface AdminCreateAgentRequest {
   externalId: string;
 }
 
+// Create Agent Request (user-facing)
+export interface CreateAgentRequest {
+  organizationId: string;
+  name: string;
+  firstMessage: string;
+  prompt: string;
+}
+
 // =============================================================================
 // RESPONSE TYPES
 // =============================================================================
@@ -417,3 +492,45 @@ export type DBPagination = {
   limit: number;
   offset: number;
 };
+
+// =============================================================================
+// ADMIN TYPES
+// =============================================================================
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string | null;
+  organizations: string[];
+  emailVerified: boolean;
+  role: string;
+  createdAt: string;
+}
+
+export interface AdminOrganization {
+  id: string;
+  name: string;
+  slug: string;
+  memberCount: number;
+  creditBalance: number;
+  createdAt: string;
+}
+
+export interface ErrorLogItem {
+  id: string;
+  code: string;
+  message: string;
+  severity: string;
+  status: string;
+  product: string;
+  organizationName: string | null;
+  occurredAt: string;
+  correlationId?: string | null;
+  correlationLink?: string | null;
+}
+
+export interface ErrorLogDetail extends ErrorLogItem {
+  stackTrace: string | null;
+  metadata: Record<string, unknown> | null;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+}

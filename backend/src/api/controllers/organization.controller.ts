@@ -1,20 +1,37 @@
+import { randomUUID } from 'crypto'
 import { AuthRequestHandler } from '@/types/handlers'
 import { config } from '@/config'
 import { db } from '@/lib/db'
-import { getOrganizationMember } from '@/repositories/auth.repository'
-import { formatToSlug } from '@/utils'
-import { createOrganization } from '@/repositories/organization.repository'
-import { createAgent as createAgentRepo } from '@/repositories/agent.repository'
-import { withId } from '@/repositories/utils'
-import { updateUserLastActiveOrganizationId } from '@/repositories/auth.repository'
-import { AgentExternalType } from '@shared/types/src'
+import {
+  getOnboardingProvisioningStatus as getOnboardingProvisioningStatusView,
+  OnboardingProvisioningServiceError,
+  retryOnboardingProvisioning,
+  submitOnboarding,
+} from '@/services/onboarding-provisioning.service'
+import { sendApiError } from '@/api/utils/error-contract'
 import { z } from 'zod'
+
+const OnboardingQualificationSchema = z
+  .object({
+    teamSize: z.string().optional(),
+    monthlyLeadVolume: z.string().optional(),
+    rolloutTimeline: z.string().optional(),
+    notes: z.string().optional(),
+  })
+  .optional()
 
 export const OrganizationOnboardingSchema = z.object({
   name: z.string(),
   domain: z.string().optional(),
   industry: z.string(),
   services: z.array(z.string()).default([]),
+  useCase: z.string().optional(),
+  website: z.string().optional(),
+  mainGoal: z.string().optional(),
+  businessRole: z.string().optional(),
+  demoIntent: z.boolean().default(true),
+  qualification: OnboardingQualificationSchema,
+  idempotencyKey: z.string().optional(),
   agent: z.object({
     name: z.string(),
     openingLine: z.string().optional(),
@@ -22,67 +39,148 @@ export const OrganizationOnboardingSchema = z.object({
   }),
 })
 
+export const OrganizationProvisioningStatusSchema = z.object({
+  organizationId: z.string().optional(),
+})
+
+export const OrganizationProvisioningRetrySchema = z.object({
+  organizationId: z.string().optional(),
+})
+
 type OrgOnboardingRequest = z.infer<typeof OrganizationOnboardingSchema>
+type OrgProvisioningStatusRequest = z.infer<
+  typeof OrganizationProvisioningStatusSchema
+>
+type OrgProvisioningRetryRequest = z.infer<
+  typeof OrganizationProvisioningRetrySchema
+>
+
+const getCorrelationId = (headers: Record<string, unknown>): string => {
+  const headerValue = headers['x-correlation-id']
+  if (typeof headerValue === 'string' && headerValue.trim().length > 0) {
+    return headerValue.trim()
+  }
+  return randomUUID()
+}
+
+const getIdempotencyKey = (input: {
+  headers: Record<string, unknown>
+  bodyKey?: string
+}): string => {
+  const fromHeader = input.headers['x-idempotency-key']
+
+  if (typeof fromHeader === 'string' && fromHeader.trim().length > 0) {
+    return fromHeader.trim()
+  }
+
+  if (input.bodyKey && input.bodyKey.trim().length > 0) {
+    return input.bodyKey.trim()
+  }
+
+  return randomUUID()
+}
+
+const sendOnboardingServiceError = (
+  req: Parameters<AuthRequestHandler<any>>[0],
+  res: Parameters<AuthRequestHandler<any>>[1],
+  error: OnboardingProvisioningServiceError,
+) => {
+  return sendApiError(req, res, error.status, {
+    code: error.code,
+    message: error.message,
+    userMessage: error.userMessage,
+    details: error.details,
+  })
+}
 
 export const onboardOrganization: AuthRequestHandler<
   OrgOnboardingRequest
-> = async (req, res) => {
-  if (config.nodeEnv === 'production') {
-    return res.status(403).json({ error: 'Not available in production' })
-  }
+> = async (req, res, next) => {
+  try {
+    const validated = req.validated
+    const correlationId = getCorrelationId(req.headers as Record<string, unknown>)
+    const idempotencyKey = getIdempotencyKey({
+      headers: req.headers as Record<string, unknown>,
+      bodyKey: validated.idempotencyKey,
+    })
 
-  const { name, domain, industry, services, agent } = req.validated
-  const now = new Date()
-
-  // Create organization with metadata captured from onboarding
-  const organization = await createOrganization({
-    name,
-    slug: formatToSlug(name),
-    createdAt: now,
-    metadata: JSON.stringify({
-      domain,
-      industry,
-      services,
+    const result = await submitOnboarding({
+      userId: req.user.id,
+      correlationId,
+      idempotencyKey,
+      name: validated.name,
+      domain: validated.domain,
+      industry: validated.industry,
+      services: validated.services,
+      useCase: validated.useCase,
+      website: validated.website,
+      mainGoal: validated.mainGoal,
+      businessRole: validated.businessRole,
+      demoIntent: validated.demoIntent,
+      qualification: validated.qualification,
       agent: {
-        openingLine: agent.openingLine,
-        serviceQuestions: agent.serviceQuestions,
+        name: validated.agent.name,
+        openingLine: validated.agent.openingLine,
+        serviceQuestions: validated.agent.serviceQuestions,
       },
-    }),
-  })
+    })
 
-  // Add the current user as owner
-  await db
-    .insertInto('member')
-    .values(
-      withId({
-        organizationId: organization.id,
-        userId: req.user.id,
-        role: 'owner',
-        createdAt: now,
-      }),
-    )
-    .executeTakeFirst()
+    return res.status(result.idempotent ? 200 : 202).json({
+      data: {
+        organizationId: result.organizationId,
+        idempotent: result.idempotent,
+        provisioning: result.status,
+      },
+    })
+  } catch (error) {
+    if (error instanceof OnboardingProvisioningServiceError) {
+      return sendOnboardingServiceError(req, res, error)
+    }
+    return next(error)
+  }
+}
 
-  await updateUserLastActiveOrganizationId(req.user.id, organization.id)
+export const getOrganizationOnboardingProvisioningStatus: AuthRequestHandler<
+  OrgProvisioningStatusRequest
+> = async (req, res, next) => {
+  try {
+    const status = await getOnboardingProvisioningStatusView({
+      userId: req.user.id,
+      organizationId: req.validated.organizationId,
+    })
 
-  // Create agent with provided name and stash onboarding details in metadata-compatible fields
-  const createdAgent = await createAgentRepo({
-    name: agent.name,
-    slug: formatToSlug(agent.name),
-    organizationId: organization.id,
-    // Placeholder numbers; can be edited later in settings
-    phoneNumber: '+15555550123',
-    redirectNumber: '+15555550123',
-    externalId: organization.id,
-    externalType: AgentExternalType.ELEVEN_LABS,
-  })
+    return res.json({
+      data: status,
+    })
+  } catch (error) {
+    if (error instanceof OnboardingProvisioningServiceError) {
+      return sendOnboardingServiceError(req, res, error)
+    }
+    return next(error)
+  }
+}
 
-  res.json({
-    data: {
-      organization,
-      agent: createdAgent,
-    },
-  })
+export const retryOrganizationOnboardingProvisioning: AuthRequestHandler<
+  OrgProvisioningRetryRequest
+> = async (req, res, next) => {
+  try {
+    const correlationId = getCorrelationId(req.headers as Record<string, unknown>)
+
+    const result = await retryOnboardingProvisioning({
+      userId: req.user.id,
+      correlationId,
+      organizationId: req.validated.organizationId,
+    })
+
+    return res.status(202).json({
+      data: result.status,
+    })
+  } catch (error) {
+    if (error instanceof OnboardingProvisioningServiceError) {
+      return sendOnboardingServiceError(req, res, error)
+    }
+    return next(error)
+  }
 }
 
 interface DeleteOrganizationDevRequest {

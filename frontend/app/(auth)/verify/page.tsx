@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import AuthCard from "@/components/AuthCard";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -7,6 +7,14 @@ import { useVerifyEmail, useSendVerificationEmail } from "@/hooks/api/useAuth";
 import { useSession } from "@/lib/auth-client";
 
 export default function VerifyEmailPage() {
+  return (
+    <Suspense>
+      <VerifyEmailContent />
+    </Suspense>
+  );
+}
+
+function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [verified, setVerified] = useState(false);

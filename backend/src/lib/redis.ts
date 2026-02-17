@@ -1,6 +1,10 @@
 import { config } from '@/config'
 import Redis from 'ioredis'
 import logger from '@/lib/logger'
+import {
+  recordRedisCommandErrorMetric,
+  recordRedisTimeoutMetric,
+} from '@/services/operations-metrics.service'
 
 export const redisConfig = {
   ...(config.redis.useTLS && {
@@ -20,6 +24,14 @@ export function getRedis(): Redis {
         ...redisConfig,
         maxRetriesPerRequest: null,
         enableReadyCheck: false,
+      })
+
+      _redis.on('error', (error) => {
+        const message = error instanceof Error ? error.message : String(error)
+        recordRedisCommandErrorMetric()
+        if (/timeout|timed out|etimedout/i.test(message)) {
+          recordRedisTimeoutMetric()
+        }
       })
     } catch (error) {
       logger.error(`[Redis Lib] Error initializing Redis: ${error}`)
