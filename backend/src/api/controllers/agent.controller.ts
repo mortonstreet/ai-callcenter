@@ -276,7 +276,10 @@ export const agentWebhook: ValidatedRequestHandler<ElevenLabsWebhook> = async (
     const { recording } = await processElevenLabsConversationWebhook(webhook)
     return res.json({ success: true, recordingId: recording.id })
   } catch (error) {
-    logger.error({ error }, 'Error processing ElevenLabs webhook directly')
+    logger.error(
+      { error: error instanceof Error ? { message: error.message, stack: error.stack } : error },
+      'Error processing ElevenLabs webhook directly',
+    )
 
     try {
       await enqueueQueueJob(

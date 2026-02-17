@@ -91,6 +91,11 @@ export const isProcessableElevenLabsWebhookType = (
 export async function processElevenLabsConversationWebhook(
   webhook: ElevenLabsWebhook,
 ) {
+  logger.info(
+    { agentExternalId: webhook.data.agent_id, conversationId: webhook.data.conversation_id },
+    'Processing ElevenLabs webhook',
+  )
+
   const agent = await findAgentByExternalId(
     webhook.data.agent_id,
     AgentExternalType.ELEVEN_LABS,
@@ -102,6 +107,8 @@ export async function processElevenLabsConversationWebhook(
     )
   }
 
+  logger.info({ agentId: agent.id, agentName: agent.name }, 'Found agent for webhook')
+
   let taskInstance = await findTaskInstanceByConversationId(
     webhook.data.conversation_id,
     agent.organizationId,
@@ -109,6 +116,8 @@ export async function processElevenLabsConversationWebhook(
 
   // If no TaskInstance exists for this conversation, create one as a new lead
   if (!taskInstance) {
+    logger.info('No existing task instance found, creating new lead')
+
     let task = await findFirstTaskByAgentId(agent.id, agent.organizationId)
 
     if (!task) {
@@ -157,7 +166,8 @@ export async function processElevenLabsConversationWebhook(
     })
 
     logger.info(
-      `Created new lead (TaskInstance ${taskInstance.id}) for conversation ${webhook.data.conversation_id}`,
+      { taskInstanceId: taskInstance.id, conversationId: webhook.data.conversation_id },
+      'Created new lead (TaskInstance)',
     )
   }
 
@@ -166,7 +176,8 @@ export async function processElevenLabsConversationWebhook(
   const qualityResult = classifyCallQuality(callDuration, transcriptSummary)
 
   logger.info(
-    `Call quality classified: ${qualityResult.quality} (${qualityResult.reason})`,
+    { quality: qualityResult.quality, reason: qualityResult.reason },
+    'Call quality classified',
   )
 
   const recording = await createRecording({
@@ -183,6 +194,8 @@ export async function processElevenLabsConversationWebhook(
     callQuality: qualityResult.quality,
     callQualityReason: qualityResult.reason,
   })
+
+  logger.info({ recordingId: recording.id }, 'Recording created successfully')
 
   return {
     recording,
