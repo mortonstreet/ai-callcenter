@@ -167,6 +167,11 @@ export class ProvisioningRetryNotEligibleError extends Error {
 
 const MAX_RETRY_ATTEMPTS = 5
 const CANARY_COHORTS = new Set<ProvisioningRolloutCohort>(['internal', 'demo'])
+const RETRY_ELIGIBLE_STATUSES = new Set<ProvisioningJobStatus>([
+  'failed',
+  'blocked_manual',
+  'retrying',
+])
 
 const STEP_NAME_BY_ID: Record<string, string> = {
   validate_request: 'Validate request and policy',
@@ -484,12 +489,11 @@ const buildRecommendedAction = (input: {
   if (input.status === 'completed') {
     return 'Provisioning completed successfully.'
   }
-  if (
-    input.status === 'queued' ||
-    input.status === 'running' ||
-    input.status === 'retrying'
-  ) {
+  if (input.status === 'running') {
     return 'Provisioning is actively running. No manual action needed.'
+  }
+  if (input.status === 'queued' || input.status === 'retrying') {
+    return 'Provisioning is waiting for orchestration. Trigger a manual retry if it appears stalled.'
   }
 
   return 'Retry provider provisioning after confirming upstream provider health.'
@@ -573,7 +577,7 @@ const buildProvisioningResponse = async (input: {
   const retryCount = Math.max(0, Number(input.job.attempt || 1) - 1)
   const retryMetadata = resolveRetryMetadata(input.job.runtimeState)
   const retryEligible =
-    (status === 'failed' || status === 'blocked_manual') &&
+    RETRY_ELIGIBLE_STATUSES.has(status) &&
     rollout.featureEnabled &&
     !rollout.paused &&
     retryCount < MAX_RETRY_ATTEMPTS &&
