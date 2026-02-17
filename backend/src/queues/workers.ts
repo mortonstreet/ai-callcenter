@@ -3,7 +3,11 @@ import { config } from '@/config'
 import { setRequestContext } from '@/lib/context'
 import logger from '@/lib/logger'
 import Sentry from '@/lib/sentry'
-import { getDeadLetterQueue, getQueueRegistry, initQueuesIfAvailable } from '@/queues'
+import {
+  getDeadLetterQueue,
+  getQueueRegistry,
+  initQueuesIfAvailable,
+} from '@/queues'
 import { resolveTaxonomyFromQueue } from '@/lib/error-taxonomy'
 import {
   recordCampaignSendMetric,
@@ -472,7 +476,10 @@ export class WorkerRuntime {
     try {
       const dlq = getDeadLetterQueue(queueName)
       if (!dlq) {
-        logger.warn({ queueName, jobId: job.id }, 'Dead letter queue not available')
+        logger.warn(
+          { queueName, jobId: job.id },
+          'Dead letter queue not available',
+        )
         return
       }
       await dlq.add(

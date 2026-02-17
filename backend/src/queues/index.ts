@@ -27,7 +27,10 @@ const REDIS_CHECK_INTERVAL_MS = 60_000
 
 const checkRedisAvailable = async (): Promise<boolean> => {
   const now = Date.now()
-  if (_redisAvailable !== null && now - _lastRedisCheck < REDIS_CHECK_INTERVAL_MS) {
+  if (
+    _redisAvailable !== null &&
+    now - _lastRedisCheck < REDIS_CHECK_INTERVAL_MS
+  ) {
     return _redisAvailable
   }
 
@@ -65,7 +68,8 @@ const createQueue = (name: string) =>
 
 // Lazy queue registries - only created when Redis is available
 let _queueRegistry: Record<QueueName, Queue<QueueJobPayload>> | null = null
-let _deadLetterQueueRegistry: Record<QueueName, Queue<QueueJobPayload>> | null = null
+let _deadLetterQueueRegistry: Record<QueueName, Queue<QueueJobPayload>> | null =
+  null
 
 const initQueues = () => {
   if (!_queueRegistry) {
@@ -92,15 +96,23 @@ const initQueues = () => {
       ),
     }
   }
-  return { queueRegistry: _queueRegistry, deadLetterQueueRegistry: _deadLetterQueueRegistry }
+  return {
+    queueRegistry: _queueRegistry,
+    deadLetterQueueRegistry: _deadLetterQueueRegistry,
+  }
 }
 
 // Expose getter that lazily initializes (for workers/admin that need direct access)
-export const getQueueRegistry = (): Record<QueueName, Queue<QueueJobPayload>> | null => {
+export const getQueueRegistry = (): Record<
+  QueueName,
+  Queue<QueueJobPayload>
+> | null => {
   return _queueRegistry
 }
 
-export const getQueue = (queueName: QueueName): Queue<QueueJobPayload> | null => {
+export const getQueue = (
+  queueName: QueueName,
+): Queue<QueueJobPayload> | null => {
   if (!_queueRegistry) return null
   return _queueRegistry[queueName]
 }
@@ -122,7 +134,9 @@ export const initQueuesIfAvailable = async (): Promise<boolean> => {
     logger.info('Redis available - queues initialized')
     return true
   }
-  logger.warn('Redis unavailable - queues will not be initialized. The app will continue without queue support.')
+  logger.warn(
+    'Redis unavailable - queues will not be initialized. The app will continue without queue support.',
+  )
   return false
 }
 

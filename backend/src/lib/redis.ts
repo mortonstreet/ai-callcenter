@@ -29,7 +29,9 @@ export function getRedis(): Redis | null {
           // Stop retrying after 3 attempts and log once
           if (times > 3) {
             if (!_redisErrorLogged) {
-              logger.warn('Redis connection failed after 3 retries - giving up. App will continue without Redis.')
+              logger.warn(
+                'Redis connection failed after 3 retries - giving up. App will continue without Redis.',
+              )
               _redisErrorLogged = true
             }
             return null // stop retrying
@@ -43,7 +45,10 @@ export function getRedis(): Redis | null {
         const message = error instanceof Error ? error.message : String(error)
         // Only log the first Redis error, suppress the spam
         if (!_redisErrorLogged) {
-          logger.warn({ error: message }, 'Redis connection error - app will continue without Redis')
+          logger.warn(
+            { error: message },
+            'Redis connection error - app will continue without Redis',
+          )
           _redisErrorLogged = true
         }
         recordRedisCommandErrorMetric()
