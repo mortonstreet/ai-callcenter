@@ -184,6 +184,18 @@ export const findTaskInstanceByBookingId = async (bookingId: string) => {
 }
 
 // Update task instance booking status (for Cal.com webhook events)
+export const findFirstTaskByAgentId = async (
+  agentId: string,
+  organizationId: string,
+) => {
+  return await db
+    .selectFrom('task')
+    .where('agentId', '=', agentId)
+    .where('organizationId', '=', organizationId)
+    .selectAll()
+    .executeTakeFirst()
+}
+
 export const updateTaskInstanceBookingStatus = async (
   id: string,
   updates: {

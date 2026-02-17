@@ -22,10 +22,12 @@ import {
   createRecording,
   findAgentByExternalId,
   findTaskInstanceByConversationId,
+  findFirstTaskByAgentId,
   updateAgentMcpCredentials,
   findTaskInstanceByBookingId,
   updateTaskInstanceBookingStatus,
 } from '@/repositories/agent.repository'
+import { createTaskInstance } from '@/repositories/organization.repository'
 import { formatTaskFields } from '@/utils/task'
 import { formatToSlug } from '@/utils'
 import logger from '@/lib/logger'
@@ -292,10 +294,69 @@ export const agentWebhook: ValidatedRequestHandler<ElevenLabsWebhook> = async (
       return res.status(404).json({ error: 'Agent not found' })
     }
 
-    const taskInstance = await findTaskInstanceByConversationId(
+    let taskInstance = await findTaskInstanceByConversationId(
       webhook.data.conversation_id,
       agent.organizationId,
     )
+
+    // If no TaskInstance exists for this conversation, create one as a new lead
+    if (!taskInstance) {
+      // Find an existing task for this agent, or create a default one
+      let task = await findFirstTaskByAgentId(agent.id, agent.organizationId)
+
+      if (!task) {
+        task = await createTaskRepository({
+          name: 'Inbound Calls',
+          description: 'Default task for inbound call leads',
+          agentId: agent.id,
+          organizationId: agent.organizationId,
+          requiredInfo: JSON.stringify([]),
+          dispatcherUserId: null,
+        })
+        logger.info(
+          `Created default task "${task.name}" for agent ${agent.name} (${agent.id})`,
+        )
+      }
+
+      // Extract caller phone from webhook metadata if available
+      const phoneCall = webhook.data.metadata?.phone_call as
+        | { from_number?: string; call_sid?: string }
+        | null
+        | undefined
+      const callerPhone = phoneCall?.from_number || null
+
+      taskInstance = await createTaskInstance({
+        taskId: task.id,
+        status: 'pending',
+        requiredInfo: task.requiredInfo,
+        info: JSON.stringify(
+          callerPhone
+            ? { 'phone-number': callerPhone }
+            : {},
+        ),
+        conversationId: webhook.data.conversation_id,
+        callSid: phoneCall?.call_sid || webhook.data.conversation_id,
+        dispatcherId: null,
+        organizationId: agent.organizationId,
+        pipelineStage: PipelineStage.NEW,
+        leadType: null,
+        resolutionType: null,
+        customerType: null,
+        leadScore: null,
+        estimatedValue: null,
+        calcomBookingId: null,
+        calcomEventId: null,
+        appointmentTime: null,
+        bookingStatus: null,
+        bookingCancelledAt: null,
+        bookingCancelReason: null,
+        tags: null,
+      })
+
+      logger.info(
+        `Created new lead (TaskInstance ${taskInstance.id}) for conversation ${webhook.data.conversation_id}`,
+      )
+    }
 
     // Classify call quality
     const callDuration = webhook.data.metadata?.call_duration_secs || 0
@@ -312,7 +373,7 @@ export const agentWebhook: ValidatedRequestHandler<ElevenLabsWebhook> = async (
       callSid:
         webhook.data.metadata?.phone_call?.call_sid ||
         webhook.data.conversation_id, // Fallback to conversationId if no callSid
-      taskInstanceId: taskInstance?.id || null,
+      taskInstanceId: taskInstance.id,
       organizationId: agent.organizationId,
       callDurationSeconds: callDuration,
       cost: webhook.data.metadata?.cost || 0,
