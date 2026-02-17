@@ -129,7 +129,27 @@ export class ElevenLabsClient {
    * Get a conversational AI agent's configuration
    */
   async getAgent(agentId: string): Promise<any> {
-    return this.request<any>(`/convai/agents/${agentId}`)
+    return this.request(`/convai/agents/${agentId}`)
+  }
+
+  /**
+   * Delete an agent
+   */
+  async deleteAgent(agentId: string): Promise<void> {
+    const url = `${ELEVENLABS_API_URL}/convai/agents/${agentId}`
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'xi-api-key': this.apiKey,
+      },
+    })
+    if (!response.ok) {
+      const errorText = await response.text()
+      logger.error(
+        `ElevenLabs delete agent error: ${response.status} - ${errorText}`,
+      )
+      throw new Error(`ElevenLabs API error: ${response.status} - ${errorText}`)
+    }
   }
 
   /**
@@ -142,9 +162,13 @@ export class ElevenLabsClient {
   /**
    * Delete a conversational AI agent
    */
-  async deleteAgent(agentId: string): Promise<void> {
-    await this.request<unknown>(`/convai/agents/${agentId}`, {
-      method: 'DELETE',
+  async addKnowledgeBaseUrl(agentId: string, url: string): Promise<any> {
+    return this.request(`/convai/agents/${agentId}/add-to-knowledge-base`, {
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'url',
+        url,
+      }),
     })
   }
 

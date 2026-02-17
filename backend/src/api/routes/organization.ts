@@ -4,14 +4,11 @@ import { validateAndMerge } from '@/api/middlewares/validationMiddleware'
 import { z } from 'zod'
 import {
   deleteOrganizationDev,
-  getOrganizationOnboardingProvisioningStatus,
   onboardOrganization,
-  OrganizationProvisioningRetrySchema,
-  OrganizationProvisioningStatusSchema,
   OrganizationOnboardingSchema,
-  retryOrganizationOnboardingProvisioning,
 } from '@/api/controllers/organization.controller'
 import { authenticatedRoute } from './utils'
+import { rejectForbiddenWizardFields } from '../middlewares/wizardContract'
 
 const router = Router()
 
@@ -22,22 +19,9 @@ const DeleteOrganizationSchema = z.object({
 router.post(
   '/onboarding',
   withBetterAuth,
+  rejectForbiddenWizardFields,
   validateAndMerge(OrganizationOnboardingSchema),
   authenticatedRoute(onboardOrganization),
-)
-
-router.get(
-  '/onboarding/provisioning-status',
-  withBetterAuth,
-  validateAndMerge(OrganizationProvisioningStatusSchema),
-  authenticatedRoute(getOrganizationOnboardingProvisioningStatus),
-)
-
-router.post(
-  '/onboarding/provisioning/retry',
-  withBetterAuth,
-  validateAndMerge(OrganizationProvisioningRetrySchema),
-  authenticatedRoute(retryOrganizationOnboardingProvisioning),
 )
 
 router.delete(

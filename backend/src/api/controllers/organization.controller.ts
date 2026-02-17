@@ -1,190 +1,115 @@
-import { randomUUID } from 'crypto'
 import { AuthRequestHandler } from '@/types/handlers'
 import { config } from '@/config'
 import { db } from '@/lib/db'
-import {
-  getOnboardingProvisioningStatus as getOnboardingProvisioningStatusView,
-  OnboardingProvisioningServiceError,
-  retryOnboardingProvisioning,
-  submitOnboarding,
-} from '@/services/onboarding-provisioning.service'
-import { sendApiError } from '@/api/utils/error-contract'
+import { WizardInputV2Schema } from '@shared/types/src'
 import { z } from 'zod'
+import { startOnboardingProvisioning } from '@/services/provisioning-orchestrator.service'
+import { getCorrelationId } from '@/api/utils/error-contract'
 
-const OnboardingQualificationSchema = z
+export const OrganizationOnboardingSchema = z
   .object({
-    teamSize: z.string().optional(),
-    monthlyLeadVolume: z.string().optional(),
-    rolloutTimeline: z.string().optional(),
-    notes: z.string().optional(),
+    name: z.string().trim().min(1),
+    domain: z.string().trim().optional(),
+    idempotencyKey: z.string().trim().min(1).max(256).optional(),
+    wizard_input_v2: WizardInputV2Schema,
   })
-  .optional()
-
-export const OrganizationOnboardingSchema = z.object({
-  name: z.string(),
-  domain: z.string().optional(),
-  industry: z.string(),
-  services: z.array(z.string()).default([]),
-  useCase: z.string().optional(),
-  website: z.string().optional(),
-  mainGoal: z.string().optional(),
-  businessRole: z.string().optional(),
-  demoIntent: z.boolean().default(true),
-  qualification: OnboardingQualificationSchema,
-  idempotencyKey: z.string().optional(),
-  agent: z.object({
-    name: z.string(),
-    openingLine: z.string().optional(),
-    serviceQuestions: z.array(z.string()).optional(),
-  }),
-})
-
-export const OrganizationProvisioningStatusSchema = z.object({
-  organizationId: z.string().optional(),
-})
-
-export const OrganizationProvisioningRetrySchema = z.object({
-  organizationId: z.string().optional(),
-})
+  .strict()
 
 type OrgOnboardingRequest = z.infer<typeof OrganizationOnboardingSchema>
-type OrgProvisioningStatusRequest = z.infer<
-  typeof OrganizationProvisioningStatusSchema
->
-type OrgProvisioningRetryRequest = z.infer<
-  typeof OrganizationProvisioningRetrySchema
->
 
-const getCorrelationId = (headers: Record<string, unknown>): string => {
-  const headerValue = headers['x-correlation-id']
-  if (typeof headerValue === 'string' && headerValue.trim().length > 0) {
-    return headerValue.trim()
-  }
-  return randomUUID()
+const resolveWizardInputFromOnboarding = (
+  payload: OrgOnboardingRequest,
+): z.infer<typeof WizardInputV2Schema> => {
+  return payload.wizard_input_v2
 }
 
-const getIdempotencyKey = (input: {
-  headers: Record<string, unknown>
-  bodyKey?: string
-}): string => {
-  const fromHeader = input.headers['x-idempotency-key']
-
-  if (typeof fromHeader === 'string' && fromHeader.trim().length > 0) {
-    return fromHeader.trim()
+const resolveIdempotencyKey = (req: {
+  validated: { idempotencyKey?: string }
+  get: (key: string) => string | undefined
+}) => {
+  const fromPayload = req.validated.idempotencyKey?.trim()
+  if (fromPayload) {
+    return fromPayload
   }
 
-  if (input.bodyKey && input.bodyKey.trim().length > 0) {
-    return input.bodyKey.trim()
-  }
+  const fromHeader =
+    req.get('idempotency-key') ||
+    req.get('Idempotency-Key') ||
+    req.get('x-idempotency-key')
 
-  return randomUUID()
-}
-
-const sendOnboardingServiceError = (
-  req: Parameters<AuthRequestHandler<any>>[0],
-  res: Parameters<AuthRequestHandler<any>>[1],
-  error: OnboardingProvisioningServiceError,
-) => {
-  return sendApiError(req, res, error.status, {
-    code: error.code,
-    message: error.message,
-    userMessage: error.userMessage,
-    details: error.details,
-  })
+  return fromHeader?.trim()
 }
 
 export const onboardOrganization: AuthRequestHandler<
   OrgOnboardingRequest
-> = async (req, res, next) => {
-  try {
-    const validated = req.validated
-    const correlationId = getCorrelationId(
-      req.headers as Record<string, unknown>,
-    )
-    const idempotencyKey = getIdempotencyKey({
-      headers: req.headers as Record<string, unknown>,
-      bodyKey: validated.idempotencyKey,
-    })
+> = async (req, res) => {
+  const { name, domain } = req.validated
+  const wizardInput = resolveWizardInputFromOnboarding(req.validated)
 
-    const result = await submitOnboarding({
-      userId: req.user.id,
-      correlationId,
-      idempotencyKey,
-      name: validated.name,
-      domain: validated.domain,
-      industry: validated.industry,
-      services: validated.services,
-      useCase: validated.useCase,
-      website: validated.website,
-      mainGoal: validated.mainGoal,
-      businessRole: validated.businessRole,
-      demoIntent: validated.demoIntent,
-      qualification: validated.qualification,
+  const idempotencyKey =
+    resolveIdempotencyKey(req) || `onboarding:${req.user.id}:${Date.now()}`
+
+  const requestCorrelationId = getCorrelationId(req, res)
+  const correlationId =
+    requestCorrelationId === 'unknown'
+      ? `wizard-onboarding:${req.user.id}`
+      : requestCorrelationId
+
+  const knowledgeSources = wizardInput.knowledgeSources || []
+  const website = knowledgeSources.find((source) => {
+    try {
+      new URL(source)
+      return true
+    } catch {
+      return false
+    }
+  })
+
+  const provisioningStart = await startOnboardingProvisioning({
+    requestedByUserId: req.user.id,
+    idempotencyKey,
+    correlationId,
+    wizardInput: {
+      name,
+      domain,
+      industry: wizardInput.industry,
+      services: wizardInput.services,
+      useCase: wizardInput.useCase,
+      website,
+      mainGoal: wizardInput.mainObjective,
       agent: {
-        name: validated.agent.name,
-        openingLine: validated.agent.openingLine,
-        serviceQuestions: validated.agent.serviceQuestions,
+        name: wizardInput.agentName,
+        openingLine:
+          wizardInput.greeting.mode === 'custom'
+            ? wizardInput.greeting.customText
+            : undefined,
+        serviceQuestions: wizardInput.discoveryQuestions || [],
       },
-    })
+    },
+  })
 
-    return res.status(result.idempotent ? 200 : 202).json({
-      data: {
-        organizationId: result.organizationId,
-        idempotent: result.idempotent,
-        provisioning: result.status,
+  res.status(202).json({
+    data: {
+      organization: provisioningStart.organization,
+      agent: {
+        id: provisioningStart.agent.id,
+        degradedMode: {
+          enabled: provisioningStart.agent.readinessStatus !== 'ready',
+          reason:
+            provisioningStart.agent.readinessStatus === 'ready'
+              ? null
+              : 'local_fallback_agent',
+        },
       },
-    })
-  } catch (error) {
-    if (error instanceof OnboardingProvisioningServiceError) {
-      return sendOnboardingServiceError(req, res, error)
-    }
-    return next(error)
-  }
-}
-
-export const getOrganizationOnboardingProvisioningStatus: AuthRequestHandler<
-  OrgProvisioningStatusRequest
-> = async (req, res, next) => {
-  try {
-    const status = await getOnboardingProvisioningStatusView({
-      userId: req.user.id,
-      organizationId: req.validated.organizationId,
-    })
-
-    return res.json({
-      data: status,
-    })
-  } catch (error) {
-    if (error instanceof OnboardingProvisioningServiceError) {
-      return sendOnboardingServiceError(req, res, error)
-    }
-    return next(error)
-  }
-}
-
-export const retryOrganizationOnboardingProvisioning: AuthRequestHandler<
-  OrgProvisioningRetryRequest
-> = async (req, res, next) => {
-  try {
-    const correlationId = getCorrelationId(
-      req.headers as Record<string, unknown>,
-    )
-
-    const result = await retryOnboardingProvisioning({
-      userId: req.user.id,
-      correlationId,
-      organizationId: req.validated.organizationId,
-    })
-
-    return res.status(202).json({
-      data: result.status,
-    })
-  } catch (error) {
-    if (error instanceof OnboardingProvisioningServiceError) {
-      return sendOnboardingServiceError(req, res, error)
-    }
-    return next(error)
-  }
+      provisioning: {
+        jobId: provisioningStart.job.id,
+        status: provisioningStart.job.status,
+        correlationId: provisioningStart.job.correlationId,
+        idempotentReplay: provisioningStart.reusedExisting,
+      },
+    },
+    correlationId,
+  })
 }
 
 interface DeleteOrganizationDevRequest {

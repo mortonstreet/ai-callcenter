@@ -275,6 +275,32 @@ router.get(
     const queueBacklogP0 = workerHealth.queues.filter(
       (snapshot) => snapshot.depth.waiting + snapshot.depth.delayed >= 1000,
     )
+
+    const wizardMetrics = opsMetrics.wizardProvisioning
+    const wizardStuckP0 = Array.isArray(wizardMetrics?.stuckRunningJobs)
+      ? wizardMetrics.stuckRunningJobs
+      : []
+    const blockedActivationSpikeP0 =
+      typeof wizardMetrics?.blockedActivations === 'number' &&
+      typeof wizardMetrics?.readiness?.blockedRate === 'number' &&
+      wizardMetrics.blockedActivations >= 3 &&
+      wizardMetrics.readiness.blockedRate >= 0.2
+        ? [
+            {
+              blockedActivations: wizardMetrics.blockedActivations,
+              blockedRate: wizardMetrics.readiness.blockedRate,
+            },
+          ]
+        : []
+    const degradedRetryP1 = Object.entries(
+      wizardMetrics?.repeatedDegradedRetriesByStep || {},
+    )
+      .filter(([, count]) => typeof count === 'number' && count >= 3)
+      .map(([stepId, count]) => ({
+        stepId,
+        count,
+      }))
+
     const elevatedFailureP1 = Object.entries(opsMetrics.queues)
       .filter(
         ([, snapshot]) => snapshot.failed > 5 && snapshot.failureRate >= 0.25,
@@ -295,11 +321,29 @@ router.get(
             waiting: snapshot.depth.waiting,
             delayed: snapshot.depth.delayed,
           })),
+          p0Wizard: [
+            ...wizardStuckP0.map((snapshot) => ({
+              jobId: snapshot.jobId,
+              reason: 'Wizard provisioning job appears stuck in running state',
+              status: snapshot.status,
+              minutesRunning: snapshot.minutesRunning,
+            })),
+            ...blockedActivationSpikeP0.map((snapshot) => ({
+              reason: 'Blocked wizard activations are above P0 threshold',
+              blockedActivations: snapshot.blockedActivations,
+              blockedRate: snapshot.blockedRate,
+            })),
+          ],
           p1: elevatedFailureP1.map((snapshot) => ({
             queue: snapshot.queueName,
             reason: 'Queue failure rate is above P1 threshold',
             failureRate: snapshot.failureRate,
             failed: snapshot.failed,
+          })),
+          p1Wizard: degradedRetryP1.map((snapshot) => ({
+            stepId: snapshot.stepId,
+            reason: 'Repeated degraded retries detected for wizard step',
+            retries: snapshot.count,
           })),
         },
       },

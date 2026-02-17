@@ -1,33 +1,51 @@
 "use client";
 
-import { useState } from "react";
 import { Page } from "@/components/dashboard/Page";
 import Link from "next/link";
 import { Bot, Loader2, Plus } from "lucide-react";
 import { useAgents } from "@/hooks/api/useAgent";
 import { useIsAdminOrOwner } from "@/hooks/api/useOrganization";
-import CreateAgentModal from "@/components/agent/CreateAgentModal";
+import { useSession } from "@/lib/auth-client";
+import { DBUser } from "@/lib/shared-types";
+import { useState } from "react";
+import { CreateAgentWizard } from "@/components/agent/CreateAgentWizard";
 
 export default function AgentsPage() {
   const { data: agents, isLoading, error } = useAgents();
   const isAdminOrOwner = useIsAdminOrOwner();
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const { data: session } = useSession();
+  const isGlobalAdmin = (session?.user as DBUser | undefined)?.isAdmin === true;
+  const canCreateAgent = isGlobalAdmin || isAdminOrOwner;
+  const [showWizard, setShowWizard] = useState(false);
+  const degradedAgents = (agents || []).filter(
+    (agent: any) =>
+      agent?.degradedMode?.enabled || agent?.syncPending || agent?.status === "error",
+  );
 
   return (
     <Page
       title="Agents"
       subtitle="Your AI agents"
+      actions={
+        canCreateAgent ? (
+          <button
+            onClick={() => setShowWizard(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#1b191a] px-4 py-2 text-sm font-medium text-white shadow-sm transition-all duration-200 hover:bg-[#2d2a2b] hover:shadow-md active:scale-[0.98]"
+          >
+            <Plus className="h-4 w-4" />
+            New Agent
+          </button>
+        ) : undefined
+      }
     >
       <div className="space-y-4">
-        {isAdminOrOwner && (
-          <div className="flex justify-end">
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition text-sm font-medium"
-            >
-              <Plus className="h-4 w-4" />
-              New Agent
-            </button>
+        {!isLoading && !error && degradedAgents.length > 0 && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-sm text-amber-900">
+              {degradedAgents.length === 1
+                ? "1 agent is running in degraded mode while provider sync retries in the background."
+                : `${degradedAgents.length} agents are running in degraded mode while provider sync retries in the background.`}
+            </p>
           </div>
         )}
 
@@ -84,24 +102,31 @@ export default function AgentsPage() {
 
         {!isLoading && !error && (!agents || agents.length === 0) && (
           <div className="text-center py-12">
-            <Bot className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600 mb-4">No agents yet</p>
-            {isAdminOrOwner && (
+            <Bot className="h-12 w-12 text-muted-foreground/70 mx-auto mb-4" />
+            <p className="text-muted-foreground mb-4">No agents yet</p>
+            {canCreateAgent ? (
               <button
-                onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:opacity-90 transition text-sm font-medium"
+                onClick={() => setShowWizard(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-[#1b191a] text-white rounded-xl hover:bg-[#2d2a2b] transition text-sm font-medium"
               >
                 <Plus className="h-4 w-4" />
                 Create Your First Agent
               </button>
+            ) : (
+              <a
+                href="mailto:support@revcenter.ai"
+                className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition text-sm font-medium"
+              >
+                Contact Support to Get Started
+              </a>
             )}
           </div>
         )}
       </div>
 
-      <CreateAgentModal
-        isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
+      <CreateAgentWizard
+        isOpen={showWizard}
+        onClose={() => setShowWizard(false)}
       />
     </Page>
   );

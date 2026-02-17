@@ -1,7 +1,9 @@
 import { QueueName, QUEUE_NAMES } from '@/types/queues'
+import type { ProvisioningStatusResponse } from '@/services/provisioning-status.service'
 
 const SAMPLE_LIMIT = 240
 const SLOW_QUERY_THRESHOLD_MS = 400
+const WIZARD_STUCK_THRESHOLD_MS = 15 * 60 * 1000
 
 type RouteMetric = {
   count: number
@@ -122,6 +124,8 @@ const campaignMetrics: Record<
   voice: { success: 0, failure: 0, blockedByCompliance: 0 },
   email: { success: 0, failure: 0, blockedByCompliance: 0 },
 }
+
+const wizardProvisioningJobs = new Map<string, ProvisioningStatusResponse>()
 
 const state = {
   startedAt: nowIso(),
@@ -276,6 +280,19 @@ export const recordCampaignSendMetric = (input: {
   metric[input.outcome] += 1
 }
 
+export const recordWizardProvisioningJobMetric = (
+  job: ProvisioningStatusResponse,
+) => {
+  wizardProvisioningJobs.set(job.jobId, {
+    ...job,
+    steps: job.steps.map((step) => ({ ...step })),
+    retry: { ...job.retry },
+    rollout: { ...job.rollout },
+    links: { ...job.links },
+    lastError: job.lastError ? { ...job.lastError } : null,
+  })
+}
+
 const summarizeRouteMetric = (metric: RouteMetric) => {
   const p95Ms = sortedPercentile(metric.recentDurationsMs, 95)
   const avgMs = metric.count > 0 ? metric.totalDurationMs / metric.count : 0
@@ -306,6 +323,135 @@ const summarizeQueueMetric = (metric: QueueMetric) => {
     ),
     maxLatencyMs: Number(metric.maxLatencyMs.toFixed(2)),
     lastSeenAt: metric.lastSeenAt,
+  }
+}
+
+const parseIsoTime = (value: string | null | undefined): number | null => {
+  if (!value) return null
+  const parsed = new Date(value).getTime()
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+const summarizeWizardProvisioningMetrics = () => {
+  const jobs = [...wizardProvisioningJobs.values()]
+  const now = Date.now()
+  const statusCounts: Record<string, number> = {
+    queued: 0,
+    running: 0,
+    retrying: 0,
+    failed: 0,
+    completed: 0,
+    blocked_manual: 0,
+  }
+  const readinessCounts: Record<'healthy' | 'degraded' | 'blocked', number> = {
+    healthy: 0,
+    degraded: 0,
+    blocked: 0,
+  }
+  const stepFailures: Record<string, number> = {}
+  const retryDistribution: Record<string, number> = {}
+  const repeatedDegradedRetriesByStep: Record<string, number> = {}
+  const completionLatenciesMs: number[] = []
+  const stuckRunningJobs: Array<{
+    jobId: string
+    status: string
+    minutesRunning: number
+    lastUpdatedAt: string
+  }> = []
+
+  for (const job of jobs) {
+    statusCounts[job.status] = (statusCounts[job.status] || 0) + 1
+    readinessCounts[job.readiness] += 1
+
+    const retryCountBucket = String(Math.max(0, job.retry.retryCount || 0))
+    retryDistribution[retryCountBucket] =
+      (retryDistribution[retryCountBucket] || 0) + 1
+
+    const startedAt = parseIsoTime(job.startedAt)
+    const completedAt = parseIsoTime(job.completedAt)
+    if (startedAt && completedAt && completedAt >= startedAt) {
+      completionLatenciesMs.push(completedAt - startedAt)
+    }
+
+    if (
+      (job.status === 'running' ||
+        job.status === 'retrying' ||
+        job.status === 'queued') &&
+      startedAt &&
+      now - startedAt >= WIZARD_STUCK_THRESHOLD_MS
+    ) {
+      stuckRunningJobs.push({
+        jobId: job.jobId,
+        status: job.status,
+        minutesRunning: Number(((now - startedAt) / 60000).toFixed(1)),
+        lastUpdatedAt: job.updatedAt,
+      })
+    }
+
+    for (const step of job.steps) {
+      if (step.status === 'failed') {
+        stepFailures[step.id] = (stepFailures[step.id] || 0) + 1
+      }
+
+      if (
+        job.readiness === 'degraded' &&
+        job.retry.retryCount >= 2 &&
+        (step.status === 'failed' || step.status === 'running')
+      ) {
+        repeatedDegradedRetriesByStep[step.id] =
+          (repeatedDegradedRetriesByStep[step.id] || 0) + 1
+      }
+    }
+  }
+
+  const totalJobs = jobs.length
+  const blockedActivations = readinessCounts.blocked
+  const avgLatencyMs =
+    completionLatenciesMs.length > 0
+      ? completionLatenciesMs.reduce((acc, value) => acc + value, 0) /
+        completionLatenciesMs.length
+      : 0
+
+  return {
+    totalJobs,
+    statusCounts,
+    completionLatencyMs: {
+      count: completionLatenciesMs.length,
+      avg: Number(avgLatencyMs.toFixed(2)),
+      p95: Number(sortedPercentile(completionLatenciesMs, 95).toFixed(2)),
+      max: Number(Math.max(0, ...completionLatenciesMs).toFixed(2)),
+    },
+    stepFailureRate:
+      totalJobs > 0
+        ? Number(
+            (
+              Object.values(stepFailures).reduce(
+                (acc, value) => acc + value,
+                0,
+              ) / totalJobs
+            ).toFixed(4),
+          )
+        : 0,
+    stepFailures,
+    retryDistribution,
+    readiness: {
+      ...readinessCounts,
+      healthyRate:
+        totalJobs > 0
+          ? Number((readinessCounts.healthy / totalJobs).toFixed(4))
+          : 0,
+      degradedRate:
+        totalJobs > 0
+          ? Number((readinessCounts.degraded / totalJobs).toFixed(4))
+          : 0,
+      blockedRate:
+        totalJobs > 0
+          ? Number((readinessCounts.blocked / totalJobs).toFixed(4))
+          : 0,
+    },
+    blockedActivations,
+    stuckRunningJobs,
+    repeatedDegradedRetriesByStep,
   }
 }
 
@@ -386,5 +532,6 @@ export const getOperationsMetricsSnapshot = () => {
     campaigns: {
       byChannel: campaignMetrics,
     },
+    wizardProvisioning: summarizeWizardProvisioningMetrics(),
   }
 }

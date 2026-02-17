@@ -3,6 +3,8 @@ import {
   AdminAuditLog,
   AgentEmailConfig,
   AgentMessage,
+  AgentProvisioningJob,
+  AgentProvisioningStep,
   AgentWorkflow,
   Campaign,
   CampaignLead,
@@ -174,6 +176,14 @@ export type UpdateDBAgentMessage = Updateable<AgentMessage>;
 export type DBAgentWorkflow = Selectable<AgentWorkflow>;
 export type InsertDBAgentWorkflow = Insertable<AgentWorkflow>;
 export type UpdateDBAgentWorkflow = Updateable<AgentWorkflow>;
+
+export type DBAgentProvisioningJob = Selectable<AgentProvisioningJob>;
+export type InsertDBAgentProvisioningJob = Insertable<AgentProvisioningJob>;
+export type UpdateDBAgentProvisioningJob = Updateable<AgentProvisioningJob>;
+
+export type DBAgentProvisioningStep = Selectable<AgentProvisioningStep>;
+export type InsertDBAgentProvisioningStep = Insertable<AgentProvisioningStep>;
+export type UpdateDBAgentProvisioningStep = Updateable<AgentProvisioningStep>;
 
 export type DBErrorLog = Selectable<ErrorLog>;
 export type InsertDBErrorLog = Insertable<ErrorLog>;

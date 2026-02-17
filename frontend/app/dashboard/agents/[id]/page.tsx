@@ -1,16 +1,13 @@
 "use client";
 
 import { Page } from "@/components/dashboard/Page";
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { Bot, ArrowLeft, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { useAgent, useTasks, useDeleteAgent, useAgentConfig, useAgentHealth, useDeleteElevenLabsAgent } from "@/hooks/api/useAgent";
-import { useRouter } from "next/navigation";
-import Modal from "@/components/ui/Modal";
-import Button from "@/components/ui/Button";
+import { useAgent, useAgentConfig, useAgentHealth, useDeleteElevenLabsAgent } from "@/hooks/api/useAgent";
 import { AgentExternalType } from "@/lib/shared-types";
-import { useIsAdminOrOwner } from "@/hooks/api/useOrganization";
-import { toast } from "sonner";
+import { useCurrentOrganizationRole } from "@/hooks/api/useOrganization";
+import { useRouter } from "next/navigation";
 import { TabNavigation } from "@/components/agent/tabs/TabNavigation";
 import { AgentTab } from "@/components/agent/tabs/AgentTab";
 import { AnalysisTab } from "@/components/agent/tabs/AnalysisTab";
@@ -18,6 +15,11 @@ import { KnowledgeBaseTab } from "@/components/agent/tabs/KnowledgeBaseTab";
 import { ToolsTab } from "@/components/agent/tabs/ToolsTab";
 import { AdvancedTab } from "@/components/agent/tabs/AdvancedTab";
 import { TestTab } from "@/components/agent/tabs/TestTab";
+
+const OWNER_TABS = [
+  { key: "agent", label: "Agent" },
+  { key: "test", label: "Test" },
+];
 
 const ADMIN_TABS = [
   { key: "agent", label: "Agent" },
@@ -28,35 +30,72 @@ const ADMIN_TABS = [
   { key: "test", label: "Test" },
 ];
 
-const OWNER_TABS = [
-  { key: "agent", label: "Agent" },
+const VIEW_ONLY_TABS = [
   { key: "test", label: "Test" },
 ];
 
+const CHECK_ORDER = [
+  "provider",
+  "profile",
+  "workflow",
+  "knowledge_base",
+  "tools_mcp",
+  "webhook",
+  "tests",
+  "queues",
+] as const;
+
+const CHECK_LABELS: Record<(typeof CHECK_ORDER)[number], string> = {
+  provider: "Provider",
+  profile: "Profile",
+  workflow: "Workflow",
+  knowledge_base: "Knowledge Base",
+  tools_mcp: "Tools + MCP",
+  webhook: "Webhook",
+  tests: "Smoke Tests",
+  queues: "Queues",
+};
+
+function getOverallStatusClasses(status?: "healthy" | "degraded" | "blocked") {
+  if (status === "healthy") return "bg-green-100 text-green-800";
+  if (status === "blocked") return "bg-red-100 text-red-800";
+  return "bg-amber-100 text-amber-800";
+}
+
+function getCheckStatusClasses(status?: "ok" | "degraded" | "failed" | "blocked") {
+  if (status === "ok") return "bg-green-100 text-green-800";
+  if (status === "failed" || status === "blocked") return "bg-red-100 text-red-800";
+  return "bg-amber-100 text-amber-800";
+}
+
 export default function AgentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const { data: agent, isLoading, error } = useAgent(id);
-  const { data: tasks, isLoading: isLoadingTasks } = useTasks(id);
   const { data: agentConfig } = useAgentConfig(id);
   const { data: health, isLoading: healthLoading } = useAgentHealth(id);
-  const isAdminOrOwner = useIsAdminOrOwner();
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const deleteAgentMutation = useDeleteAgent();
-  const router = useRouter();
+  const currentRole = useCurrentOrganizationRole();
+  const isAdmin = currentRole === "admin";
+  const isOwner = currentRole === "owner";
+  const isAdminOrOwner = isAdmin || isOwner;
+  const deleteAgent = useDeleteElevenLabsAgent();
   const [activeTab, setActiveTab] = useState("agent");
 
-  const isAdmin = isAdminOrOwner;
-  const tabs = isAdmin ? ADMIN_TABS : OWNER_TABS;
+  const tabs = isAdmin ? ADMIN_TABS : isOwner ? OWNER_TABS : VIEW_ONLY_TABS;
 
-  const handleDeleteAgent = async () => {
-    if (!agent) return;
-    try {
-      await deleteAgentMutation.mutateAsync(agent.id);
-      toast.success("Agent deleted successfully");
-      router.push("/dashboard/agents");
-    } catch {
-      // Error toast is handled by the hook
+  useEffect(() => {
+    if (!isAdminOrOwner && activeTab === "agent") {
+      setActiveTab("test");
     }
+  }, [isAdminOrOwner, activeTab]);
+
+  const handleDelete = async () => {
+    if (!agent) return;
+    if (!confirm(`Are you sure you want to delete "${agent.name}"? This will also delete it from ElevenLabs. This cannot be undone.`)) {
+      return;
+    }
+    await deleteAgent.mutateAsync(agent.id);
+    router.push("/dashboard/agents");
   };
 
   if (isLoading) {
@@ -83,6 +122,11 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
   }
 
   const isElevenLabs = agent.externalType === AgentExternalType.ELEVEN_LABS;
+  const readinessChecks = CHECK_ORDER.map((checkName) => ({
+    key: checkName,
+    label: CHECK_LABELS[checkName],
+    check: health?.checks?.[checkName],
+  }));
 
   return (
     <Page
@@ -90,12 +134,12 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
       actions={
         isAdminOrOwner ? (
           <button
-            onClick={() => setShowDeleteModal(true)}
-            disabled={deleteAgentMutation.isPending}
+            onClick={handleDelete}
+            disabled={deleteAgent.isPending}
             className="inline-flex items-center gap-2 rounded-xl border border-red-200 px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 active:scale-[0.98] disabled:opacity-50"
           >
             <Trash2 className="h-4 w-4" />
-            {deleteAgentMutation.isPending ? "Deleting..." : "Delete"}
+            {deleteAgent.isPending ? "Deleting..." : "Delete"}
           </button>
         ) : undefined
       }
@@ -147,25 +191,54 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
           </div>
         </div>
 
-        {/* Provider health */}
         <div className="rounded-xl border border-border bg-card p-4">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-medium text-foreground">Provider health</p>
+              <p className="text-sm font-medium text-foreground">Readiness health</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {health?.checks?.provider?.message || "Checking provider sync status..."}
+                {healthLoading
+                  ? "Running readiness checks..."
+                  : health?.activation?.allowed
+                    ? "Activation allowed by readiness policy."
+                    : `Activation blocked by: ${(health?.activation?.deniedBy || []).join(", ") || "policy checks"}.`}
               </p>
             </div>
             <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
-              healthLoading
-                ? "bg-gray-100 text-gray-700"
-                : health?.status === "healthy"
-                  ? "bg-green-100 text-green-800"
-                  : "bg-amber-100 text-amber-800"
+              healthLoading ? "bg-gray-100 text-gray-700" : getOverallStatusClasses(health?.status)
             }`}>
-              {healthLoading ? "checking" : health?.status === "healthy" ? "healthy" : "degraded"}
+              {healthLoading ? "checking" : health?.status || "degraded"}
             </span>
           </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {readinessChecks.map(({ key, label, check }) => (
+              <div key={key} className="rounded-lg border border-border p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-medium text-foreground">{label}</p>
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${getCheckStatusClasses(check?.status)}`}>
+                    {check?.status || "checking"}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {check?.message || "Pending check result..."}
+                </p>
+                {check?.remediationAction && (
+                  <p className="text-[11px] text-amber-700 mt-1.5">
+                    Remediation: {check.remediationAction}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {agent.syncPending && (
+            <p className="text-xs text-amber-700 mt-3">
+              Sync pending: latest provider update is queued for retry.
+            </p>
+          )}
+          {agent.lastSyncError && (
+            <p className="text-xs text-red-700 mt-2">Last sync error: {agent.lastSyncError}</p>
+          )}
         </div>
 
         {/* Tab navigation */}
@@ -178,7 +251,13 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
         {/* Tab content */}
         <div>
           {activeTab === "agent" && (
+            isAdminOrOwner ? (
             <AgentTab agentId={agent.id} isAdmin={isAdmin} />
+            ) : (
+              <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
+                Only admins and owners can edit agent settings.
+              </div>
+            )
           )}
           {activeTab === "analysis" && isAdmin && (
             <AnalysisTab agentId={agent.id} />
@@ -196,48 +275,7 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
             <TestTab agentId={agent.externalId} />
           )}
         </div>
-
-        {/* Danger zone */}
-        {isAdminOrOwner && (
-          <div className="bg-white rounded-lg border border-red-200 p-6">
-            <h3 className="text-lg font-semibold text-red-600 mb-2">Danger Zone</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Permanently delete this agent and remove it from ElevenLabs. This action cannot be undone.
-            </p>
-            <button
-              onClick={() => setShowDeleteModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-medium"
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete Agent
-            </button>
-          </div>
-        )}
       </div>
-
-      <Modal
-        isOpen={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        title="Delete Agent"
-        subtitle={`Are you sure you want to delete "${agent.name}"?`}
-      >
-        <p className="text-sm text-gray-600 mb-6">
-          This will permanently delete the agent from both RevCenter and ElevenLabs. All associated services and data will be lost. This action cannot be undone.
-        </p>
-        <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleDeleteAgent}
-            loading={deleteAgentMutation.isPending}
-            disabled={deleteAgentMutation.isPending}
-            className="!bg-red-600 hover:!bg-red-700"
-          >
-            Delete Agent
-          </Button>
-        </div>
-      </Modal>
     </Page>
   );
 }

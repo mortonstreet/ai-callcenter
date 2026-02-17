@@ -5,6 +5,7 @@ import { organization, useActiveOrganization, useSession } from '@/lib/auth-clie
 import { QUERY_KEYS } from '@/lib/config';
 import { get, post } from '@/lib/api';
 import { toast } from 'sonner';
+import { WizardInputV2 } from '@/lib/wizard-v2';
 
 export { useActiveOrganization };
 
@@ -42,13 +43,6 @@ export function useCreateOrganization() {
 
 export function useOnboardOrganization() {
   const queryClient = useQueryClient();
-
-  type OnboardingQualification = {
-    teamSize?: string;
-    monthlyLeadVolume?: string;
-    rolloutTimeline?: string;
-    notes?: string;
-  };
 
   type OnboardingProvisioningStatus = {
     organization: {
@@ -89,20 +83,8 @@ export function useOnboardOrganization() {
     mutationFn: async (params: {
       name: string;
       domain?: string;
-      industry: string;
-      services: string[];
-      useCase?: string;
-      website?: string;
-      mainGoal?: string;
-      businessRole?: string;
-      demoIntent?: boolean;
-      qualification?: OnboardingQualification;
       idempotencyKey?: string;
-      agent: {
-        name: string;
-        openingLine?: string;
-        serviceQuestions?: string[];
-      };
+      wizard_input_v2: WizardInputV2;
     }) => {
       const { idempotencyKey, ...payload } = params;
       return await post<{ data: { organizationId: string; idempotent: boolean; provisioning: OnboardingProvisioningStatus } }>(
@@ -289,18 +271,28 @@ export const useRemoveOrganizationMember = () => {
   });
 }
 
-/**
- * Check if current user is admin or owner of the active organization
- */
-export function useIsAdminOrOwner() {
+export type ActiveOrganizationRole = "admin" | "owner" | "member" | null;
+
+export function useCurrentOrganizationRole(): ActiveOrganizationRole {
   const { data: session } = useSession();
   const { data: membersData } = useListOrganizationMembers();
   const members = membersData?.data?.members || [];
   const user = session?.user;
-  
+
   const currentUserMember = members.find((m: any) => m.userId === user?.id);
-  const isAdmin = currentUserMember?.role === "admin";
-  const isOwner = currentUserMember?.role === "owner";
-  
-  return isAdmin || isOwner;
+  const role = currentUserMember?.role;
+
+  if (role === "admin" || role === "owner" || role === "member") {
+    return role;
+  }
+
+  return null;
+}
+
+/**
+ * Check if current user is admin or owner of the active organization
+ */
+export function useIsAdminOrOwner() {
+  const role = useCurrentOrganizationRole();
+  return role === "admin" || role === "owner";
 }

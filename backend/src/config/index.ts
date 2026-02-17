@@ -78,6 +78,13 @@ const envSchema = z.object({
   BETTERSTACK_TOKEN: z.string(),
   BETTERSTACK_HOST: z.string(),
   SENTRY_DSN: z.string(),
+  STRIPE_PUBLISHABLE_KEY: z.string().optional(),
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PRICE_METERED_MONTHLY_BASE: z.string().optional(),
+  STRIPE_PRICE_METERED_MONTHLY_USAGE: z.string().optional(),
+  STRIPE_PRICE_ENTERPRISE_QUARTERLY_BASE: z.string().optional(),
+  STRIPE_PRICE_ENTERPRISE_QUARTERLY_OVERAGE: z.string().optional(),
   JWT_SECRET: z.string(),
   BETTER_AUTH_SECRET: z.string().default('revcenter-dev-better-auth-secret'),
   WEBHOOK_API_KEY: z.string(),
@@ -102,6 +109,14 @@ const envSchema = z.object({
   TWILIO_API_KEY_SID: z.string().optional(), // For Access Tokens (SK...)
   TWILIO_API_KEY_SECRET: z.string().optional(), // API Key Secret
   TWILIO_TWIML_APP_SID: z.string().optional(), // TwiML App SID (AP...)
+  // Twilio ISV master credentials for per-org subaccount provisioning
+  TWILIO_ISV_ACCOUNT_SID: z.string().optional(),
+  TWILIO_ISV_AUTH_TOKEN: z.string().optional(),
+  TWILIO_ISV_API_KEY_SID: z.string().optional(),
+  TWILIO_ISV_API_KEY_SECRET: z.string().optional(),
+  TWILIO_ISV_DEFAULT_AREA_CODE: z.string().default('415'),
+  TWILIO_ISV_DEFAULT_COUNTRY_CODE: z.string().default('US'),
+  TWILIO_ISV_PROVISIONING_ENABLED: z.coerce.boolean().default(false),
 })
 
 const env = envSchema.parse(process.env)
@@ -156,6 +171,21 @@ export const config = {
   sentry: {
     dsn: env.SENTRY_DSN,
   },
+  stripe: {
+    publishableKey: env.STRIPE_PUBLISHABLE_KEY || '',
+    secretKey: env.STRIPE_SECRET_KEY || '',
+    webhookSecret: env.STRIPE_WEBHOOK_SECRET || '',
+    offers: {
+      meteredMonthly: {
+        basePriceId: env.STRIPE_PRICE_METERED_MONTHLY_BASE || '',
+        usagePriceId: env.STRIPE_PRICE_METERED_MONTHLY_USAGE || '',
+      },
+      enterpriseQuarterly: {
+        basePriceId: env.STRIPE_PRICE_ENTERPRISE_QUARTERLY_BASE || '',
+        overagePriceId: env.STRIPE_PRICE_ENTERPRISE_QUARTERLY_OVERAGE || '',
+      },
+    },
+  },
   providers: {
     google: {
       clientId: env.GOOGLE_CLIENT_ID,
@@ -201,6 +231,15 @@ export const config = {
     apiKeySid: env.TWILIO_API_KEY_SID || '',
     apiKeySecret: env.TWILIO_API_KEY_SECRET || '',
     twimlAppSid: env.TWILIO_TWIML_APP_SID || '',
+    isv: {
+      accountSid: env.TWILIO_ISV_ACCOUNT_SID || '',
+      authToken: env.TWILIO_ISV_AUTH_TOKEN || '',
+      apiKeySid: env.TWILIO_ISV_API_KEY_SID || '',
+      apiKeySecret: env.TWILIO_ISV_API_KEY_SECRET || '',
+      defaultAreaCode: env.TWILIO_ISV_DEFAULT_AREA_CODE,
+      defaultCountryCode: env.TWILIO_ISV_DEFAULT_COUNTRY_CODE,
+      provisioningEnabled: env.TWILIO_ISV_PROVISIONING_ENABLED,
+    },
   },
 }
 

@@ -92,7 +92,10 @@ export async function processElevenLabsConversationWebhook(
   webhook: ElevenLabsWebhook,
 ) {
   logger.info(
-    { agentExternalId: webhook.data.agent_id, conversationId: webhook.data.conversation_id },
+    {
+      agentExternalId: webhook.data.agent_id,
+      conversationId: webhook.data.conversation_id,
+    },
     'Processing ElevenLabs webhook',
   )
 
@@ -107,7 +110,10 @@ export async function processElevenLabsConversationWebhook(
     )
   }
 
-  logger.info({ agentId: agent.id, agentName: agent.name }, 'Found agent for webhook')
+  logger.info(
+    { agentId: agent.id, agentName: agent.name },
+    'Found agent for webhook',
+  )
 
   let taskInstance = await findTaskInstanceByConversationId(
     webhook.data.conversation_id,
@@ -166,7 +172,10 @@ export async function processElevenLabsConversationWebhook(
     })
 
     logger.info(
-      { taskInstanceId: taskInstance.id, conversationId: webhook.data.conversation_id },
+      {
+        taskInstanceId: taskInstance.id,
+        conversationId: webhook.data.conversation_id,
+      },
       'Created new lead (TaskInstance)',
     )
   }

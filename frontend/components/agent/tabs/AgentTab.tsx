@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { Loader2, Save } from "lucide-react";
-import { useAgentConfig, useUpdateElevenLabsAgent } from "@/hooks/api/useAgent";
+import {
+  useAgentConfig,
+  useOwnerUpdateElevenLabsAgent,
+  useUpdateElevenLabsAgent,
+} from "@/hooks/api/useAgent";
 import { VoiceSelector } from "@/components/agent/VoiceSelector";
 
 interface AgentTabProps {
@@ -13,6 +17,7 @@ interface AgentTabProps {
 export function AgentTab({ agentId, isAdmin }: AgentTabProps) {
   const { data: config, isLoading } = useAgentConfig(agentId);
   const updateAgent = useUpdateElevenLabsAgent();
+  const ownerUpdateAgent = useOwnerUpdateElevenLabsAgent();
 
   const [name, setName] = useState("");
   const [firstMessage, setFirstMessage] = useState("");
@@ -49,13 +54,12 @@ export function AgentTab({ agentId, isAdmin }: AgentTabProps) {
   }, [config]);
 
   function handleSave() {
-    const payload: { id: string } & Record<string, any> = {
-      id: agentId,
-      name,
-      firstMessage,
-      voiceId,
-    };
+    const payload: { id: string } & Record<string, any> = { id: agentId };
+
     if (isAdmin) {
+      payload.name = name;
+      payload.firstMessage = firstMessage;
+      payload.voiceId = voiceId;
       payload.systemPrompt = systemPrompt;
       payload.llmModel = llmModel;
       payload.temperature = temperature;
@@ -64,13 +68,24 @@ export function AgentTab({ agentId, isAdmin }: AgentTabProps) {
       payload.speed = speed;
       payload.similarityBoost = similarityBoost;
       try {
-        payload.dataCollectionFields = JSON.parse(dataCollectionFields);
-      } catch { /* keep as string */ }
+        const parsedDataCollection = JSON.parse(dataCollectionFields);
+        payload.dataCollection = Array.isArray(parsedDataCollection)
+          ? { fields: parsedDataCollection }
+          : parsedDataCollection;
+      } catch { /* ignore invalid JSON */ }
       try {
         payload.evaluationCriteria = JSON.parse(evaluationCriteria);
-      } catch { /* keep as string */ }
+      } catch { /* ignore invalid JSON */ }
+
+      updateAgent.mutate(payload);
+      return;
     }
-    updateAgent.mutate(payload);
+
+    ownerUpdateAgent.mutate({
+      id: agentId,
+      firstMessage,
+      voiceId: voiceId || undefined,
+    });
   }
 
   if (isLoading) {
@@ -85,17 +100,19 @@ export function AgentTab({ agentId, isAdmin }: AgentTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Agent Name */}
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium text-foreground">Agent Name</label>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-border"
-          placeholder="My Agent"
-        />
-      </div>
+      {/* Agent Name (admin-managed) */}
+      {isAdmin && (
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium text-foreground">Agent Name</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-border"
+            placeholder="My Agent"
+          />
+        </div>
+      )}
 
       {/* First Message */}
       <div className="space-y-1.5">
@@ -268,10 +285,10 @@ export function AgentTab({ agentId, isAdmin }: AgentTabProps) {
       {/* Save Button */}
       <button
         onClick={handleSave}
-        disabled={updateAgent.isPending}
+        disabled={updateAgent.isPending || ownerUpdateAgent.isPending}
         className="inline-flex items-center gap-2 rounded-xl bg-[#1b191a] text-white px-4 py-2 text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
       >
-        {updateAgent.isPending ? (
+        {updateAgent.isPending || ownerUpdateAgent.isPending ? (
           <Loader2 className="h-4 w-4 animate-spin" />
         ) : (
           <Save className="h-4 w-4" />

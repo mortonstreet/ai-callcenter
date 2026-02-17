@@ -60,12 +60,13 @@ export class QueueMetricsEmitter {
   start() {
     if (this.timer) return
 
-    this.timer = setInterval(
-      () => {
-        void this.flush()
-      },
-      (config as any).queues?.metricsFlushIntervalMs ?? 30_000,
-    )
+    const flushIntervalMs =
+      (config as { queues?: { metricsFlushIntervalMs?: number } }).queues
+        ?.metricsFlushIntervalMs || 30000
+
+    this.timer = setInterval(() => {
+      void this.flush()
+    }, flushIntervalMs)
 
     this.timer.unref?.()
   }

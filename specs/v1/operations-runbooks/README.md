@@ -3,12 +3,14 @@
 These runbooks satisfy the operational requirements in `specs/v1/08-operations-security-and-observability.md`.
 
 Runbooks:
+
 - `api-outage-response.md`
 - `db-restore-cutover.md`
 - `queue-backlog-recovery.md`
 - `provider-outage-handling.md`
 - `incident-escalation-communication.md`
 - `security-and-retention-policy.md`
+- `wizard-v2-rollout-and-provisioning.md`
 
 Owner: Platform + Security
 Applies to: Stage and Production

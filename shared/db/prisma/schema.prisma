@@ -40,13 +40,13 @@ model User {
   invitations         Invitation[]
   dispatchedTasks     TaskInstance[]
   Task                Task[]
-  createdIntegrations Integration[]   @relation("integration_created_by_user")
-  createdCampaigns    Campaign[]      @relation("campaign_created_by_user")
+  createdIntegrations Integration[]          @relation("integration_created_by_user")
+  createdCampaigns    Campaign[]             @relation("campaign_created_by_user")
   campaignMemberships CampaignUser[]
-  createdSmsCampaigns SmsCampaign[]   @relation("sms_campaign_created_by_user")
-  resolvedErrorLogs   ErrorLog[]      @relation("error_log_resolved_by_user")
-  adminAuditEntries   AdminAuditLog[] @relation("admin_audit_actor_user")
-  onboardingProvisioningJobs OnboardingProvisioningJob[]
+  createdSmsCampaigns SmsCampaign[]          @relation("sms_campaign_created_by_user")
+  resolvedErrorLogs   ErrorLog[]             @relation("error_log_resolved_by_user")
+  adminAuditEntries   AdminAuditLog[]        @relation("admin_audit_actor_user")
+  provisioningJobs    AgentProvisioningJob[] @relation("agent_provisioning_requested_by_user")
 
   @@unique([email])
   @@map("user")
@@ -139,8 +139,8 @@ model Organization {
   agentWorkflows           AgentWorkflow[]
   errorLogs                ErrorLog[]
   adminAuditLogs           AdminAuditLog[]
-  onboardingProvisioningJobs OnboardingProvisioningJob[]
-  onboardingProvisioningEvents OnboardingProvisioningEvent[]
+  provisioningJobs         AgentProvisioningJob[]
+  provisioningSteps        AgentProvisioningStep[]
 
   @@unique([slug])
   @@map("organization")
@@ -225,16 +225,26 @@ model Agent {
   lastSyncError          String?
   providerCorrelationKey String?
 
+  // Wizard profile + readiness metadata
+  promptProfileVersion String?
+  configProfileVersion String?
+  profileHash          String?
+  wizardIntentProfile  Json?
+  readinessStatus      String  @default("blocked") // ready, degraded, blocked
+  provisioningState    String  @default("queued") // queued, running, retrying, failed, completed, blocked_manual
+
   // MCP Configuration - allows each agent to have unique credentials
   mcpApiKey      String? // API key for MCP authentication
   webhookSecret  String? // Secret for webhook signature verification
   mcpEndpointUrl String? // Public URL for this agent's MCP endpoint (e.g., ngrok URL)
 
-  organization Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  tasks        Task[]
-  emailConfigs AgentEmailConfig[]
-  messages     AgentMessage[]
-  workflows    AgentWorkflow[]
+  organization      Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tasks             Task[]
+  emailConfigs      AgentEmailConfig[]
+  messages          AgentMessage[]
+  workflows         AgentWorkflow[]
+  provisioningJobs  AgentProvisioningJob[]
+  provisioningSteps AgentProvisioningStep[]
 
   @@unique([mcpApiKey]) // Ensure API keys are unique for lookup
   @@map("agent")
@@ -532,51 +542,70 @@ model IntegrationWebhookEvent {
   @@map("integration_webhook_event")
 }
 
-model OnboardingProvisioningJob {
-  id              String   @id @default(uuid())
-  organizationId  String
-  submittedByUserId String
-  correlationId   String
-  idempotencyKey  String   @unique
-  status          String   @default("pending")
-  lifecycleTarget String?
-  errorMessage    String?
-  payload         Json?
-  attempts        Int      @default(0)
-  queuedAt        DateTime @default(now())
-  startedAt       DateTime?
-  completedAt     DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+model AgentProvisioningJob {
+  id                String    @id @default(uuid())
+  organizationId    String
+  agentId           String
+  requestedByUserId String?
+  correlationId     String
+  idempotencyKey    String
+  status            String    @default("queued") // queued, running, retrying, failed, completed, blocked_manual
+  readinessStatus   String? // ready, degraded, blocked
+  attempt           Int       @default(1)
+  lastErrorCode     String?
+  lastErrorMessage  String?
+  wizardInput       Json
+  intentProfile     Json?
+  runtimeState      Json?
+  createdAt         DateTime  @default(now())
+  startedAt         DateTime?
+  completedAt       DateTime?
+  updatedAt         DateTime  @updatedAt
 
-  organization Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  submittedBy  User                         @relation(fields: [submittedByUserId], references: [id], onDelete: Cascade)
-  events       OnboardingProvisioningEvent[]
+  organization Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  agent        Agent                   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  requestedBy  User?                   @relation("agent_provisioning_requested_by_user", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  steps        AgentProvisioningStep[]
 
-  @@index([organizationId, createdAt])
+  @@unique([organizationId, idempotencyKey])
   @@index([organizationId, status, createdAt])
+  @@index([organizationId, agentId, createdAt])
+  @@index([idempotencyKey])
   @@index([correlationId])
-  @@map("onboarding_provisioning_job")
+  @@map("agent_provisioning_job")
 }
 
-model OnboardingProvisioningEvent {
-  id                String   @id @default(uuid())
-  provisioningJobId String
+model AgentProvisioningStep {
+  id                String    @id @default(uuid())
+  jobId             String
   organizationId    String
+  agentId           String
+  stepId            String
+  stepOrder         Int
+  status            String    @default("pending") // pending, running, failed, completed, skipped
+  blocking          Boolean   @default(true)
+  message           String?
+  remediationAction String?
+  attempt           Int       @default(1)
   correlationId     String
-  level             String   @default("info")
-  eventType         String
-  message           String
+  lastErrorCode     String?
+  lastErrorMessage  String?
+  eventLog          Json?
   metadata          Json?
-  createdAt         DateTime @default(now())
+  createdAt         DateTime  @default(now())
+  startedAt         DateTime?
+  completedAt       DateTime?
+  updatedAt         DateTime  @updatedAt
 
-  job          OnboardingProvisioningJob @relation(fields: [provisioningJobId], references: [id], onDelete: Cascade)
-  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  job          AgentProvisioningJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  agent        Agent                @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
-  @@index([provisioningJobId, createdAt])
-  @@index([organizationId, createdAt])
-  @@index([correlationId])
-  @@map("onboarding_provisioning_event")
+  @@unique([jobId, stepId])
+  @@index([organizationId, status, createdAt])
+  @@index([organizationId, agentId, stepOrder])
+  @@index([jobId, stepOrder])
+  @@map("agent_provisioning_step")
 }
 
 model Campaign {

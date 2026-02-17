@@ -1,4 +1,4 @@
-import { Job, Worker } from 'bullmq'
+import { Job, UnrecoverableError, Worker } from 'bullmq'
 import { config } from '@/config'
 import { setRequestContext } from '@/lib/context'
 import logger from '@/lib/logger'
@@ -16,13 +16,26 @@ import {
 } from '@/services/operations-metrics.service'
 import { isSuppressed, isWithinSendWindow } from '@/services/compliance.service'
 import {
+  AGENT_PROVISION_RETRY_JOB_NAME,
+  AGENT_UPDATE_RETRY_JOB_NAME,
+  retryAgentProvision,
+  retryAgentUpdateSync,
+} from '@/services/agent.service'
+import {
+  ELEVENLABS_WEBHOOK_RETRY_JOB_NAME,
+  processElevenLabsConversationWebhook,
+} from '@/services/agent-webhook.service'
+import {
+  AGENT_PROVISIONING_ORCHESTRATOR_JOB_NAME,
+  processProvisioningOrchestrationJob,
+} from '@/services/provisioning-orchestrator.service'
+import {
   ALL_QUEUE_NAMES,
   QueueJobPayload,
   QueueName,
   QUEUE_NAMES,
 } from '@/types/queues'
-import { startSyncJob } from '@/services/integration-contract.service'
-import { processOnboardingProvisioningJob } from '@/services/onboarding-provisioning.service'
+import { processQueuedIntegrationSyncJob } from '@/services/integration-contract.service'
 
 const DEFAULT_QUEUE_CONCURRENCY = 5
 const INTEGRATION_SYNC_CONCURRENCY = 4
@@ -50,6 +63,34 @@ const toCampaignChannel = (
   if (queueName === QUEUE_NAMES.CAMPAIGN_VOICE) return 'voice'
   if (queueName === QUEUE_NAMES.CAMPAIGN_EMAIL) return 'email'
   return null
+}
+
+interface QueueFailureClassification {
+  recoverable: boolean
+  code: string
+  message: string
+}
+
+const classifyQueueFailure = (
+  error: Error,
+  fallbackCode: string,
+): QueueFailureClassification => {
+  const candidate = error as Error & { code?: string; cause?: unknown }
+  const code =
+    typeof candidate.code === 'string' && candidate.code.trim().length > 0
+      ? candidate.code
+      : fallbackCode
+
+  const message =
+    typeof candidate.message === 'string' && candidate.message.trim().length > 0
+      ? candidate.message
+      : 'Unknown queue worker failure'
+
+  return {
+    recoverable: !(error instanceof UnrecoverableError),
+    code,
+    message,
+  }
 }
 
 interface WorkerQueueHealthSnapshot {
@@ -131,6 +172,10 @@ export class WorkerRuntime {
 
           const attempts = Number(job.opts.attempts || 1)
           const latency = getJobLatency(job)
+          const classification = classifyQueueFailure(
+            error,
+            `queue_${queueName}_job_failed`,
+          )
 
           recordQueueJobMetric({
             queueName,
@@ -156,8 +201,12 @@ export class WorkerRuntime {
             })
           }
 
-          if (job.attemptsMade >= attempts) {
-            await this.moveToDeadLetterQueue(queueName, job, error)
+          if (!classification.recoverable || job.attemptsMade >= attempts) {
+            await this.moveToDeadLetterQueue(queueName, job, error, {
+              attemptsAllowed: attempts,
+              attemptsMade: job.attemptsMade,
+              classification,
+            })
           }
         })
 
@@ -284,18 +333,7 @@ export class WorkerRuntime {
           return { processed: true }
         }
         case QUEUE_NAMES.WEBHOOK_INGEST:
-          logger.info(
-            {
-              queueName,
-              jobId: job.id,
-              jobName: job.name,
-              organizationId: job.data.organizationId,
-            },
-            'Processed webhook ingest job',
-          )
-          return { processed: true }
-        case QUEUE_NAMES.ONBOARDING_PROVISIONING:
-          return this.handleOnboardingProvisioningJob(job)
+          return this.handleWebhookIngestJob(job)
         default:
           throw new Error(`Unhandled queue name: ${queueName}`)
       }
@@ -409,26 +447,92 @@ export class WorkerRuntime {
   }
 
   private async handleIntegrationSyncJob(job: Job<QueueJobPayload>) {
+    if (job.name === AGENT_PROVISIONING_ORCHESTRATOR_JOB_NAME) {
+      const provisioningJobId =
+        typeof job.data.provisioningJobId === 'string'
+          ? job.data.provisioningJobId
+          : null
+
+      if (!provisioningJobId) {
+        throw new UnrecoverableError(
+          'Invalid provisioning orchestrator queue payload',
+        )
+      }
+
+      return processProvisioningOrchestrationJob({
+        provisioningJobId,
+        organizationId:
+          typeof job.data.organizationId === 'string'
+            ? job.data.organizationId
+            : '',
+        agentId: typeof job.data.agentId === 'string' ? job.data.agentId : '',
+        correlationId:
+          typeof job.data.correlationId === 'string'
+            ? job.data.correlationId
+            : `${job.id}`,
+        idempotencyKey:
+          typeof job.data.idempotencyKey === 'string'
+            ? job.data.idempotencyKey
+            : undefined,
+      })
+    }
+
+    if (job.name === AGENT_PROVISION_RETRY_JOB_NAME) {
+      const payload = job.data as any
+      if (
+        typeof payload.agentId !== 'string' ||
+        typeof payload.organizationId !== 'string' ||
+        typeof payload.providerCorrelationKey !== 'string'
+      ) {
+        throw new UnrecoverableError('Invalid agent provision retry payload')
+      }
+      return retryAgentProvision(payload)
+    }
+
+    if (job.name === AGENT_UPDATE_RETRY_JOB_NAME) {
+      const payload = job.data as any
+      if (
+        typeof payload.agentId !== 'string' ||
+        typeof payload.organizationId !== 'string' ||
+        typeof payload.updates !== 'object'
+      ) {
+        throw new UnrecoverableError('Invalid agent update retry payload')
+      }
+      return retryAgentUpdateSync(payload)
+    }
+
+    const integrationJobId =
+      typeof job.data.integrationJobId === 'string'
+        ? job.data.integrationJobId
+        : null
     const organizationId =
       typeof job.data.organizationId === 'string'
         ? job.data.organizationId
         : null
     const provider =
       typeof job.data.provider === 'string' ? job.data.provider : null
+
+    if (!integrationJobId || !organizationId || !provider) {
+      throw new UnrecoverableError('Invalid integration sync queue payload')
+    }
+
     const direction =
       job.data.direction === 'pull' || job.data.direction === 'push'
         ? job.data.direction
         : 'pull'
 
-    if (!organizationId || !provider) {
-      throw new Error('Invalid integration sync queue payload')
-    }
-
-    const result = startSyncJob(
+    const result = await processQueuedIntegrationSyncJob({
+      integrationJobId,
       organizationId,
-      provider as Parameters<typeof startSyncJob>[1],
+      provider: provider as Parameters<
+        typeof processQueuedIntegrationSyncJob
+      >[0]['provider'],
       direction,
-    )
+      correlationId:
+        typeof job.data.correlationId === 'string'
+          ? job.data.correlationId
+          : undefined,
+    })
 
     recordIntegrationSyncMetric({
       provider,
@@ -438,40 +542,43 @@ export class WorkerRuntime {
     return result
   }
 
-  private async handleOnboardingProvisioningJob(job: Job<QueueJobPayload>) {
-    const organizationId =
-      typeof job.data.organizationId === 'string'
-        ? job.data.organizationId
-        : null
-    const provisioningJobId =
-      typeof job.data.provisioningJobId === 'string'
-        ? job.data.provisioningJobId
-        : null
-    const correlationId =
-      typeof job.data.correlationId === 'string'
-        ? job.data.correlationId
-        : `worker-${job.id}`
-    const idempotencyKey =
-      typeof job.data.idempotencyKey === 'string'
-        ? job.data.idempotencyKey
-        : undefined
-
-    if (!organizationId || !provisioningJobId) {
-      throw new Error('Invalid onboarding provisioning queue payload')
+  private async handleWebhookIngestJob(job: Job<QueueJobPayload>) {
+    if (job.name === ELEVENLABS_WEBHOOK_RETRY_JOB_NAME) {
+      const webhookPayload = job.data.webhookPayload
+      if (!webhookPayload || typeof webhookPayload !== 'object') {
+        throw new UnrecoverableError('Invalid webhook retry payload')
+      }
+      const result = await processElevenLabsConversationWebhook(
+        webhookPayload as any,
+      )
+      return {
+        processed: true,
+        recordingId: result.recording.id,
+      }
     }
 
-    return processOnboardingProvisioningJob({
-      organizationId,
-      provisioningJobId,
-      correlationId,
-      idempotencyKey,
-    })
+    logger.info(
+      {
+        queueName: QUEUE_NAMES.WEBHOOK_INGEST,
+        jobId: job.id,
+        jobName: job.name,
+        organizationId: job.data.organizationId,
+      },
+      'Processed webhook ingest job',
+    )
+
+    return { processed: true }
   }
 
   private async moveToDeadLetterQueue(
     queueName: QueueName,
     job: Job<QueueJobPayload>,
     error: Error,
+    metadata: {
+      attemptsAllowed: number
+      attemptsMade: number
+      classification: QueueFailureClassification
+    },
   ) {
     try {
       const dlq = getDeadLetterQueue(queueName)
@@ -489,6 +596,12 @@ export class WorkerRuntime {
           failedJobId: job.id,
           failedAt: new Date().toISOString(),
           errorMessage: error.message,
+          errorCode: metadata.classification.code,
+          recoverable: metadata.classification.recoverable,
+          attemptsAllowed: metadata.attemptsAllowed,
+          attemptsMade: metadata.attemptsMade,
+          queueName,
+          jobName: job.name,
         },
         {
           attempts: 1,
