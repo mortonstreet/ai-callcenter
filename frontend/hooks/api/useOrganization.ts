@@ -44,13 +44,6 @@ export function useCreateOrganization() {
 export function useOnboardOrganization() {
   const queryClient = useQueryClient();
 
-  type OnboardingQualification = {
-    teamSize?: string;
-    monthlyLeadVolume?: string;
-    rolloutTimeline?: string;
-    notes?: string;
-  };
-
   type OnboardingProvisioningStatus = {
     organization: {
       id: string;
@@ -90,6 +83,7 @@ export function useOnboardOrganization() {
     mutationFn: async (params: {
       name: string;
       domain?: string;
+      idempotencyKey?: string;
       wizard_input_v2: WizardInputV2;
     }) => {
       const { idempotencyKey, ...payload } = params;

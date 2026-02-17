@@ -54,6 +54,37 @@ const USE_CASE_ICON_MAP: Record<string, ReactNode> = {
   ),
 };
 
+const BUSINESS_ROLE_OPTIONS = [
+  { value: "owner_operator", label: "Owner / Operator" },
+  { value: "operations", label: "Operations" },
+  { value: "sales", label: "Sales" },
+  { value: "marketing", label: "Marketing" },
+  { value: "other", label: "Other" },
+];
+
+const TEAM_SIZE_OPTIONS = [
+  { value: "solo", label: "Just me" },
+  { value: "2_5", label: "2-5 people" },
+  { value: "6_20", label: "6-20 people" },
+  { value: "21_50", label: "21-50 people" },
+  { value: "50_plus", label: "50+ people" },
+];
+
+const LEAD_VOLUME_OPTIONS = [
+  { value: "0_50", label: "0-50 / month" },
+  { value: "51_200", label: "51-200 / month" },
+  { value: "201_1000", label: "201-1000 / month" },
+  { value: "1000_plus", label: "1000+ / month" },
+];
+
+const ROLLOUT_TIMELINE_OPTIONS = [
+  { value: "asap", label: "ASAP" },
+  { value: "this_month", label: "This month" },
+  { value: "next_month", label: "Next month" },
+  { value: "this_quarter", label: "This quarter" },
+  { value: "exploring", label: "Just exploring" },
+];
+
 export default function OnboardingPage() {
   const router = useRouter();
   const onboardMutation = useOnboardOrganization();
@@ -61,6 +92,14 @@ export default function OnboardingPage() {
 
   const [orgName, setOrgName] = useState("");
   const [domain, setDomain] = useState("");
+  const [businessRole, setBusinessRole] = useState(
+    BUSINESS_ROLE_OPTIONS[0]?.value || "owner_operator",
+  );
+  const [demoIntent, setDemoIntent] = useState(true);
+  const [teamSize, setTeamSize] = useState("");
+  const [monthlyLeadVolume, setMonthlyLeadVolume] = useState("");
+  const [rolloutTimeline, setRolloutTimeline] = useState("");
+  const [qualificationNotes, setQualificationNotes] = useState("");
   const [industry, setIndustry] = useState(WIZARD_INDUSTRY_OPTIONS[0].value);
   const [services, setServices] = useState<string[]>(WIZARD_SERVICE_PRESETS[industry] || []);
 
