@@ -148,12 +148,105 @@ export const DeleteAgentRequestSchema = z.object({
   organizationId: z.string(),
 })
 
+// ElevenLabs Agent Management Schemas
+export const CreateElevenLabsAgentSchema = z.object({
+  organizationId: z.string(),
+  name: z.string().min(1),
+  industry: z.string().optional(),
+  useCase: z.string().optional(),
+  website: z.string().optional(),
+  mainGoal: z.string().optional(),
+  voiceId: z.string().optional(),
+  firstMessage: z.string().optional(),
+  systemPrompt: z.string().optional(),
+})
+
+export const UpdateElevenLabsAgentSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  name: z.string().optional(),
+  firstMessage: z.string().optional(),
+  systemPrompt: z.string().optional(),
+  voiceId: z.string().optional(),
+  language: z.string().optional(),
+  llmModel: z.string().optional(),
+  temperature: z.number().optional(),
+  maxTokens: z.number().optional(),
+  stability: z.number().optional(),
+  similarityBoost: z.number().optional(),
+  speed: z.number().optional(),
+  dataCollection: z.record(z.string(), z.any()).optional(),
+  evaluationCriteria: z.array(z.any()).optional(),
+  tools: z.array(z.any()).optional(),
+  knowledgeBase: z.any().optional(),
+  status: AgentStatusSchema.optional(),
+  advanced: z.object({
+    maxConcurrentCalls: z.number().optional(),
+    maxCallDuration: z.number().optional(),
+    silenceEndCallTimeout: z.number().optional(),
+    turnTimeout: z.number().optional(),
+    postCallWebhookUrl: z.string().optional(),
+  }).optional(),
+})
+
+export const OwnerUpdateAgentSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  name: z.string().optional(),
+  firstMessage: z.string().optional(),
+  systemPrompt: z.string().optional(),
+  voiceId: z.string().optional(),
+  status: AgentStatusSchema.optional(),
+})
+
+export const DeleteElevenLabsAgentSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+})
+
+export const GetAgentConfigSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+})
+
+export const GetAgentAnalyticsSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  granularity: z.enum(['hour', 'day', 'week', 'month']).optional(),
+})
+
+export const GetAgentConversationsSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  pageSize: z.coerce.number().optional().default(50),
+})
+
+export const GetAgentHealthSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+})
+
 export type GetAgentsRequest = z.infer<typeof GetAgentsRequestSchema>
 export type GetAgentRequest = z.infer<typeof GetAgentRequestSchema>
 export type AgentWebhookRequest = z.infer<typeof AgentWebhookSchema>
 export type ElevenLabsWebhook = z.infer<typeof ElevenLabsWebhookSchema>
 export type CreateAgentRequest = z.infer<typeof CreateAgentRequestSchema>
 export type DeleteAgentRequest = z.infer<typeof DeleteAgentRequestSchema>
+export type CreateElevenLabsAgentRequest = z.infer<typeof CreateElevenLabsAgentSchema>
+export type UpdateElevenLabsAgentRequest = z.infer<typeof UpdateElevenLabsAgentSchema>
+export type OwnerUpdateAgentRequest = z.infer<typeof OwnerUpdateAgentSchema>
+export type DeleteElevenLabsAgentRequest = z.infer<typeof DeleteElevenLabsAgentSchema>
+export type GetAgentConfigRequest = z.infer<typeof GetAgentConfigSchema>
+export type GetAgentAnalyticsRequest = z.infer<typeof GetAgentAnalyticsSchema>
+export type GetAgentConversationsRequest = z.infer<typeof GetAgentConversationsSchema>
+export type GetAgentHealthRequest = z.infer<typeof GetAgentHealthSchema>
+
+export interface AgentDegradedModeMetadata {
+  enabled: boolean
+  reason: string | null
+}
 
 export interface AgentHealthResponse {
   agentId: string

@@ -104,29 +104,39 @@ export class ElevenLabsClient {
    * Create a new conversational AI agent
    */
   async createAgent(
-    name: string,
-    firstMessage: string,
-    prompt: string,
-    voiceId?: string,
+    payload: Record<string, any>,
   ): Promise<CreateAgentResponse> {
     return this.request<CreateAgentResponse>('/convai/agents/create', {
       method: 'POST',
-      body: JSON.stringify({
-        name,
-        conversation_config: {
-          agent: {
-            first_message: firstMessage,
-            language: 'en',
-            prompt: {
-              prompt,
-            },
-          },
-          tts: {
-            voice_id: voiceId || process.env.ELEVEN_LABS_DEFAULT_VOICE_ID,
-          },
-        },
-      }),
+      body: JSON.stringify(payload),
     })
+  }
+
+  /**
+   * Update a conversational AI agent
+   */
+  async updateAgent(
+    agentId: string,
+    payload: Record<string, any>,
+  ): Promise<any> {
+    return this.request<any>(`/convai/agents/${agentId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    })
+  }
+
+  /**
+   * Get a conversational AI agent's configuration
+   */
+  async getAgent(agentId: string): Promise<any> {
+    return this.request<any>(`/convai/agents/${agentId}`)
+  }
+
+  /**
+   * List available voices
+   */
+  async listVoices(): Promise<any> {
+    return this.request<any>('/voices')
   }
 
   /**

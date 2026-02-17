@@ -170,4 +170,33 @@ router.put(
   authenticatedRoute(updateAgentMcpConfig),
 )
 
+// ===== Agent Config, Health, Analytics, Conversations =====
+router.get(
+  '/:organizationId/:id/config',
+  validateAndMerge(GetAgentConfigSchema),
+  validateMemberOfOrganizationOrAdmin,
+  authenticatedRoute(getAgentConfig),
+)
+
+router.get(
+  '/:organizationId/:id/health',
+  validateAndMerge(GetAgentHealthSchema),
+  validateMemberOfOrganizationOrAdmin,
+  authenticatedRoute(getAgentHealth),
+)
+
+router.get(
+  '/:organizationId/:id/analytics',
+  validateAndMerge(GetAgentAnalyticsSchema),
+  validateMemberOfOrganizationOrAdmin,
+  authenticatedRoute(getAgentAnalytics),
+)
+
+router.get(
+  '/:organizationId/:id/conversations',
+  validateAndMerge(GetAgentConversationsSchema),
+  validateMemberOfOrganizationOrAdmin,
+  authenticatedRoute(getAgentConversations),
+)
+
 export default router

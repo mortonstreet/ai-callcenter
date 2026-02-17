@@ -346,7 +346,9 @@ const buildStatusView = async (input: {
   }
 }
 
-const resolveOrganizationAndMember = async (input: ResolveOrganizationInput) => {
+const resolveOrganizationAndMember = async (
+  input: ResolveOrganizationInput,
+) => {
   let organizationId = input.organizationId
 
   if (!organizationId) {
@@ -423,12 +425,18 @@ const loadIdempotentOnboardingResult = async (input: {
     return null
   }
 
-  const existingMember = await findMember(existingJob.organizationId, input.userId)
+  const existingMember = await findMember(
+    existingJob.organizationId,
+    input.userId,
+  )
   if (!existingMember) {
     return null
   }
 
-  await updateUserLastActiveOrganizationId(input.userId, existingJob.organizationId)
+  await updateUserLastActiveOrganizationId(
+    input.userId,
+    existingJob.organizationId,
+  )
 
   const organization = await findOrganizationById(existingJob.organizationId)
   const status = await buildStatusView({
@@ -482,7 +490,9 @@ const parseProvisioningPayload = (
   const agentName = asOptionalString(agent.name)
 
   if (!companyName || !industry || !agentName) {
-    throw new Error('Provisioning payload is missing required onboarding fields.')
+    throw new Error(
+      'Provisioning payload is missing required onboarding fields.',
+    )
   }
 
   return {
@@ -522,7 +532,8 @@ const pickPrimaryAgent = async (
 }
 
 const buildUniqueOrganizationSlug = async (organizationName: string) => {
-  const baseSlug = sanitizeString(formatToSlug(organizationName)) || 'organization'
+  const baseSlug =
+    sanitizeString(formatToSlug(organizationName)) || 'organization'
   let candidate = baseSlug
 
   for (let i = 0; i < 8; i += 1) {
@@ -564,7 +575,9 @@ export const submitOnboarding = async (
   const onboardingQualification = input.qualification
     ? {
         teamSize: sanitizeString(input.qualification.teamSize),
-        monthlyLeadVolume: sanitizeString(input.qualification.monthlyLeadVolume),
+        monthlyLeadVolume: sanitizeString(
+          input.qualification.monthlyLeadVolume,
+        ),
         rolloutTimeline: sanitizeString(input.qualification.rolloutTimeline),
         notes: sanitizeString(input.qualification.notes),
       }
@@ -672,7 +685,8 @@ export const submitOnboarding = async (
             correlationId: input.correlationId,
             level: 'info',
             eventType: 'onboarding_submitted',
-            message: 'Onboarding submission accepted and provisioning initialized.',
+            message:
+              'Onboarding submission accepted and provisioning initialized.',
             metadata: {
               lifecycleTarget,
               planType,

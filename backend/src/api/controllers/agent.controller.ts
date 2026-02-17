@@ -124,11 +124,16 @@ export const createAgent: AuthRequestHandler<CreateAgentRequest> = async (
   const { organizationId, name, firstMessage, prompt } = req.validated
 
   const elevenLabsClient = getElevenLabsClient(process.env.ELEVEN_LABS_API_KEY)
-  const elevenLabsAgent = await elevenLabsClient.createAgent(
+  const elevenLabsAgent = await elevenLabsClient.createAgent({
     name,
-    firstMessage,
-    prompt,
-  )
+    conversation_config: {
+      agent: {
+        first_message: firstMessage,
+        language: 'en',
+        prompt: { prompt },
+      },
+    },
+  })
 
   logger.info(
     `Created ElevenLabs agent ${elevenLabsAgent.agent_id} for org ${organizationId}`,

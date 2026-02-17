@@ -98,7 +98,9 @@ export const onboardOrganization: AuthRequestHandler<
 > = async (req, res, next) => {
   try {
     const validated = req.validated
-    const correlationId = getCorrelationId(req.headers as Record<string, unknown>)
+    const correlationId = getCorrelationId(
+      req.headers as Record<string, unknown>,
+    )
     const idempotencyKey = getIdempotencyKey({
       headers: req.headers as Record<string, unknown>,
       bodyKey: validated.idempotencyKey,
@@ -164,7 +166,9 @@ export const retryOrganizationOnboardingProvisioning: AuthRequestHandler<
   OrgProvisioningRetryRequest
 > = async (req, res, next) => {
   try {
-    const correlationId = getCorrelationId(req.headers as Record<string, unknown>)
+    const correlationId = getCorrelationId(
+      req.headers as Record<string, unknown>,
+    )
 
     const result = await retryOnboardingProvisioning({
       userId: req.user.id,

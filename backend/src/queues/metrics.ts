@@ -62,7 +62,7 @@ export class QueueMetricsEmitter {
 
     this.timer = setInterval(() => {
       void this.flush()
-    }, config.queues.metricsFlushIntervalMs)
+    }, (config as any).queues?.metricsFlushIntervalMs ?? 30_000)
 
     this.timer.unref?.()
   }
