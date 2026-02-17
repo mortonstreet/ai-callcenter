@@ -25,9 +25,12 @@ let _redisAvailable: boolean | null = null
 let _lastRedisCheck = 0
 const REDIS_CHECK_INTERVAL_MS = 60_000
 
-const checkRedisAvailable = async (): Promise<boolean> => {
+const checkRedisAvailable = async (
+  options: { forceCheck?: boolean } = {},
+): Promise<boolean> => {
   const now = Date.now()
   if (
+    !options.forceCheck &&
     _redisAvailable !== null &&
     now - _lastRedisCheck < REDIS_CHECK_INTERVAL_MS
   ) {
@@ -65,6 +68,22 @@ const createQueue = (name: string) =>
       removeOnFail: 500,
     },
   })
+
+export class QueueUnavailableError extends Error {
+  code: 'QUEUE_UNAVAILABLE'
+  queueName: QueueName
+  jobName: string
+
+  constructor(input: { queueName: QueueName; jobName: string }) {
+    super(
+      `Queue "${input.queueName}" is unavailable; cannot enqueue job "${input.jobName}"`,
+    )
+    this.name = 'QueueUnavailableError'
+    this.code = 'QUEUE_UNAVAILABLE'
+    this.queueName = input.queueName
+    this.jobName = input.jobName
+  }
+}
 
 // Lazy queue registries - only created when Redis is available
 let _queueRegistry: Record<QueueName, Queue<QueueJobPayload>> | null = null
@@ -127,8 +146,14 @@ export const getDeadLetterQueue = (
 /**
  * Initialize queues if Redis is available. Returns true if queues were initialized.
  */
-export const initQueuesIfAvailable = async (): Promise<boolean> => {
-  const available = await checkRedisAvailable()
+export const initQueuesIfAvailable = async (
+  options: { forceCheck?: boolean } = {},
+): Promise<boolean> => {
+  if (_queueRegistry && _deadLetterQueueRegistry) {
+    return true
+  }
+
+  const available = await checkRedisAvailable(options)
   if (available) {
     initQueues()
     logger.info('Redis available - queues initialized')
@@ -146,13 +171,18 @@ export const enqueueQueueJob = async (
   payload: QueueJobPayload,
   options: JobsOptions = {},
 ) => {
+  if (!_queueRegistry) {
+    await initQueuesIfAvailable()
+  }
+
   const queue = getQueue(queueName)
   if (!queue) {
-    logger.warn(
+    const queueError = new QueueUnavailableError({ queueName, jobName })
+    logger.error(
       { queueName, jobName },
-      'Cannot enqueue job - Redis/queues not available. Job will be skipped.',
+      'Cannot enqueue job - Redis/queues not available.',
     )
-    return null
+    throw queueError
   }
 
   const derivedJobId =

@@ -2,9 +2,10 @@
 
 import { Page } from "@/components/dashboard/Page";
 import { use, useEffect, useState } from "react";
-import { Bot, ArrowLeft, Loader2, Trash2 } from "lucide-react";
+import { Bot, ArrowLeft, Loader2, RotateCcw, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useAgent, useAgentConfig, useAgentHealth, useDeleteElevenLabsAgent } from "@/hooks/api/useAgent";
+import { useLatestProvisioningByAgent, useRetryProvisioningJob } from "@/hooks/api/useProvisioning";
 import { AgentExternalType } from "@/lib/shared-types";
 import { useCurrentOrganizationRole } from "@/hooks/api/useOrganization";
 import { useRouter } from "next/navigation";
@@ -74,6 +75,10 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
   const { data: agent, isLoading, error } = useAgent(id);
   const { data: agentConfig } = useAgentConfig(id);
   const { data: health, isLoading: healthLoading } = useAgentHealth(id);
+  const latestProvisioningQuery = useLatestProvisioningByAgent(id);
+  const retryProvisioningMutation = useRetryProvisioningJob(
+    latestProvisioningQuery.data?.jobId,
+  );
   const currentRole = useCurrentOrganizationRole();
   const isAdmin = currentRole === "admin";
   const isOwner = currentRole === "owner";
@@ -127,6 +132,16 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
     label: CHECK_LABELS[checkName],
     check: health?.checks?.[checkName],
   }));
+  const latestProvisioning = latestProvisioningQuery.data;
+  const shouldShowProvisioningRetry =
+    isAdminOrOwner &&
+    Boolean(latestProvisioning?.jobId) &&
+    (agent.syncPending ||
+      agent.externalType === AgentExternalType.LOCAL_FALLBACK ||
+      agent.status === "error");
+  const retryDisabled =
+    !latestProvisioning?.retry?.eligible ||
+    retryProvisioningMutation.isPending;
 
   return (
     <Page
@@ -238,6 +253,45 @@ export default function AgentPage({ params }: { params: Promise<{ id: string }> 
           )}
           {agent.lastSyncError && (
             <p className="text-xs text-red-700 mt-2">Last sync error: {agent.lastSyncError}</p>
+          )}
+          {shouldShowProvisioningRetry && (
+            <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  Provisioning job
+                </span>
+                <span className="text-xs font-mono text-foreground">
+                  {latestProvisioning?.jobId}
+                </span>
+                <span className="text-xs text-muted-foreground">status</span>
+                <span className="text-xs font-medium text-foreground">
+                  {latestProvisioning?.status}
+                </span>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => retryProvisioningMutation.mutate(undefined)}
+                  disabled={retryDisabled}
+                  className="inline-flex items-center gap-2 rounded-md bg-foreground px-3 py-1.5 text-xs font-medium text-background hover:opacity-90 disabled:opacity-60"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  {retryProvisioningMutation.isPending
+                    ? "Queueing retry..."
+                    : "Retry provider provisioning"}
+                </button>
+                <Link
+                  href={`/dashboard/provisioning?jobId=${latestProvisioning?.jobId}`}
+                  className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                >
+                  Open provisioning timeline
+                </Link>
+              </div>
+              {!latestProvisioning?.retry?.eligible && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  {latestProvisioning?.retry?.recommendedAction}
+                </p>
+              )}
+            </div>
           )}
         </div>
 

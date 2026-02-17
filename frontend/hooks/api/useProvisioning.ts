@@ -92,6 +92,22 @@ export function useRetryProvisioningJob(jobId?: string) {
             response.agentId,
           ),
         })
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.agent(
+            activeOrganization?.data?.id,
+            response.agentId,
+          ),
+        })
+        queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.agents(activeOrganization?.data?.id),
+        })
+        queryClient.invalidateQueries({
+          queryKey: [
+            'agent-health',
+            activeOrganization?.data?.id,
+            response.agentId,
+          ],
+        })
       }
       if (response?.jobId) {
         queryClient.invalidateQueries({
@@ -103,8 +119,12 @@ export function useRetryProvisioningJob(jobId?: string) {
       }
       toast.success('Provisioning retry queued')
     },
-    onError: (error: any) => {
-      toast.error(error?.message || 'Failed to queue provisioning retry')
+    onError: (error: unknown) => {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Failed to queue provisioning retry'
+      toast.error(message)
     },
   })
 }

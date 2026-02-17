@@ -116,18 +116,69 @@ export class WorkerRuntime {
   private readonly workers = new Map<QueueName, Worker<QueueJobPayload>>()
   private startedAt: string | null = null
   private lastHeartbeatAt: string | null = null
+  private startupRetryTimer: ReturnType<typeof setInterval> | null = null
+  private startupPromise: Promise<void> | null = null
+  private shouldRun = false
 
   async start() {
-    if (this.workers.size > 0) {
+    this.shouldRun = true
+
+    if (this.workers.size > 0) return
+
+    if (this.startupPromise) {
+      await this.startupPromise
       return
     }
 
-    // Ensure queues are initialized before starting workers
-    const queuesReady = await initQueuesIfAvailable()
+    this.startupPromise = this.startWorkers().finally(() => {
+      this.startupPromise = null
+    })
+
+    await this.startupPromise
+  }
+
+  private scheduleStartupRetry() {
+    if (this.startupRetryTimer) return
+
+    this.startupRetryTimer = setInterval(() => {
+      if (!this.shouldRun || this.workers.size > 0) {
+        this.clearStartupRetry()
+        return
+      }
+
+      void this.start().catch((error) => {
+        logger.error(
+          { error },
+          'Scheduled worker startup retry failed unexpectedly',
+        )
+      })
+    }, 15_000)
+
+    if (typeof this.startupRetryTimer.unref === 'function') {
+      this.startupRetryTimer.unref()
+    }
+  }
+
+  private clearStartupRetry() {
+    if (!this.startupRetryTimer) return
+    clearInterval(this.startupRetryTimer)
+    this.startupRetryTimer = null
+  }
+
+  private async startWorkers() {
+    if (!this.shouldRun || this.workers.size > 0) return
+
+    // Force Redis recheck to recover if it became available after process boot.
+    const queuesReady = await initQueuesIfAvailable({ forceCheck: true })
     if (!queuesReady) {
-      logger.warn('Redis unavailable - queue workers will not start')
+      logger.warn(
+        'Redis unavailable - queue workers not started yet. Will retry automatically.',
+      )
+      this.scheduleStartupRetry()
       return
     }
+
+    this.clearStartupRetry()
 
     await Promise.all(
       ALL_QUEUE_NAMES.map(async (queueName) => {
@@ -232,6 +283,9 @@ export class WorkerRuntime {
   }
 
   async stop() {
+    this.shouldRun = false
+    this.clearStartupRetry()
+
     await Promise.all(
       [...this.workers.values()].map(async (worker) => {
         try {
