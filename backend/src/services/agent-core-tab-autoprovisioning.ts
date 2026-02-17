@@ -1,4 +1,5 @@
 import { randomBytes } from 'crypto'
+import { config } from '@/config'
 
 const CORE_TABS_PROFILE_REF =
   'specs/v1/agent-factory/core-tabs/default-core-tabs-profile.v1.yaml'
@@ -7,6 +8,9 @@ const WORKFLOW_PROFILE_REF =
 
 const CORE_TABS_PROFILE_VERSION = 'v1'
 const WORKFLOW_PROFILE_VERSION = 'v1'
+const API_BASE_URL = config.backendUrl.replace(/\/+$/, '')
+const DEFAULT_MCP_SSE_ENDPOINT = `${API_BASE_URL}/api/mcp/sse`
+const DEFAULT_POST_CALL_WEBHOOK_ENDPOINT = `${API_BASE_URL}/api/webhook/agent/elevenlabs`
 
 const DEFAULT_DATA_COLLECTION_SCHEMA = [
   {
@@ -117,7 +121,7 @@ const DEFAULT_CORE_TAB_PROFILE = {
     ],
     mcp: {
       enabled: true,
-      endpoint: 'https://api.revcenter.ai/mcp/sse',
+      endpoint: DEFAULT_MCP_SSE_ENDPOINT,
       approval_policy: 'auto_for_safe_tools',
     },
   },
@@ -148,7 +152,7 @@ const DEFAULT_CORE_TAB_PROFILE = {
       recording_retention_days: 90,
     },
     webhooks: {
-      post_call_url: 'https://api.revcenter.ai/webhooks/elevenlabs/post-call',
+      post_call_url: DEFAULT_POST_CALL_WEBHOOK_ENDPOINT,
       events: ['call.ended', 'transcript.ready'],
     },
   },

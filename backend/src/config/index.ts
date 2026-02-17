@@ -60,21 +60,23 @@ const envSchema = z.object({
   TIMEZONE: z.string().default('America/New_York'),
   CORS_ORIGIN: z
     .string()
-    .default('*')
+    .default(
+      'https://www.revcenter.ai,https://revcenter.ai,https://app.revcenter.ai',
+    )
     .transform((val) => {
       if (val === '*') return '*'
       return val.includes(',') ? val.split(',').map((s) => s.trim()) : val
     }),
-  BACKEND_URL: z.string().url().default('http://localhost:8000'),
+  BACKEND_URL: z.string().url().default('https://api.revcenter.ai'),
   FRONTEND_URL: z.string().url(),
-  COOKIE_DOMAIN: z.string().default('localhost'),
+  COOKIE_DOMAIN: z.string().default('revcenter.ai'),
   DATABASE_URL: z.string().url(),
   DB_HOST: z.string(),
   DB_PORT: z.coerce.number(),
   DB_USER: z.string(),
   DB_PASSWORD: z.string(),
   DB_NAME: z.string(),
-  REDIS_URL: z.string().url().default('redis://localhost:6379'),
+  REDIS_URL: z.string().url().default('redis://redis.revcenter.ai:6379'),
   BETTERSTACK_TOKEN: z.string(),
   BETTERSTACK_HOST: z.string(),
   SENTRY_DSN: z.string(),
@@ -99,6 +101,7 @@ const envSchema = z.object({
   SERVICETITAN_CLIENT_SECRET: z.string().optional(),
   // Cal.com integration
   CALCOM_API_KEY: z.string().optional(),
+  EMBEDDED_WORKER_ENABLED: z.coerce.boolean().default(true),
   // Legacy single provider - now optional
   ELEVEN_LABS_API_KEY: z.string().optional(),
   ELEVEN_LABS_WEBHOOK_KEY: z.string().optional(),
@@ -163,6 +166,9 @@ export const config = {
   redis: {
     url: env.REDIS_URL,
     useTLS: env.REDIS_URL.startsWith('rediss://'),
+  },
+  workers: {
+    embeddedEnabled: env.EMBEDDED_WORKER_ENABLED,
   },
   logger: {
     betterstackToken: env.BETTERSTACK_TOKEN,

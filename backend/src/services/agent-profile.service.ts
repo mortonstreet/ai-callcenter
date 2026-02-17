@@ -1,6 +1,7 @@
 import { createHash } from 'crypto'
 import fs from 'fs'
 import path from 'path'
+import { config } from '@/config'
 import {
   WizardInputV2 as SharedWizardInputV2,
   WizardIntentProfileV1 as SharedWizardIntentProfileV1,
@@ -1113,6 +1114,10 @@ export const computeProfileHash = (input: {
   return digest
 }
 
+const API_BASE_URL = config.backendUrl.replace(/\/+$/, '')
+const DEFAULT_MCP_SSE_ENDPOINT = `${API_BASE_URL}/api/mcp/sse`
+const DEFAULT_POST_CALL_WEBHOOK_ENDPOINT = `${API_BASE_URL}/api/webhook/agent/elevenlabs`
+
 const profile = getAgentProfileV1()
 
 export const agentProfileV1 = {
@@ -1138,12 +1143,11 @@ export const agentProfileV1 = {
   },
   tools: {
     baselineSystemTools: profile.defaults.tools.enabledSystemTools,
-    mcpEndpoint: 'https://api.revcenter.ai/mcp/sse',
+    mcpEndpoint: DEFAULT_MCP_SSE_ENDPOINT,
     mcpApprovalPolicy: profile.defaults.tools.approvalPolicy,
   },
   security: {
-    postCallWebhookUrl:
-      'https://api.revcenter.ai/webhooks/elevenlabs/post-call',
+    postCallWebhookUrl: DEFAULT_POST_CALL_WEBHOOK_ENDPOINT,
     webhookEvents: ['post_call_transcription', 'post_call_audio'],
     authTokenEnabled: profile.defaults.security.authTokenEnabled,
     allowedOrigins: profile.defaults.security.allowedOrigins,

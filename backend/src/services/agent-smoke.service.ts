@@ -28,6 +28,7 @@ interface SmokeBundleInput {
   mode?: 'runtime' | 'provisioning'
   agent: {
     id: string
+    externalId?: string | null
     organizationId: string
     name: string
     useCase?: string | null
@@ -233,16 +234,21 @@ const fetchWithTimeout = async (
 
 const runWebhookSignatureScenario = async (input: {
   agentId: string
+  externalAgentId?: string | null
   organizationId: string
   webhookUrl: string
   webhookSecret: string
 }): Promise<SmokeScenarioResult> => {
-  const timestamp = String(Date.now())
+  const timestamp = String(Math.floor(Date.now() / 1000))
+  const externalAgentId = input.externalAgentId || input.agentId
   const payload = JSON.stringify({
     type: 'agent.health_check',
-    checkedAt: new Date().toISOString(),
-    agentId: input.agentId,
-    organizationId: input.organizationId,
+    event_timestamp: Number(timestamp),
+    data: {
+      agent_id: externalAgentId,
+      conversation_id: `health-check-${input.agentId}-${timestamp}`,
+      status: 'health_check',
+    },
   })
   const signature = createHmac('sha256', input.webhookSecret)
     .update(`${timestamp}.${payload}`)
@@ -255,9 +261,7 @@ const runWebhookSignatureScenario = async (input: {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Revcenter-Timestamp': timestamp,
-          'X-Revcenter-Signature': signature,
-          'X-Revcenter-Health-Check': 'true',
+          'ElevenLabs-Signature': `t=${timestamp},v0=${signature}`,
         },
         body: payload,
       },
@@ -281,7 +285,7 @@ const runWebhookSignatureScenario = async (input: {
       status: 'failed',
       message: `Signed webhook callback test failed (${response.status}).`,
       remediationAction:
-        'Confirm webhook endpoint is reachable and accepts signed callback events.',
+        'Confirm webhook endpoint is reachable and accepts ElevenLabs signed callback events.',
     }
   } catch (error) {
     return {
@@ -396,6 +400,7 @@ export const runAgentSmokeTestBundle = async (
     scenarios.push(
       await runWebhookSignatureScenario({
         agentId: input.agent.id,
+        externalAgentId: input.agent.externalId,
         organizationId: input.agent.organizationId,
         webhookUrl,
         webhookSecret: input.agent.webhookSecret,

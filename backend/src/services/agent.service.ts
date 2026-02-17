@@ -1047,7 +1047,8 @@ export async function retryAgentProvision(payload: AgentProvisionRetryPayload) {
 
   if (
     existingAgent.externalType === AgentExternalType.ELEVEN_LABS &&
-    !existingAgent.syncPending
+    !existingAgent.syncPending &&
+    existingAgent.status !== 'error'
   ) {
     return existingAgent
   }
