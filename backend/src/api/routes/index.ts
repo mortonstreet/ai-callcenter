@@ -14,6 +14,8 @@ import integrationsRoutes from './integrations'
 import campaignsRoutes from './campaigns'
 import smsCampaignsRoutes from './sms-campaigns'
 import emailCampaignsRoutes from './email-campaigns'
+import billingRoutes from './billing'
+import provisioningRoutes from './provisioning'
 
 const router = Router()
 
@@ -35,6 +37,8 @@ router.use('/integrations', integrationsRoutes)
 router.use('/campaigns', campaignsRoutes)
 router.use('/sms-campaigns', smsCampaignsRoutes)
 router.use('/email-campaigns', emailCampaignsRoutes)
+router.use('/billing', billingRoutes)
+router.use('/provisioning', provisioningRoutes)
 router.use('/sentry', (req, res) => {
   throw new Error('Testing sentry error')
 })

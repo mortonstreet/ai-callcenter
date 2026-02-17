@@ -13,6 +13,18 @@ import integrationWebhookRoutes from './routes/webhooks-integrations'
 import campaignWebhookRoutes from './routes/webhooks-campaigns'
 
 const app = express()
+const BILLING_WEBHOOK_PATH = '/api/billing/webhook'
+
+const captureRawBillingWebhookBody = (
+  req: express.Request & { rawBodyText?: string },
+  _res: express.Response,
+  buf: Buffer,
+) => {
+  const requestPath = req.originalUrl || req.url || ''
+  if (requestPath.startsWith(BILLING_WEBHOOK_PATH)) {
+    req.rawBodyText = buf.toString('utf8')
+  }
+}
 
 // Middleware
 app.use(
@@ -37,9 +49,9 @@ app.use('/api/webhooks/integrations', integrationWebhookRoutes)
 app.use('/api/webhooks/campaigns', campaignWebhookRoutes)
 app.use('/api/campaigns/webhooks', campaignWebhookRoutes)
 
-app.use(express.json())
+app.use(express.json({ verify: captureRawBillingWebhookBody }))
 app.use(express.urlencoded({ extended: false }))
-app.use(bodyParser.json())
+app.use(bodyParser.json({ verify: captureRawBillingWebhookBody }))
 
 // Routes
 app.use('/api', apiRoutes)

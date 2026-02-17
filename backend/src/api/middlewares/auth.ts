@@ -14,6 +14,10 @@ import { OrganizationRole, AgentExternalType } from '@shared/types/src'
 import { findAgentByExternalId } from '@/repositories/agent.repository'
 import { sendApiError } from '../utils/error-contract'
 import { getRedis } from '@/lib/redis'
+import {
+  evaluateApiLifecycleGate,
+  resolveOrganizationLifecycleSnapshot,
+} from '@/lib/lifecycle-gates'
 
 const WEBHOOK_REPLAY_TTL_SECONDS = 24 * 60 * 60
 const replayFallbackStore = new Map<string, number>()
@@ -189,6 +193,42 @@ export const withBetterAuth = async (
   // attach to req so handlers can use it
   ;(req as any).user = session.user
   ;(req as any).session = session
+
+  if (!session.user.isAdmin) {
+    const activeOrganizationId =
+      (session as any).session?.activeOrganizationId ||
+      (session as any).activeOrganizationId ||
+      null
+
+    const lifecycleSnapshot =
+      await resolveOrganizationLifecycleSnapshot(activeOrganizationId)
+    const requestPath = `${req.baseUrl || ''}${req.path || ''}`.replace(
+      /\/{2,}/g,
+      '/',
+    )
+    const lifecycleDecision = evaluateApiLifecycleGate(
+      requestPath,
+      lifecycleSnapshot,
+    )
+
+    if (!lifecycleDecision.allowed) {
+      return sendApiError(req, res, 403, {
+        code: 'ORG_LIFECYCLE_BLOCKED',
+        message:
+          lifecycleDecision.reason ||
+          'Organization lifecycle gate blocked access',
+        userMessage:
+          'Complete the required organization setup step before continuing.',
+        details: {
+          requestPath,
+          requiredPath: lifecycleDecision.requiredPath,
+          lifecycleStatus: lifecycleSnapshot.lifecycleStatus,
+          planType: lifecycleSnapshot.planType,
+          provisioningStatus: lifecycleSnapshot.provisioningStatus,
+        },
+      })
+    }
+  }
 
   next()
 }

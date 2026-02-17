@@ -12,6 +12,8 @@ import {
   OrganizationRole,
   DeleteTaskRequestSchema,
   CreateElevenLabsAgentSchema,
+  GetAgentProvisioningJobStatusSchema,
+  RetryAgentProvisioningJobSchema,
   UpdateElevenLabsAgentSchema,
   OwnerUpdateAgentSchema,
   DeleteElevenLabsAgentSchema,
@@ -33,6 +35,8 @@ import {
   updateAgentMcpConfig,
   getAgentMcpConfig,
   createElevenLabsAgent,
+  getAgentProvisioningJobStatus,
+  retryAgentProvisioningJob,
   updateElevenLabsAgent,
   ownerUpdateAgent,
   deleteElevenLabsAgent,
@@ -48,6 +52,7 @@ import {
   withBetterAuth,
   withElevenLabsWebhookAuth,
 } from '../middlewares/auth'
+import { rejectForbiddenWizardFields } from '../middlewares/wizardContract'
 
 // Schema for updating agent MCP configuration
 const UpdateAgentMcpConfigSchema = z.object({
@@ -91,6 +96,7 @@ router.get(
 // Create agent via ElevenLabs
 router.post(
   '/:organizationId/create-agent',
+  rejectForbiddenWizardFields,
   validateAndMerge(CreateElevenLabsAgentSchema),
   validateMemberOfOrganizationIsOrAdmin([
     OrganizationRole.ADMIN,
@@ -99,14 +105,28 @@ router.post(
   authenticatedRoute(createElevenLabsAgent),
 )
 
-// Update agent (admin/owner - full access)
-router.patch(
-  '/:organizationId/:id/update-agent',
-  validateAndMerge(UpdateElevenLabsAgentSchema),
+router.get(
+  '/:organizationId/provisioning/jobs/:jobId',
+  validateAndMerge(GetAgentProvisioningJobStatusSchema),
+  validateMemberOfOrganizationOrAdmin,
+  authenticatedRoute(getAgentProvisioningJobStatus),
+)
+
+router.post(
+  '/:organizationId/provisioning/jobs/:jobId/retry',
+  validateAndMerge(RetryAgentProvisioningJobSchema),
   validateMemberOfOrganizationIsOrAdmin([
     OrganizationRole.ADMIN,
     OrganizationRole.OWNER,
   ]),
+  authenticatedRoute(retryAgentProvisioningJob),
+)
+
+// Update agent (admin - full access)
+router.patch(
+  '/:organizationId/:id/update-agent',
+  validateAndMerge(UpdateElevenLabsAgentSchema),
+  validateMemberOfOrganizationIsOrAdmin([OrganizationRole.ADMIN]),
   authenticatedRoute(updateElevenLabsAgent),
 )
 

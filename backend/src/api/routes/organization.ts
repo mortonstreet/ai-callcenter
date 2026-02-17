@@ -8,6 +8,7 @@ import {
   OrganizationOnboardingSchema,
 } from '@/api/controllers/organization.controller'
 import { authenticatedRoute } from './utils'
+import { rejectForbiddenWizardFields } from '../middlewares/wizardContract'
 
 const router = Router()
 
@@ -18,6 +19,7 @@ const DeleteOrganizationSchema = z.object({
 router.post(
   '/onboarding',
   withBetterAuth,
+  rejectForbiddenWizardFields,
   validateAndMerge(OrganizationOnboardingSchema),
   authenticatedRoute(onboardOrganization),
 )

@@ -4,7 +4,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bot, Users, Video, Settings, LayoutDashboard, Calendar, Kanban, Headphones, Shield, Menu, X, Megaphone } from "lucide-react";
+import { Bot, Users, Video, Settings, LayoutDashboard, Calendar, Kanban, Headphones, Shield, Menu, X, Megaphone, CreditCard, Building2 } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { DBUser } from "@/lib/shared-types";
 
@@ -21,10 +21,12 @@ const nav = [
 
 const adminNav = [
   { href: "/dashboard/admin", label: "Admin", icon: Shield },
+  { href: "/dashboard/admin/demo-tenants", label: "Demo Tenants", icon: Building2 },
 ];
 
 const settingsNav = [
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
 ];
 
 export default function Sidebar({

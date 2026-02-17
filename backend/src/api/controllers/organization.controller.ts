@@ -1,108 +1,114 @@
 import { AuthRequestHandler } from '@/types/handlers'
 import { config } from '@/config'
 import { db } from '@/lib/db'
-import { formatToSlug } from '@/utils'
-import { createOrganization } from '@/repositories/organization.repository'
-import { withId } from '@/repositories/utils'
-import { updateUserLastActiveOrganizationId } from '@/repositories/auth.repository'
-import { AgentExternalType } from '@shared/types/src'
-import { createElevenLabsAgent } from '@/services/agent.service'
+import { WizardInputV2Schema } from '@shared/types/src'
 import { z } from 'zod'
+import { startOnboardingProvisioning } from '@/services/provisioning-orchestrator.service'
+import { getCorrelationId } from '@/api/utils/error-contract'
 
-export const OrganizationOnboardingSchema = z.object({
-  name: z.string(),
-  domain: z.string().optional(),
-  industry: z.string(),
-  services: z.array(z.string()).default([]),
-  useCase: z.string().optional(),
-  website: z.string().optional(),
-  mainGoal: z.string().optional(),
-  agent: z.object({
-    name: z.string(),
-    openingLine: z.string().optional(),
-    serviceQuestions: z.array(z.string()).optional(),
-  }),
-})
+export const OrganizationOnboardingSchema = z
+  .object({
+    name: z.string().trim().min(1),
+    domain: z.string().trim().optional(),
+    idempotencyKey: z.string().trim().min(1).max(256).optional(),
+    wizard_input_v2: WizardInputV2Schema,
+  })
+  .strict()
 
 type OrgOnboardingRequest = z.infer<typeof OrganizationOnboardingSchema>
+
+const resolveWizardInputFromOnboarding = (
+  payload: OrgOnboardingRequest,
+): z.infer<typeof WizardInputV2Schema> => {
+  return payload.wizard_input_v2
+}
+
+const resolveIdempotencyKey = (req: {
+  validated: { idempotencyKey?: string }
+  get: (key: string) => string | undefined
+}) => {
+  const fromPayload = req.validated.idempotencyKey?.trim()
+  if (fromPayload) {
+    return fromPayload
+  }
+
+  const fromHeader =
+    req.get('idempotency-key') ||
+    req.get('Idempotency-Key') ||
+    req.get('x-idempotency-key')
+
+  return fromHeader?.trim()
+}
 
 export const onboardOrganization: AuthRequestHandler<
   OrgOnboardingRequest
 > = async (req, res) => {
-  const {
-    name,
-    domain,
-    industry,
-    services,
-    useCase,
-    website,
-    mainGoal,
-    agent,
-  } = req.validated
-  const now = new Date()
+  const { name, domain } = req.validated
+  const wizardInput = resolveWizardInputFromOnboarding(req.validated)
 
-  // Create organization with metadata captured from onboarding
-  const organization = await createOrganization({
-    name,
-    slug: formatToSlug(name),
-    createdAt: now,
-    metadata: JSON.stringify({
+  const idempotencyKey =
+    resolveIdempotencyKey(req) || `onboarding:${req.user.id}:${Date.now()}`
+
+  const requestCorrelationId = getCorrelationId(req, res)
+  const correlationId =
+    requestCorrelationId === 'unknown'
+      ? `wizard-onboarding:${req.user.id}`
+      : requestCorrelationId
+
+  const knowledgeSources = wizardInput.knowledgeSources || []
+  const website = knowledgeSources.find((source) => {
+    try {
+      new URL(source)
+      return true
+    } catch {
+      return false
+    }
+  })
+
+  const provisioningStart = await startOnboardingProvisioning({
+    requestedByUserId: req.user.id,
+    idempotencyKey,
+    correlationId,
+    wizardInput: {
+      name,
       domain,
-      industry,
-      services,
-      useCase,
+      industry: wizardInput.industry,
+      services: wizardInput.services,
+      useCase: wizardInput.useCase,
       website,
-      mainGoal,
+      mainGoal: wizardInput.mainObjective,
       agent: {
-        openingLine: agent.openingLine,
-        serviceQuestions: agent.serviceQuestions,
-      },
-    }),
-  })
-
-  // Add the current user as owner
-  await db
-    .insertInto('member')
-    .values(
-      withId({
-        organizationId: organization.id,
-        userId: req.user.id,
-        role: 'owner',
-        createdAt: now,
-      }),
-    )
-    .executeTakeFirst()
-
-  await updateUserLastActiveOrganizationId(req.user.id, organization.id)
-
-  const createdAgent = await createElevenLabsAgent({
-    organizationId: organization.id,
-    companyName: name,
-    name: agent.name,
-    industry,
-    useCase: useCase || 'customer_support',
-    website,
-    mainGoal,
-    firstMessage: agent.openingLine,
-    services,
-    serviceQuestions: agent.serviceQuestions,
-  })
-
-  res.json({
-    data: {
-      organization,
-      agent: {
-        ...createdAgent,
-        degradedMode: {
-          enabled:
-            createdAgent.externalType === AgentExternalType.LOCAL_FALLBACK,
-          reason:
-            createdAgent.externalType === AgentExternalType.LOCAL_FALLBACK
-              ? 'local_fallback_agent'
-              : null,
-        },
+        name: wizardInput.agentName,
+        openingLine:
+          wizardInput.greeting.mode === 'custom'
+            ? wizardInput.greeting.customText
+            : undefined,
+        serviceQuestions: wizardInput.discoveryQuestions || [],
       },
     },
+  })
+
+  res.status(202).json({
+    data: {
+      organization: provisioningStart.organization,
+      agent: {
+        id: provisioningStart.agent.id,
+        degradedMode: {
+          enabled: provisioningStart.agent.readinessStatus !== 'ready',
+          reason:
+            provisioningStart.agent.readinessStatus === 'ready'
+              ? null
+              : 'local_fallback_agent',
+        },
+      },
+      provisioning: {
+        jobId: provisioningStart.job.id,
+        status: provisioningStart.job.status,
+        correlationId: provisioningStart.job.correlationId,
+        idempotentReplay: provisioningStart.reusedExisting,
+      },
+    },
+    correlationId,
   })
 }
 

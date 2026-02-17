@@ -54,6 +54,12 @@ export type Agent = {
   lastSyncAt: Timestamp | null
   lastSyncError: string | null
   providerCorrelationKey: string | null
+  promptProfileVersion: string | null
+  configProfileVersion: string | null
+  profileHash: string | null
+  wizardIntentProfile: unknown | null
+  readinessStatus: Generated<string>
+  provisioningState: Generated<string>
   mcpApiKey: string | null
   webhookSecret: string | null
   mcpEndpointUrl: string | null
@@ -101,6 +107,48 @@ export type AgentMessage = {
   failedAt: Timestamp | null
   errorMessage: string | null
   createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
+}
+export type AgentProvisioningJob = {
+  id: string
+  organizationId: string
+  agentId: string
+  requestedByUserId: string | null
+  correlationId: string
+  idempotencyKey: string
+  status: Generated<string>
+  readinessStatus: string | null
+  attempt: Generated<number>
+  lastErrorCode: string | null
+  lastErrorMessage: string | null
+  wizardInput: unknown
+  intentProfile: unknown | null
+  runtimeState: unknown | null
+  createdAt: Generated<Timestamp>
+  startedAt: Timestamp | null
+  completedAt: Timestamp | null
+  updatedAt: Timestamp
+}
+export type AgentProvisioningStep = {
+  id: string
+  jobId: string
+  organizationId: string
+  agentId: string
+  stepId: string
+  stepOrder: number
+  status: Generated<string>
+  blocking: Generated<boolean>
+  message: string | null
+  remediationAction: string | null
+  attempt: Generated<number>
+  correlationId: string
+  lastErrorCode: string | null
+  lastErrorMessage: string | null
+  eventLog: unknown | null
+  metadata: unknown | null
+  createdAt: Generated<Timestamp>
+  startedAt: Timestamp | null
+  completedAt: Timestamp | null
   updatedAt: Timestamp
 }
 export type AgentWorkflow = {
@@ -514,6 +562,8 @@ export type DB = {
   agent: Agent
   agent_email_config: AgentEmailConfig
   agent_message: AgentMessage
+  agent_provisioning_job: AgentProvisioningJob
+  agent_provisioning_step: AgentProvisioningStep
   agent_workflow: AgentWorkflow
   call_disposition: CallDisposition
   call_log: CallLog
