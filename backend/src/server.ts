@@ -4,6 +4,8 @@ import { twilioClient } from '@/clients/twilio.client'
 import { initElevenLabsClient } from '@/clients/elevenlabs.client'
 import { db } from '@/lib/db'
 import logger from '@/lib/logger'
+import { initQueuesIfAvailable } from '@/queues'
+import { workerRuntime } from '@/queues/workers'
 
 const asciiArt = `
 ╔════════════════════════════════════════════════════════════════╗
@@ -24,16 +26,37 @@ if (config.elevenLabs.apiKey) {
   initElevenLabsClient(config.elevenLabs.apiKey)
 }
 
-const server = app.listen(config.port, '0.0.0.0', () => {
-  console.log(asciiArt)
+const startServer = async () => {
+  // Initialize queue registry in the API process so enqueue calls do not silently skip.
+  await initQueuesIfAvailable()
 
-  // Auto-configure Twilio voice URLs on startup
-  if (config.backendUrl && !config.backendUrl.includes('localhost')) {
-    autoConfigureTwilioVoice().catch((err) =>
-      logger.error('Twilio auto-config on startup failed:', err),
-    )
+  if (config.workers.embeddedEnabled) {
+    await workerRuntime.start()
+    logger.info('Embedded queue workers started in API process')
+  } else {
+    logger.info('Embedded queue workers disabled by configuration')
   }
-})
+
+  const server = app.listen(config.port, '0.0.0.0', () => {
+    console.log(asciiArt)
+
+    // Auto-configure Twilio voice URLs on startup
+    if (config.backendUrl && !config.backendUrl.includes('localhost')) {
+      autoConfigureTwilioVoice().catch((err) =>
+        logger.error('Twilio auto-config on startup failed:', err),
+      )
+    }
+  })
+
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${config.port} is already in use`)
+    } else {
+      console.error('Server error:', err)
+    }
+    process.exit(1)
+  })
+}
 
 async function autoConfigureTwilioVoice() {
   const configs = await db
@@ -86,12 +109,8 @@ async function autoConfigureTwilioVoice() {
   }
 }
 
-server.on('error', (err: NodeJS.ErrnoException) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`Port ${config.port} is already in use`)
-  } else {
-    console.error('Server error:', err)
-  }
+startServer().catch((error) => {
+  logger.error({ error }, 'Failed to start API server')
   process.exit(1)
 })
 

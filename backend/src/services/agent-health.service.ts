@@ -599,6 +599,7 @@ export async function evaluateAgentHealth(
     mode,
     agent: {
       id: agent.id,
+      externalId: agent.externalId,
       organizationId: agent.organizationId,
       name: agent.name,
       useCase: agent.useCase,
