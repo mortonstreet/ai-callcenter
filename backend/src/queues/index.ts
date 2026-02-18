@@ -12,6 +12,10 @@ import {
 const DEFAULT_ATTEMPTS = 5
 const DEFAULT_BACKOFF_DELAY_MS = 2000
 
+const toSafeQueueJobId = (jobId: string): string => {
+  return encodeURIComponent(jobId.trim())
+}
+
 const queueConnection = {
   url: config.redis.url,
   ...(config.redis.useTLS && {
@@ -185,10 +189,33 @@ export const enqueueQueueJob = async (
     throw queueError
   }
 
-  const derivedJobId =
-    payload.idempotencyKey && !options.jobId
-      ? `${jobName}:${payload.idempotencyKey}`
+  const explicitJobId =
+    typeof options.jobId === 'string' && options.jobId.trim().length > 0
+      ? toSafeQueueJobId(options.jobId)
       : undefined
+
+  if (
+    typeof options.jobId === 'string' &&
+    explicitJobId &&
+    explicitJobId !== options.jobId
+  ) {
+    logger.debug(
+      {
+        queueName,
+        jobName,
+        originalJobId: options.jobId,
+        normalizedJobId: explicitJobId,
+      },
+      'Normalized queue job ID for BullMQ compatibility',
+    )
+  }
+
+  const derivedJobId =
+    payload.idempotencyKey && !explicitJobId
+      ? toSafeQueueJobId(`${jobName}:${payload.idempotencyKey}`)
+      : undefined
+
+  const resolvedJobId = explicitJobId || derivedJobId
 
   return queue.add(jobName, payload, {
     attempts: DEFAULT_ATTEMPTS,
@@ -199,7 +226,7 @@ export const enqueueQueueJob = async (
     removeOnComplete: 500,
     removeOnFail: 500,
     ...options,
-    ...(derivedJobId ? { jobId: derivedJobId } : {}),
+    ...(resolvedJobId ? { jobId: resolvedJobId } : {}),
   })
 }
 
