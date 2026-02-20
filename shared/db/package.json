@@ -1,27 +1,21 @@
 {
   "name": "@shared/db",
   "version": "1.0.0",
-  "description": "RevCenter database schema and migrations",
+  "description": "RevCenter database schema and types",
   "main": "index.js",
   "scripts": {
-    "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy",
-    "db:reset": "prisma migrate reset",
-    "db:studio": "prisma studio",
-    "db:format": "prisma format"
+    "db:generate": "kysely-codegen --dialect postgres --out-file ./src/generated/types.ts --exclude-pattern '_prisma_migrations' --default-schema public"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.15.1",
   "devDependencies": {
-    "prisma": "^6.17.1"
+    "kysely-codegen": "^0.18.0",
+    "pg": "^8.16.3",
+    "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@prisma/client": "6.17.1",
-    "kysely": "^0.28.8",
-    "prisma-kysely": "^2.2.1"
+    "kysely": "^0.28.8"
   }
 }

@@ -12,8 +12,6 @@ export default defineConfig({
     '@sentry/profiling-node',
     'bcrypt',
     'pg-native',
-    '@prisma/client',
-    '.prisma/client',
   ],
   // Bundle workspace packages
   noExternal: [/@shared\/.*/],

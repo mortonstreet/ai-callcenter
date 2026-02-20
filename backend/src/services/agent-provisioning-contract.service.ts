@@ -144,10 +144,10 @@ const enqueueWizardProvisioningOrchestration = async (input: {
       organizationId: input.organizationId,
       agentId: input.agentId,
       correlationId: input.correlationId,
-      idempotencyKey: `${input.idempotencyKey}:attempt:${input.attempt}`,
+      idempotencyKey: `${input.idempotencyKey}--attempt--${input.attempt}`,
     },
     {
-      jobId: `agent-provisioning:${input.jobId}:attempt:${input.attempt}`,
+      jobId: `agent-provisioning--${input.jobId}--attempt--${input.attempt}`,
     },
   )
 }
@@ -312,7 +312,7 @@ export const startWizardProvisioningContract = async (input: {
     promptProfileVersion: WIZARD_INTENT_PROFILE_SCHEMA_VERSION,
     configProfileVersion: WIZARD_INPUT_SCHEMA_VERSION,
     profileHash,
-    wizardIntentProfile: intentProfile,
+    wizardIntentProfile: JSON.stringify(intentProfile),
     readinessStatus: 'blocked',
   })
 
@@ -326,8 +326,8 @@ export const startWizardProvisioningContract = async (input: {
     attempt: 1,
     lastErrorCode: null,
     lastErrorMessage: null,
-    wizardInput,
-    intentProfile,
+    wizardInput: JSON.stringify(wizardInput),
+    intentProfile: JSON.stringify(intentProfile),
     runtimeState: null,
     updatedAt: new Date(),
   })

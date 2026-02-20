@@ -411,7 +411,7 @@ export const createElevenLabsAgent: AuthRequestHandler<
       })
     }
 
-    logger.error('Failed to start wizard provisioning job:', error)
+    logger.error({ err: error }, 'Failed to start wizard provisioning job')
     return sendApiError(req, res, 500, {
       code: 'AGENT_PROVISIONING_START_FAILED',
       message: 'Failed to start agent provisioning job',

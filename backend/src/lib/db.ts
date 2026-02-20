@@ -2,7 +2,6 @@ import { Pool } from 'pg'
 import { DB } from '@shared/db/src'
 import { Kysely, PostgresDialect } from 'kysely'
 import { config } from '@/config'
-import { PrismaClient } from '@shared/db/src'
 import logger from '@/lib/logger'
 import {
   recordDbQueryMetric,
@@ -90,12 +89,4 @@ const dialect = new PostgresDialect({
 
 export const db = new Kysely<DB>({
   dialect,
-})
-
-export const prisma_OnlyForBetterAuth = new PrismaClient({
-  datasources: {
-    db: {
-      url: config.databaseUrl,
-    },
-  },
 })

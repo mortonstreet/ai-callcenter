@@ -1,6 +1,5 @@
 import { betterAuth, Session } from 'better-auth'
-import { prismaAdapter } from 'better-auth/adapters/prisma'
-import { prisma_OnlyForBetterAuth } from '@/lib/db'
+import { dbPool } from '@/lib/db'
 import { organization } from 'better-auth/plugins'
 import { buildInvitationLink } from '@/utils/invitation.utils'
 import {
@@ -84,9 +83,7 @@ async function verifyPassword(data: {
 }
 
 export const auth = betterAuth({
-  database: prismaAdapter(prisma_OnlyForBetterAuth, {
-    provider: 'postgresql',
-  }),
+  database: dbPool,
   trustedOrigins: config.trustedOrigins,
   baseURL: config.backendUrl,
   basePath: '/api/auth',

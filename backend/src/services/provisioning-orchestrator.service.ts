@@ -684,10 +684,10 @@ const enqueueProvisioningJob = async (input: {
       organizationId: input.organizationId,
       agentId: input.agentId,
       correlationId: input.correlationId,
-      idempotencyKey: `${input.idempotencyKey}:attempt:${input.attempt}`,
+      idempotencyKey: `${input.idempotencyKey}--attempt--${input.attempt}`,
     },
     {
-      jobId: `agent-provisioning:${input.jobId}:attempt:${input.attempt}`,
+      jobId: `agent-provisioning--${input.jobId}--attempt--${input.attempt}`,
     },
   )
 }
@@ -1153,15 +1153,15 @@ export const startOnboardingProvisioning = async (
         correlationId,
         lastErrorCode: null,
         lastErrorMessage: null,
-        eventLog: [
+        eventLog: JSON.stringify([
           {
             type: 'queued',
             at: now.toISOString(),
             attempt: 0,
             correlationId,
           },
-        ],
-        metadata: {},
+        ]),
+        metadata: JSON.stringify({}),
         createdAt: now,
         startedAt: null,
         completedAt: null,

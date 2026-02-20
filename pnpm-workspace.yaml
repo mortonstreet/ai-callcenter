@@ -4,14 +4,11 @@ packages:
   - shared/*
 
 onlyBuiltDependencies:
-  - '@prisma/client'
-  - '@prisma/engines'
   - '@sentry-internal/node-cpu-profiler'
   - bcrypt
   - better-sqlite3
   - esbuild
   - msgpackr-extract
   - nx
-  - prisma
   - sharp
   - unrs-resolver
