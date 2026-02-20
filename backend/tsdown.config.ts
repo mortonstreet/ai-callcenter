@@ -8,11 +8,7 @@ export default defineConfig({
   clean: true,
   shims: true, // Adds __dirname/__filename shims for ESM
   // Keep native/binary deps external
-  external: [
-    '@sentry/profiling-node',
-    'bcrypt',
-    'pg-native',
-  ],
+  external: ['@sentry/profiling-node', 'bcrypt', 'pg-native'],
   // Bundle workspace packages
   noExternal: [/@shared\/.*/],
   plugins: [
