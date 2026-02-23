@@ -416,7 +416,9 @@ export const withElevenLabsWebhookAuth = async (
     let signatureValid = false
     for (const secret of candidateSecrets) {
       const hmac = createHmac('sha256', secret)
-      const calculatedSignature = hmac.update(signaturePayload, 'utf8').digest('hex')
+      const calculatedSignature = hmac
+        .update(signaturePayload, 'utf8')
+        .digest('hex')
       if (providedSignature === calculatedSignature) {
         signatureValid = true
         break

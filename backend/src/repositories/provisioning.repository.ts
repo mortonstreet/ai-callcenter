@@ -9,7 +9,12 @@ import {
   UpdateDBAgentProvisioningStep,
 } from '@shared/db/src'
 
-const JOB_JSON_FIELDS = ['wizardInput', 'intentProfile', 'runtimeState', 'metadata'] as const
+const JOB_JSON_FIELDS = [
+  'wizardInput',
+  'intentProfile',
+  'runtimeState',
+  'metadata',
+] as const
 const STEP_JSON_FIELDS = ['eventLog', 'metadata'] as const
 
 const serializeJsonFields = <T extends Record<string, unknown>>(
@@ -45,7 +50,9 @@ export const createAgentProvisioningSteps = async (
 
   return db
     .insertInto('agent_provisioning_step')
-    .values(data.map((entry) => withId(serializeJsonFields(entry, STEP_JSON_FIELDS))))
+    .values(
+      data.map((entry) => withId(serializeJsonFields(entry, STEP_JSON_FIELDS))),
+    )
     .returningAll()
     .execute()
 }
@@ -141,7 +148,10 @@ export const updateAgentProvisioningJob = async (
 ): Promise<DBAgentProvisioningJob | undefined> => {
   return db
     .updateTable('agent_provisioning_job')
-    .set({ ...serializeJsonFields(data, JOB_JSON_FIELDS), updatedAt: new Date() })
+    .set({
+      ...serializeJsonFields(data, JOB_JSON_FIELDS),
+      updatedAt: new Date(),
+    })
     .where('id', '=', id)
     .returningAll()
     .executeTakeFirst()
@@ -157,7 +167,10 @@ export const updateAgentProvisioningStepByStepId = async (
 ): Promise<DBAgentProvisioningStep | undefined> => {
   return db
     .updateTable('agent_provisioning_step')
-    .set({ ...serializeJsonFields(data, STEP_JSON_FIELDS), updatedAt: new Date() })
+    .set({
+      ...serializeJsonFields(data, STEP_JSON_FIELDS),
+      updatedAt: new Date(),
+    })
     .where('jobId', '=', jobId)
     .where('stepId', '=', stepId)
     .returningAll()
