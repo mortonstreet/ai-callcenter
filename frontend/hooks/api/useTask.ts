@@ -70,6 +70,7 @@ export function useTaskInstances(filters?: Partial<Omit<GetTaskInstancesRequest,
     },
     enabled: !!activeOrganization?.data?.id,
     placeholderData: (previousData) => previousData, // Keep previous data while loading
+    refetchInterval: 15_000,
   });
 }
 

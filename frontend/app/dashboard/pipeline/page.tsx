@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Page } from "@/components/dashboard/Page";
 import { useTaskInstances } from "@/hooks/api/useTask";
 import { usePipelineStages } from "@/hooks/api/usePipeline";
@@ -10,6 +10,7 @@ import { PipelineLead } from "@/components/pipeline/LeadCard";
 import Button from "@/components/ui/Button";
 import { Plus, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 // Format currency
 const formatCurrency = (value: number) =>
@@ -66,6 +67,22 @@ export default function PipelinePage() {
   const totalPipelineValue = useMemo(() => {
     return leads.reduce((sum, lead) => sum + (lead.estimatedValue || 0), 0);
   }, [leads]);
+
+  // Notify when new leads arrive from webhook
+  const prevLeadCountRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (prevLeadCountRef.current === null) {
+      prevLeadCountRef.current = leads.length;
+      return;
+    }
+    const diff = leads.length - prevLeadCountRef.current;
+    if (diff > 0) {
+      toast.success(
+        `${diff} new lead${diff > 1 ? "s" : ""} added to pipeline`
+      );
+    }
+    prevLeadCountRef.current = leads.length;
+  }, [leads.length]);
 
   const handleAddLead = (stageId: string) => {
     setSelectedStageId(stageId);

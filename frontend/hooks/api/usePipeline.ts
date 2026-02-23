@@ -37,6 +37,7 @@ export function usePipelineStages() {
       );
     },
     enabled: !!activeOrganization?.data?.id,
+    refetchInterval: 15_000,
   });
 }
 
