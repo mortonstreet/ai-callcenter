@@ -323,6 +323,58 @@ interface CoreTabProvisioningRunResult {
   plan: CoreTabProvisioningPlan
   evidence: CoreTabProvisioningEvidence
   errorMessage: string | null
+  webhookSecret: string | null
+}
+
+// Cached workspace webhook info (persists for the process lifetime)
+let cachedWorkspaceWebhook: {
+  webhookId: string
+  webhookSecret: string
+} | null = null
+
+/**
+ * Ensure a workspace-level webhook exists on ElevenLabs for our post-call URL.
+ * ElevenLabs generates the HMAC signing secret at creation time.
+ * Returns the webhook_id and webhook_secret, caching the result for reuse.
+ */
+const ensureWorkspaceWebhook = async (
+  client: ReturnType<typeof getElevenLabsClient>,
+  callbackUrl: string,
+): Promise<{ webhookId: string; webhookSecret: string } | null> => {
+  if (cachedWorkspaceWebhook) {
+    return cachedWorkspaceWebhook
+  }
+
+  try {
+    const result = await client.createWorkspaceWebhook({
+      name: 'RevCenter Post-Call Webhook',
+      webhookUrl: callbackUrl,
+    })
+
+    if (result.webhook_id && result.webhook_secret) {
+      cachedWorkspaceWebhook = {
+        webhookId: result.webhook_id,
+        webhookSecret: result.webhook_secret,
+      }
+      logger.info(
+        { webhookId: result.webhook_id },
+        'Created ElevenLabs workspace webhook',
+      )
+      return cachedWorkspaceWebhook
+    }
+
+    logger.warn(
+      { result },
+      'Workspace webhook created but no secret returned; falling back to post_call_url',
+    )
+    return null
+  } catch (error) {
+    logger.warn(
+      { error },
+      'Failed to create workspace webhook; falling back to post_call_url',
+    )
+    return null
+  }
 }
 
 const appendProvisioningStep = (
@@ -374,12 +426,32 @@ const runCoreTabProvisioning = async (
       plan,
       evidence,
       errorMessage: message,
+      webhookSecret: null,
     }
   }
+
+  // Try to set up a workspace-level webhook to get ElevenLabs' HMAC signing secret.
+  // If successful, use post_call_webhook_id instead of post_call_url.
+  let resolvedWebhookSecret: string | null = null
+  const workspaceWebhook = await ensureWorkspaceWebhook(
+    input.client,
+    plan.updateParams.webhooks.postCallUrl,
+  )
 
   const applyCoreTabsStartedAt = new Date()
   try {
     const providerPayload = buildElevenLabsUpdatePayload(plan.updateParams)
+
+    if (workspaceWebhook) {
+      // Use workspace webhook ID instead of raw URL
+      resolvedWebhookSecret = workspaceWebhook.webhookSecret
+      if (providerPayload.platform_settings?.webhooks) {
+        delete providerPayload.platform_settings.webhooks.post_call_url
+        providerPayload.platform_settings.webhooks.post_call_webhook_id =
+          workspaceWebhook.webhookId
+      }
+    }
+
     await input.client.updateAgent(input.externalAgentId, providerPayload)
     appendProvisioningStep(
       evidence,
@@ -423,6 +495,7 @@ const runCoreTabProvisioning = async (
       plan,
       evidence,
       errorMessage,
+      webhookSecret: resolvedWebhookSecret,
     }
   }
 
@@ -483,6 +556,7 @@ const runCoreTabProvisioning = async (
         plan,
         evidence,
         errorMessage,
+        webhookSecret: resolvedWebhookSecret,
       }
     }
   }
@@ -524,6 +598,7 @@ const runCoreTabProvisioning = async (
     plan,
     evidence,
     errorMessage: null,
+    webhookSecret: resolvedWebhookSecret,
   }
 }
 
@@ -862,7 +937,8 @@ export async function createElevenLabsAgent(params: CreateAgentParams) {
       lastSyncError: provisioningResult.errorMessage,
       providerCorrelationKey,
       mcpApiKey: generateProvisioningSecret('mcp_'),
-      webhookSecret: generateProvisioningSecret('wsec_'),
+      webhookSecret:
+        provisioningResult.webhookSecret || generateProvisioningSecret('wsec_'),
       mcpEndpointUrl: provisioningResult.plan.mcpDefaults.endpoint,
     })
 
@@ -1082,7 +1158,9 @@ export async function retryAgentProvision(payload: AgentProvisionRetryPayload) {
         mcpApiKey:
           existingAgent.mcpApiKey || generateProvisioningSecret('mcp_'),
         webhookSecret:
-          existingAgent.webhookSecret || generateProvisioningSecret('wsec_'),
+          provisioningResult.webhookSecret ||
+          existingAgent.webhookSecret ||
+          generateProvisioningSecret('wsec_'),
         mcpEndpointUrl: provisioningResult.plan.mcpDefaults.endpoint,
       },
     )

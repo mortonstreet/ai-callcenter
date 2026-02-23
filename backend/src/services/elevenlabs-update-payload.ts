@@ -30,9 +30,9 @@ export const buildElevenLabsUpdatePayload = (updates: Record<string, any>) => {
   if (updates.builtInTools !== undefined) {
     elevenLabsUpdate.built_in_tools = updates.builtInTools
   }
-  if (updates.knowledgeBase !== undefined) {
-    promptConfig.knowledge_base = updates.knowledgeBase
-  }
+  // Note: updates.knowledgeBase is an internal config object (with rag_enabled, firecrawl,
+  // ingest, source_manifest) and is NOT sent to ElevenLabs. The ElevenLabs knowledge_base
+  // field expects a list of knowledge base IDs.
 
   if (Object.keys(promptConfig).length > 0) {
     agentConfig.prompt = promptConfig
@@ -160,9 +160,10 @@ export const buildElevenLabsUpdatePayload = (updates: Record<string, any>) => {
     elevenLabsUpdate.platform_settings = platformSettings
   }
 
-  if (updates.workflow !== undefined) {
-    elevenLabsUpdate.workflow = updates.workflow
-  }
+  // Note: updates.workflow is an internal workflow representation (with custom node types
+  // like triage, booking, escalation, etc.) and is NOT sent to ElevenLabs. The ElevenLabs
+  // workflow API expects a different schema with node types: start, end, phone_number,
+  // override_agent, standalone_agent, tool.
 
   return elevenLabsUpdate
 }

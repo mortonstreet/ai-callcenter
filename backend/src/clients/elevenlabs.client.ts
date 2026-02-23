@@ -154,6 +154,33 @@ export class ElevenLabsClient {
   }
 
   /**
+   * Create a workspace webhook and return the webhook_id + webhook_secret.
+   * The returned secret is the HMAC signing key ElevenLabs uses for signatures.
+   */
+  async createWorkspaceWebhook(input: {
+    name: string
+    webhookUrl: string
+  }): Promise<{ webhook_id: string; webhook_secret?: string }> {
+    return this.request('/workspace/webhooks', {
+      method: 'POST',
+      body: JSON.stringify({
+        settings: {
+          auth_type: 'hmac',
+          name: input.name,
+          webhook_url: input.webhookUrl,
+        },
+      }),
+    })
+  }
+
+  /**
+   * List workspace webhooks
+   */
+  async listWorkspaceWebhooks(): Promise<any> {
+    return this.request('/workspace/webhooks')
+  }
+
+  /**
    * List available voices
    */
   async listVoices(): Promise<any> {

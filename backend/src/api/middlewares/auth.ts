@@ -384,8 +384,10 @@ export const withElevenLabsWebhookAuth = async (
       ? rawBody.toString('utf8')
       : rawBody
 
-    // Try to find webhook secret from database first (scalable approach)
-    let webhookSecret: string | null = null
+    // Collect candidate webhook secrets: per-agent DB secret + env/config fallback.
+    // ElevenLabs generates its own signing secret at the workspace level, which may
+    // differ from the locally-generated per-agent secret stored in the DB.
+    const candidateSecrets: string[] = []
     const agentExternalId = extractAgentIdFromBody(bodyString)
 
     if (agentExternalId) {
@@ -394,35 +396,39 @@ export const withElevenLabsWebhookAuth = async (
         AgentExternalType.ELEVEN_LABS,
       )
       if (agent?.webhookSecret) {
-        webhookSecret = agent.webhookSecret
-        logger.info(`Using webhook secret from agent: ${agent.name}`)
+        candidateSecrets.push(agent.webhookSecret)
       }
     }
 
-    // Fallback to env config if no database secret found
-    if (!webhookSecret) {
-      webhookSecret = config.elevenLabs.webhookKey
+    if (config.elevenLabs.webhookKey) {
+      candidateSecrets.push(config.elevenLabs.webhookKey)
     }
 
-    if (!webhookSecret) {
+    if (candidateSecrets.length === 0) {
       logger.error('No webhook secret available for verification')
       return res.status(500).json({ error: 'Webhook secret not configured' })
     }
 
     // ElevenLabs signature format: HMAC-SHA256(timestamp + "." + body)
-    const payload = `${timestamp}.${bodyString}`
+    const signaturePayload = `${timestamp}.${bodyString}`
 
-    // Calculate HMAC signature
-    const hmac = createHmac('sha256', webhookSecret)
-    const calculatedSignature = hmac.update(payload, 'utf8').digest('hex')
+    // Try each candidate secret until one matches
+    let signatureValid = false
+    for (const secret of candidateSecrets) {
+      const hmac = createHmac('sha256', secret)
+      const calculatedSignature = hmac.update(signaturePayload, 'utf8').digest('hex')
+      if (providedSignature === calculatedSignature) {
+        signatureValid = true
+        break
+      }
+    }
 
-    // Compare signatures
-    if (providedSignature !== calculatedSignature) {
+    if (!signatureValid) {
       logger.warn('Webhook signature verification failed', {
         provided: providedSignature,
-        calculated: calculatedSignature,
         timestamp,
         agentExternalId,
+        secretsTriedCount: candidateSecrets.length,
       })
       return res.status(401).json({ error: 'Invalid signature' })
     }

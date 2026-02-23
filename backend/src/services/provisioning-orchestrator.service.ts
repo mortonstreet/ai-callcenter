@@ -4,8 +4,7 @@ import { AgentExternalType } from '@shared/types/src'
 import { db } from '@/lib/db'
 import logger from '@/lib/logger'
 import { formatToSlug } from '@/utils'
-import { enqueueQueueJob } from '@/queues'
-import { QUEUE_NAMES, QueueJobPayload } from '@/types/queues'
+import { QueueJobPayload } from '@/types/queues'
 import { updateUserLastActiveOrganizationId } from '@/repositories/auth.repository'
 import {
   findById as findAgentById,
@@ -668,30 +667,6 @@ const updateOrganizationProvisioningMetadata = async (input: {
     .executeTakeFirst()
 }
 
-const enqueueProvisioningJob = async (input: {
-  jobId: string
-  organizationId: string
-  agentId: string
-  correlationId: string
-  idempotencyKey: string
-  attempt: number
-}) => {
-  return enqueueQueueJob(
-    QUEUE_NAMES.INTEGRATION_SYNC,
-    AGENT_PROVISIONING_ORCHESTRATOR_JOB_NAME,
-    {
-      provisioningJobId: input.jobId,
-      organizationId: input.organizationId,
-      agentId: input.agentId,
-      correlationId: input.correlationId,
-      idempotencyKey: `${input.idempotencyKey}:attempt:${input.attempt}`,
-    },
-    {
-      jobId: `agent-provisioning:${input.jobId}:attempt:${input.attempt}`,
-    },
-  )
-}
-
 const ensureValidWizardInput = (input: NormalizedWizardInput) => {
   if (!input.name) {
     throw new ProvisioningStepError({
@@ -1153,15 +1128,15 @@ export const startOnboardingProvisioning = async (
         correlationId,
         lastErrorCode: null,
         lastErrorMessage: null,
-        eventLog: [
+        eventLog: JSON.stringify([
           {
             type: 'queued',
             at: now.toISOString(),
             attempt: 0,
             correlationId,
           },
-        ],
-        metadata: {},
+        ]),
+        metadata: JSON.stringify({}),
         createdAt: now,
         startedAt: null,
         completedAt: null,
@@ -1187,37 +1162,29 @@ export const startOnboardingProvisioning = async (
     created.organization.id,
   )
 
-  try {
-    await enqueueProvisioningJob({
-      jobId: created.provisioningJob.id,
-      organizationId: created.organization.id,
-      agentId: created.placeholderAgent.id,
-      correlationId,
-      idempotencyKey: input.idempotencyKey,
-      attempt: 1,
-    })
-  } catch (error) {
-    const failure = classifyProvisioningError(error)
+  await updateAgentProvisioningJob(created.provisioningJob.id, {
+    status: 'running',
+    startedAt: new Date(),
+    completedAt: null,
+  })
 
-    await updateAgentProvisioningJob(created.provisioningJob.id, {
-      status: 'failed',
-      lastErrorCode: failure.code,
-      lastErrorMessage: failure.message,
-      completedAt: new Date(),
-    })
-
-    await updateOrganizationProvisioningMetadata({
-      organizationId: created.organization.id,
-      jobId: created.provisioningJob.id,
-      status: 'failed',
-      correlationId,
-      attempt: 1,
-      lastErrorCode: failure.code,
-      lastErrorMessage: failure.message,
-    })
-
-    throw error
-  }
+  void processProvisioningOrchestrationJob({
+    provisioningJobId: created.provisioningJob.id,
+    organizationId: created.organization.id,
+    agentId: created.placeholderAgent.id,
+    correlationId,
+    idempotencyKey: `${input.idempotencyKey}:inline`,
+  }).catch((inlineError) => {
+    logger.error(
+      {
+        error: inlineError,
+        provisioningJobId: created.provisioningJob.id,
+        organizationId: created.organization.id,
+        agentId: created.placeholderAgent.id,
+      },
+      'Inline onboarding provisioning failed',
+    )
+  })
 
   const snapshot = await getJobSnapshot(created.provisioningJob.id)
   if (!snapshot) {
@@ -1659,13 +1626,28 @@ export const retryProvisioningJob = async (input: {
     attempt: nextAttempt,
   })
 
-  await enqueueProvisioningJob({
-    jobId: existing.id,
+  await updateAgentProvisioningJob(existing.id, {
+    status: 'running',
+    startedAt: new Date(),
+    completedAt: null,
+  })
+
+  void processProvisioningOrchestrationJob({
+    provisioningJobId: existing.id,
     organizationId: existing.organizationId,
     agentId: existing.agentId,
     correlationId: input.correlationId,
-    idempotencyKey: existing.idempotencyKey,
-    attempt: nextAttempt,
+    idempotencyKey: `${existing.idempotencyKey}:inline`,
+  }).catch((inlineError) => {
+    logger.error(
+      {
+        error: inlineError,
+        provisioningJobId: existing.id,
+        organizationId: existing.organizationId,
+        agentId: existing.agentId,
+      },
+      'Inline retry provisioning failed',
+    )
   })
 
   const snapshot = await getJobSnapshot(existing.id)

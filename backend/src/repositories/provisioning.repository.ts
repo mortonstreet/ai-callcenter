@@ -9,12 +9,29 @@ import {
   UpdateDBAgentProvisioningStep,
 } from '@shared/db/src'
 
+const JOB_JSON_FIELDS = ['wizardInput', 'intentProfile', 'runtimeState', 'metadata'] as const
+const STEP_JSON_FIELDS = ['eventLog', 'metadata'] as const
+
+const serializeJsonFields = <T extends Record<string, unknown>>(
+  data: T,
+  fields: readonly string[],
+): T => {
+  const result = { ...data }
+  for (const field of fields) {
+    const value = result[field]
+    if (value !== null && value !== undefined && typeof value === 'object') {
+      ;(result as Record<string, unknown>)[field] = JSON.stringify(value)
+    }
+  }
+  return result
+}
+
 export const createAgentProvisioningJob = async (
   data: Omit<InsertDBAgentProvisioningJob, 'id'>,
 ): Promise<DBAgentProvisioningJob> => {
   return db
     .insertInto('agent_provisioning_job')
-    .values(withId(data))
+    .values(withId(serializeJsonFields(data, JOB_JSON_FIELDS)))
     .returningAll()
     .executeTakeFirstOrThrow()
 }
@@ -28,7 +45,7 @@ export const createAgentProvisioningSteps = async (
 
   return db
     .insertInto('agent_provisioning_step')
-    .values(data.map((entry) => withId(entry)))
+    .values(data.map((entry) => withId(serializeJsonFields(entry, STEP_JSON_FIELDS))))
     .returningAll()
     .execute()
 }
@@ -124,7 +141,7 @@ export const updateAgentProvisioningJob = async (
 ): Promise<DBAgentProvisioningJob | undefined> => {
   return db
     .updateTable('agent_provisioning_job')
-    .set({ ...data, updatedAt: new Date() })
+    .set({ ...serializeJsonFields(data, JOB_JSON_FIELDS), updatedAt: new Date() })
     .where('id', '=', id)
     .returningAll()
     .executeTakeFirst()
@@ -140,7 +157,7 @@ export const updateAgentProvisioningStepByStepId = async (
 ): Promise<DBAgentProvisioningStep | undefined> => {
   return db
     .updateTable('agent_provisioning_step')
-    .set({ ...data, updatedAt: new Date() })
+    .set({ ...serializeJsonFields(data, STEP_JSON_FIELDS), updatedAt: new Date() })
     .where('jobId', '=', jobId)
     .where('stepId', '=', stepId)
     .returningAll()

@@ -1,8 +1,6 @@
 import { randomUUID, createHash } from 'crypto'
 import { formatToSlug } from '@/utils'
 import { AgentExternalType } from '@shared/types/src'
-import { enqueueQueueJob, QueueUnavailableError } from '@/queues'
-import { QUEUE_NAMES } from '@/types/queues'
 import {
   AgentProvisioningJobStatusSchema,
   AgentProvisioningStepIdSchema,
@@ -123,37 +121,6 @@ const normalizeIdempotencyKey = (
     return normalized
   }
   return `${fallbackPrefix}:${randomUUID()}`
-}
-
-const getErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message
-  }
-  return 'Unknown provisioning orchestration error'
-}
-
-const enqueueWizardProvisioningOrchestration = async (input: {
-  jobId: string
-  organizationId: string
-  agentId: string
-  correlationId: string
-  idempotencyKey: string
-  attempt: number
-}) => {
-  return enqueueQueueJob(
-    QUEUE_NAMES.INTEGRATION_SYNC,
-    AGENT_PROVISIONING_ORCHESTRATOR_JOB_NAME,
-    {
-      provisioningJobId: input.jobId,
-      organizationId: input.organizationId,
-      agentId: input.agentId,
-      correlationId: input.correlationId,
-      idempotencyKey: `${input.idempotencyKey}:attempt:${input.attempt}`,
-    },
-    {
-      jobId: `agent-provisioning:${input.jobId}:attempt:${input.attempt}`,
-    },
-  )
 }
 
 const triggerInlineProvisioningFallback = (input: {
@@ -371,79 +338,30 @@ export const startWizardProvisioningContract = async (input: {
     }),
   )
 
-  try {
-    await enqueueWizardProvisioningOrchestration({
-      jobId: job.id,
-      organizationId: input.organizationId,
-      agentId: agent.id,
-      correlationId: input.correlationId,
-      idempotencyKey,
-      attempt: job.attempt,
-    })
-  } catch (error) {
-    const errorMessage = getErrorMessage(error)
-    if (error instanceof QueueUnavailableError) {
-      logger.warn(
-        {
-          provisioningJobId: job.id,
-          organizationId: input.organizationId,
-          agentId: agent.id,
-          errorMessage,
-        },
-        'Queue unavailable; running wizard provisioning inline fallback',
-      )
+  await updateAgentProvisioningJob(job.id, {
+    status: 'running',
+    startedAt: new Date(),
+    completedAt: null,
+  })
 
-      await updateAgentProvisioningJob(job.id, {
-        status: 'running',
-        startedAt: new Date(),
-        lastErrorCode: 'PROVISIONING_INLINE_FALLBACK',
-        lastErrorMessage: errorMessage,
-        completedAt: null,
-      })
+  triggerInlineProvisioningFallback({
+    jobId: job.id,
+    organizationId: input.organizationId,
+    agentId: agent.id,
+    correlationId: input.correlationId,
+    idempotencyKey,
+  })
 
-      triggerInlineProvisioningFallback({
-        jobId: job.id,
-        organizationId: input.organizationId,
-        agentId: agent.id,
-        correlationId: input.correlationId,
-        idempotencyKey,
-      })
-
-      const fallbackJob =
-        await findAgentProvisioningJobByOrganizationAndId(
-          input.organizationId,
-          job.id,
-        )
-      const fallbackSteps = await listAgentProvisioningSteps(job.id)
-
-      return {
-        job: toJobView(fallbackJob || job),
-        steps: fallbackSteps.map(toStepView),
-        agentId: agent.id,
-        idempotentReplay: false,
-      }
-    }
-
-    await updateAgentProvisioningJob(job.id, {
-      status: 'failed',
-      lastErrorCode: 'PROVISIONING_ENQUEUE_FAILED',
-      lastErrorMessage: errorMessage,
-      completedAt: new Date(),
-    })
-
-    throw new AgentProvisioningContractError(
-      500,
-      'AGENT_PROVISIONING_ENQUEUE_FAILED',
-      errorMessage,
-      {
-        jobId: job.id,
-      },
+  const updatedJob =
+    await findAgentProvisioningJobByOrganizationAndId(
+      input.organizationId,
+      job.id,
     )
-  }
+  const updatedSteps = await listAgentProvisioningSteps(job.id)
 
   return {
-    job: toJobView(job),
-    steps: steps.map(toStepView),
+    job: toJobView(updatedJob || job),
+    steps: updatedSteps.map(toStepView),
     agentId: agent.id,
     idempotentReplay: false,
   }
@@ -565,79 +483,30 @@ export const retryWizardProvisioningContract = async (input: {
     }),
   )
 
-  try {
-    await enqueueWizardProvisioningOrchestration({
-      jobId: job.id,
-      organizationId: sourceJob.organizationId,
-      agentId: sourceJob.agentId,
-      correlationId: retryCorrelationId,
-      idempotencyKey,
-      attempt: job.attempt,
-    })
-  } catch (error) {
-    const errorMessage = getErrorMessage(error)
-    if (error instanceof QueueUnavailableError) {
-      logger.warn(
-        {
-          provisioningJobId: job.id,
-          organizationId: sourceJob.organizationId,
-          agentId: sourceJob.agentId,
-          errorMessage,
-        },
-        'Queue unavailable; running wizard provisioning retry inline fallback',
-      )
+  await updateAgentProvisioningJob(job.id, {
+    status: 'running',
+    startedAt: new Date(),
+    completedAt: null,
+  })
 
-      await updateAgentProvisioningJob(job.id, {
-        status: 'running',
-        startedAt: new Date(),
-        lastErrorCode: 'PROVISIONING_INLINE_FALLBACK',
-        lastErrorMessage: errorMessage,
-        completedAt: null,
-      })
+  triggerInlineProvisioningFallback({
+    jobId: job.id,
+    organizationId: sourceJob.organizationId,
+    agentId: sourceJob.agentId,
+    correlationId: retryCorrelationId,
+    idempotencyKey,
+  })
 
-      triggerInlineProvisioningFallback({
-        jobId: job.id,
-        organizationId: sourceJob.organizationId,
-        agentId: sourceJob.agentId,
-        correlationId: retryCorrelationId,
-        idempotencyKey,
-      })
-
-      const fallbackJob =
-        await findAgentProvisioningJobByOrganizationAndId(
-          sourceJob.organizationId,
-          job.id,
-        )
-      const fallbackSteps = await listAgentProvisioningSteps(job.id)
-
-      return {
-        job: toJobView(fallbackJob || job),
-        steps: fallbackSteps.map(toStepView),
-        agentId: sourceJob.agentId,
-        idempotentReplay: false,
-      }
-    }
-
-    await updateAgentProvisioningJob(job.id, {
-      status: 'failed',
-      lastErrorCode: 'PROVISIONING_ENQUEUE_FAILED',
-      lastErrorMessage: errorMessage,
-      completedAt: new Date(),
-    })
-
-    throw new AgentProvisioningContractError(
-      500,
-      'AGENT_PROVISIONING_ENQUEUE_FAILED',
-      errorMessage,
-      {
-        jobId: job.id,
-      },
+  const updatedJob =
+    await findAgentProvisioningJobByOrganizationAndId(
+      sourceJob.organizationId,
+      job.id,
     )
-  }
+  const updatedSteps = await listAgentProvisioningSteps(job.id)
 
   return {
-    job: toJobView(job),
-    steps: steps.map(toStepView),
+    job: toJobView(updatedJob || job),
+    steps: updatedSteps.map(toStepView),
     agentId: sourceJob.agentId,
     idempotentReplay: false,
   }
