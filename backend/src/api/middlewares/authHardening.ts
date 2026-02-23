@@ -231,9 +231,8 @@ const normalizeCallbackUrl = (candidate: string): string | null => {
     return null
   }
 
-  if (parsed.origin === frontendBase.origin) {
-    return `${parsed.pathname}${parsed.search}${parsed.hash}`
-  }
+  // Always return an absolute URL so downstream redirects don't resolve
+  // relative to the API host (which can produce api.revcenter.ai/verify).
   return parsed.toString()
 }
 
