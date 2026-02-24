@@ -12,6 +12,7 @@ import {
   createTask as createTaskRepository,
 } from '@/repositories/agent.repository'
 import { createTaskInstance } from '@/repositories/organization.repository'
+import * as leadRepository from '@/repositories/lead.repository'
 import logger from '@/lib/logger'
 
 const MIN_PRODUCTIVE_DURATION_SECS = 15
@@ -206,9 +207,66 @@ export async function processElevenLabsConversationWebhook(
 
   logger.info({ recordingId: recording.id }, 'Recording created successfully')
 
+  // Create or update a Lead record so the call appears in the Leads dashboard
+  try {
+    const phoneCall = webhook.data.metadata?.phone_call as
+      | { from_number?: string }
+      | null
+      | undefined
+    const callerPhone = phoneCall?.from_number || null
+
+    if (callerPhone && agent.organizationId) {
+      const normalizedPhone = normalizePhoneForLead(callerPhone)
+
+      // Check if a lead already exists for this phone + org
+      const existingLead = await leadRepository.findByOrganizationAndContact(
+        agent.organizationId,
+        { normalizedPhone },
+      )
+
+      if (!existingLead) {
+        const lead = await leadRepository.create({
+          organizationId: agent.organizationId,
+          phone: callerPhone,
+          normalizedPhone,
+          firstName: null,
+          lastName: null,
+          email: null,
+          company: null,
+          title: null,
+          linkedInUrl: null,
+          website: null,
+          dealValue: null,
+          pipelineStageId: null,
+          customFields: null,
+          updatedAt: new Date(),
+        })
+        logger.info(
+          { leadId: lead.id, phone: callerPhone },
+          'Lead created from webhook',
+        )
+      } else {
+        logger.info(
+          { leadId: existingLead.id, phone: callerPhone },
+          'Lead already exists for this caller',
+        )
+      }
+    }
+  } catch (leadError) {
+    // Don't fail the webhook if lead creation fails
+    logger.warn({ error: leadError }, 'Failed to create lead from webhook')
+  }
+
   return {
     recording,
     quality: qualityResult,
     organizationId: agent.organizationId,
   }
+}
+
+function normalizePhoneForLead(phone: string): string {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length === 10) return `+1${digits}`
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`
+  return `+${digits}`
 }
