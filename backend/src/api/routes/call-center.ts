@@ -599,11 +599,7 @@ router.get(
         )
       }
       if (endDate) {
-        callLogQuery = callLogQuery.where(
-          'startedAt',
-          '<=',
-          new Date(endDate),
-        )
+        callLogQuery = callLogQuery.where('startedAt', '<=', new Date(endDate))
       }
 
       const calls = await callLogQuery.selectAll().execute()
@@ -631,9 +627,7 @@ router.get(
       const recordings = await recordingQuery.selectAll().execute()
 
       // ── Metrics from call_log ──
-      const clOutbound = calls.filter(
-        (c) => c.direction === 'outbound',
-      ).length
+      const clOutbound = calls.filter((c) => c.direction === 'outbound').length
       const clInbound = calls.filter((c) => c.direction === 'inbound').length
       const clConnected = calls.filter(
         (c) =>
@@ -890,7 +884,9 @@ router.get('/activity', withBetterAuth, async (req: Request, res: Response) => {
         const qualityLabel =
           quality === 'productive'
             ? 'Productive'
-            : quality.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+            : quality
+                .replace(/_/g, ' ')
+                .replace(/\b\w/g, (l) => l.toUpperCase())
         items.push({
           id: `rec-${rec.id}`,
           type: 'call',
