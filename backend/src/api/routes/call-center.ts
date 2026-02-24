@@ -569,6 +569,7 @@ router.get(
 /**
  * GET /call-center/analytics
  * Get call analytics (metrics, charts, disposition breakdown)
+ * Merges data from both call_log (Twilio) and recording (ElevenLabs voice AI) tables.
  */
 router.get(
   '/analytics',
@@ -584,59 +585,125 @@ router.get(
 
     try {
       const { db } = await import('@/lib/db')
-      const { sql } = await import('kysely')
 
-      let query = db.selectFrom('call_log').where('organizationId', '=', orgId)
+      // ── Query call_log (Twilio calls) ──
+      let callLogQuery = db
+        .selectFrom('call_log')
+        .where('organizationId', '=', orgId)
 
       if (startDate) {
-        query = query.where('startedAt', '>=', new Date(startDate))
+        callLogQuery = callLogQuery.where(
+          'startedAt',
+          '>=',
+          new Date(startDate),
+        )
       }
       if (endDate) {
-        query = query.where('startedAt', '<=', new Date(endDate))
+        callLogQuery = callLogQuery.where(
+          'startedAt',
+          '<=',
+          new Date(endDate),
+        )
       }
 
-      const calls = await query.selectAll().execute()
+      const calls = await callLogQuery.selectAll().execute()
 
-      // Metrics
-      const totalCalls = calls.length
-      const outboundCalls = calls.filter(
+      // ── Query recording (ElevenLabs voice AI calls) ──
+      let recordingQuery = db
+        .selectFrom('recording')
+        .where('organizationId', '=', orgId)
+
+      if (startDate) {
+        recordingQuery = recordingQuery.where(
+          'createdAt',
+          '>=',
+          new Date(startDate),
+        )
+      }
+      if (endDate) {
+        recordingQuery = recordingQuery.where(
+          'createdAt',
+          '<=',
+          new Date(endDate),
+        )
+      }
+
+      const recordings = await recordingQuery.selectAll().execute()
+
+      // ── Metrics from call_log ──
+      const clOutbound = calls.filter(
         (c) => c.direction === 'outbound',
       ).length
-      const inboundCalls = calls.filter((c) => c.direction === 'inbound').length
-      const connectedCalls = calls.filter(
+      const clInbound = calls.filter((c) => c.direction === 'inbound').length
+      const clConnected = calls.filter(
         (c) =>
           c.status === 'completed' ||
           c.status === 'in-progress' ||
           (c.duration && c.duration > 0),
       ).length
-      const connectionRate =
-        totalCalls > 0 ? Math.round((connectedCalls / totalCalls) * 100) : 0
-      const totalTalkTimeSeconds = calls.reduce(
-        (sum, c) => sum + (c.duration || 0),
+      const clTalkTime = calls.reduce((sum, c) => sum + (c.duration || 0), 0)
+
+      // ── Metrics from recordings (all voice AI calls are inbound) ──
+      const recConnected = recordings.filter(
+        (r) => r.callDurationSeconds > 0,
+      ).length
+      const recTalkTime = recordings.reduce(
+        (sum, r) => sum + (r.callDurationSeconds || 0),
         0,
       )
+
+      // ── Merged metrics ──
+      const totalCalls = calls.length + recordings.length
+      const outboundCalls = clOutbound
+      const inboundCalls = clInbound + recordings.length
+      const connectedCalls = clConnected + recConnected
+      const connectionRate =
+        totalCalls > 0 ? Math.round((connectedCalls / totalCalls) * 100) : 0
+      const totalTalkTimeSeconds = clTalkTime + recTalkTime
       const avgCallDurationSeconds =
         connectedCalls > 0
           ? Math.round(totalTalkTimeSeconds / connectedCalls)
           : 0
 
-      // Disposition breakdown
+      // ── Disposition breakdown ──
       const dispositions = await findDispositions(orgId)
       const dispositionMap = new Map(dispositions.map((d) => [d.id, d]))
 
       const dispositionCounts: Record<string, number> = {}
       let noDispositionCount = 0
+
+      // Count from call_log
       for (const call of calls) {
         if (call.dispositionId) {
           dispositionCounts[call.dispositionId] =
             (dispositionCounts[call.dispositionId] || 0) + 1
         } else if (call.outcome) {
-          // Use outcome as fallback label
           const key = `outcome:${call.outcome}`
           dispositionCounts[key] = (dispositionCounts[key] || 0) + 1
         } else {
           noDispositionCount++
         }
+      }
+
+      // Count from recordings by callQuality
+      const qualityColors: Record<string, string> = {
+        productive: '#22c55e',
+        short_call: '#eab308',
+        no_conversation: '#f97316',
+        robocall: '#ef4444',
+        spam: '#6b7280',
+      }
+      const qualityLabels: Record<string, string> = {
+        productive: 'Productive',
+        short_call: 'Short Call',
+        no_conversation: 'No Conversation',
+        robocall: 'Robocall',
+        spam: 'Spam',
+      }
+      for (const rec of recordings) {
+        const quality = (rec.callQuality as string) || 'productive'
+        const key = `quality:${quality}`
+        dispositionCounts[key] = (dispositionCounts[key] || 0) + 1
       }
 
       const outcomeColors: Record<string, string> = {
@@ -650,6 +717,15 @@ router.get(
 
       const dispositionBreakdown = [
         ...Object.entries(dispositionCounts).map(([id, count]) => {
+          if (id.startsWith('quality:')) {
+            const quality = id.replace('quality:', '')
+            return {
+              dispositionId: null,
+              label: qualityLabels[quality] || quality,
+              color: qualityColors[quality] || '#6B7280',
+              count,
+            }
+          }
           if (id.startsWith('outcome:')) {
             const outcome = id.replace('outcome:', '')
             return {
@@ -681,14 +757,22 @@ router.get(
           : []),
       ].sort((a, b) => b.count - a.count)
 
-      // Calls over time
+      // ── Calls over time ──
       const callsByDate: Record<string, { outbound: number; inbound: number }> =
         {}
+
       for (const call of calls) {
         const date = new Date(call.startedAt).toISOString().split('T')[0]
         if (!callsByDate[date]) callsByDate[date] = { outbound: 0, inbound: 0 }
         if (call.direction === 'outbound') callsByDate[date].outbound++
         else callsByDate[date].inbound++
+      }
+
+      // Add recordings to inbound counts
+      for (const rec of recordings) {
+        const date = new Date(rec.createdAt).toISOString().split('T')[0]
+        if (!callsByDate[date]) callsByDate[date] = { outbound: 0, inbound: 0 }
+        callsByDate[date].inbound++
       }
 
       // Fill in missing dates
@@ -736,7 +820,7 @@ router.get(
 
 /**
  * GET /call-center/activity
- * Get activity feed
+ * Get activity feed — merges call_log (Twilio), recording (ElevenLabs), and lead data.
  */
 router.get('/activity', withBetterAuth, async (req: Request, res: Response) => {
   const orgId = getOrgId(req)
@@ -750,35 +834,115 @@ router.get('/activity', withBetterAuth, async (req: Request, res: Response) => {
   try {
     const { db } = await import('@/lib/db')
 
-    // Get recent calls as activity items
-    let query = db
-      .selectFrom('call_log')
-      .where('organizationId', '=', orgId)
-      .orderBy('startedAt', 'desc')
-      .limit(limit)
-
-    if (type === 'calls') {
-      // Already filtering call_log
+    type ActivityItem = {
+      id: string
+      type: 'call' | 'lead_added'
+      userId: string
+      userName: string
+      description: string
+      metadata: Record<string, unknown>
+      createdAt: string
     }
 
-    const calls = await query.selectAll().execute()
+    const items: ActivityItem[] = []
 
-    const items = calls.map((call) => ({
-      id: call.id,
-      type: 'call' as const,
-      userId: call.userId || '',
-      userName: '',
-      description: `Call ${call.direction} - ${Math.floor((call.duration || 0) / 60)}:${String((call.duration || 0) % 60).padStart(2, '0')} duration`,
-      metadata: {
-        callDuration: call.duration || 0,
-        disposition: call.outcome || undefined,
-      },
-      createdAt: call.startedAt.toISOString
-        ? call.startedAt.toISOString()
-        : new Date(call.startedAt).toISOString(),
-    }))
+    // ── Call log items (Twilio) ──
+    if (type === 'all' || type === 'calls') {
+      const calls = await db
+        .selectFrom('call_log')
+        .where('organizationId', '=', orgId)
+        .orderBy('startedAt', 'desc')
+        .limit(limit)
+        .selectAll()
+        .execute()
 
-    res.json({ items })
+      for (const call of calls) {
+        items.push({
+          id: call.id,
+          type: 'call',
+          userId: call.userId || '',
+          userName: '',
+          description: `Call ${call.direction} - ${Math.floor((call.duration || 0) / 60)}:${String((call.duration || 0) % 60).padStart(2, '0')} duration`,
+          metadata: {
+            callDuration: call.duration || 0,
+            disposition: call.outcome || undefined,
+          },
+          createdAt: call.startedAt.toISOString
+            ? call.startedAt.toISOString()
+            : new Date(call.startedAt).toISOString(),
+        })
+      }
+    }
+
+    // ── Recording items (ElevenLabs voice AI) ──
+    if (type === 'all' || type === 'calls') {
+      const recordings = await db
+        .selectFrom('recording')
+        .where('organizationId', '=', orgId)
+        .orderBy('createdAt', 'desc')
+        .limit(limit)
+        .selectAll()
+        .execute()
+
+      for (const rec of recordings) {
+        const duration = rec.callDurationSeconds || 0
+        const quality = (rec.callQuality as string) || 'unknown'
+        const qualityLabel =
+          quality === 'productive'
+            ? 'Productive'
+            : quality.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+        items.push({
+          id: `rec-${rec.id}`,
+          type: 'call',
+          userId: '',
+          userName: 'Voice AI',
+          description: `Voice AI call - ${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, '0')} duration`,
+          metadata: {
+            callDuration: duration,
+            disposition: qualityLabel,
+          },
+          createdAt: new Date(rec.createdAt as any).toISOString(),
+        })
+      }
+    }
+
+    // ── New leads ──
+    if (type === 'all' || type === 'leads') {
+      const leads = await db
+        .selectFrom('lead')
+        .where('organizationId', '=', orgId)
+        .where('deletedAt', 'is', null)
+        .orderBy('createdAt', 'desc')
+        .limit(limit)
+        .selectAll()
+        .execute()
+
+      for (const lead of leads) {
+        const name = [lead.firstName, lead.lastName].filter(Boolean).join(' ')
+        items.push({
+          id: `lead-${lead.id}`,
+          type: 'lead_added',
+          userId: '',
+          userName: '',
+          description: name
+            ? `New lead: ${name}${lead.phone ? ` (${lead.phone})` : ''}`
+            : `New lead: ${lead.phone || lead.email || 'Unknown'}`,
+          metadata: {
+            leadId: lead.id,
+            leadName: name || lead.phone || undefined,
+          },
+          createdAt: new Date(lead.createdAt as any).toISOString(),
+        })
+      }
+    }
+
+    // Sort all items by createdAt descending and return the top N
+    items.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
+
+    res.json({ items: items.slice(0, limit) })
   } catch (error: any) {
     logger.error('Failed to get activity:', error)
     res.status(500).json({ error: error.message })
