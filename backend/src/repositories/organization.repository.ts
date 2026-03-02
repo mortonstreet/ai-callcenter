@@ -410,11 +410,7 @@ export const getRecordings = async (filters: {
   // Build data query with lead join through task_instance
   let dataQuery = db
     .selectFrom('recording')
-    .leftJoin(
-      'task_instance',
-      'task_instance.id',
-      'recording.taskInstanceId',
-    )
+    .leftJoin('task_instance', 'task_instance.id', 'recording.taskInstanceId')
     .leftJoin('lead', 'lead.id', 'task_instance.leadId')
     .where('recording.organizationId', '=', filters.organizationId)
 
