@@ -118,6 +118,7 @@ export const createTaskInstance = async (
     bookingStatus: null,
     bookingCancelledAt: null,
     bookingCancelReason: null,
+    leadId: null,
   })
   return taskInstance
 }

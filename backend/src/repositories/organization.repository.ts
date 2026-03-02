@@ -387,52 +387,81 @@ export const getRecordings = async (filters: {
     .executeTakeFirst()
   const total = Number(countResult?.count || 0)
 
+  interface RecordingRow {
+    id: string
+    conversationId: string
+    callSid: string
+    taskInstanceId: string | null
+    organizationId: string
+    callDurationSeconds: number
+    transcriptSummary: string | null
+    callQuality: string | null
+    callQualityReason: string | null
+    createdAt: Date
+    updatedAt: Date
+    leadId: string | null
+    leadFirstName: string | null
+    leadLastName: string | null
+    leadPhone: string | null
+    leadEmail: string | null
+    leadCustomFields: unknown | null
+  }
+
   // Build data query with lead join through task_instance
-  let query = db
+  let dataQuery = db
     .selectFrom('recording')
-    .leftJoin('task_instance', 'task_instance.id', 'recording.taskInstanceId')
+    .leftJoin(
+      'task_instance',
+      'task_instance.id',
+      'recording.taskInstanceId',
+    )
     .leftJoin('lead', 'lead.id', 'task_instance.leadId')
     .where('recording.organizationId', '=', filters.organizationId)
 
   if (filters.startDate) {
-    query = query.where(
+    dataQuery = dataQuery.where(
       'recording.createdAt',
       '>=',
       new Date(filters.startDate),
     )
   }
   if (filters.endDate) {
-    query = query.where('recording.createdAt', '<=', new Date(filters.endDate))
+    dataQuery = dataQuery.where(
+      'recording.createdAt',
+      '<=',
+      new Date(filters.endDate),
+    )
   }
-
-  query = query.select([
-    'recording.id',
-    'recording.conversationId',
-    'recording.callSid',
-    'recording.taskInstanceId',
-    'recording.organizationId',
-    'recording.callDurationSeconds',
-    'recording.transcriptSummary',
-    'recording.callQuality',
-    'recording.callQualityReason',
-    'recording.createdAt',
-    'recording.updatedAt',
-    'lead.id as leadId',
-    'lead.firstName as leadFirstName',
-    'lead.lastName as leadLastName',
-    'lead.phone as leadPhone',
-    'lead.email as leadEmail',
-    'lead.customFields as leadCustomFields',
-  ])
 
   const sortBy = filters.sortBy || 'createdAt'
   const sortOrder = filters.sortOrder || 'desc'
-  query = query.orderBy(`recording.${sortBy}` as any, sortOrder)
 
   const offset = (filters.page - 1) * filters.limit
-  query = query.limit(filters.limit).offset(offset)
 
-  const rows = await query.execute()
+  const rows = (await dataQuery
+    .select([
+      'recording.id',
+      'recording.conversationId',
+      'recording.callSid',
+      'recording.taskInstanceId',
+      'recording.organizationId',
+      'recording.callDurationSeconds',
+      'recording.transcriptSummary',
+      'recording.callQuality',
+      'recording.callQualityReason',
+      'recording.createdAt',
+      'recording.updatedAt',
+      'lead.id as leadId',
+      'lead.firstName as leadFirstName',
+      'lead.lastName as leadLastName',
+      'lead.phone as leadPhone',
+      'lead.email as leadEmail',
+      'lead.customFields as leadCustomFields',
+    ])
+    .orderBy(`recording.${sortBy}` as any, sortOrder)
+    .limit(filters.limit)
+    .offset(offset)
+    .execute()) as unknown as RecordingRow[]
 
   const data = rows.map((r) => ({
     id: r.id,
@@ -471,11 +500,32 @@ export const getRecordings = async (filters: {
   }
 }
 
+interface RecordingDetailRow {
+  id: string
+  conversationId: string
+  callSid: string
+  taskInstanceId: string | null
+  organizationId: string
+  callDurationSeconds: number
+  cost: number
+  transcriptSummary: string | null
+  callQuality: string | null
+  callQualityReason: string | null
+  createdAt: Date
+  updatedAt: Date
+  leadId: string | null
+  leadFirstName: string | null
+  leadLastName: string | null
+  leadPhone: string | null
+  leadEmail: string | null
+  leadCustomFields: unknown | null
+}
+
 export const getRecordingById = async (
   recordingId: string,
   organizationId: string,
 ) => {
-  const r = await db
+  const r = (await db
     .selectFrom('recording')
     .leftJoin('task_instance', 'task_instance.id', 'recording.taskInstanceId')
     .leftJoin('lead', 'lead.id', 'task_instance.leadId')
@@ -501,7 +551,7 @@ export const getRecordingById = async (
       'lead.email as leadEmail',
       'lead.customFields as leadCustomFields',
     ])
-    .executeTakeFirst()
+    .executeTakeFirst()) as unknown as RecordingDetailRow | undefined
 
   if (!r) return null
 

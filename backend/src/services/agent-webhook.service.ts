@@ -264,6 +264,7 @@ export async function processElevenLabsConversationWebhook(
       bookingCancelledAt: null,
       bookingCancelReason: null,
       tags: null,
+      leadId: null,
     })
 
     logger.info(
