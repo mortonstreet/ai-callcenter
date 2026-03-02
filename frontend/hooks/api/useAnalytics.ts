@@ -30,6 +30,7 @@ export function useCallAnalytics(params: {
     queryKey: ['callCenter', 'analytics', params.startDate, params.endDate],
     queryFn: () => get<AnalyticsResponse>(`/call-center/analytics?${searchParams.toString()}`),
     enabled: params.enabled !== false,
+    refetchInterval: 30_000,
     placeholderData: {
       data: {
         metrics: {
@@ -62,6 +63,7 @@ export function useActivityFeed(params: {
     queryKey: ['callCenter', 'activity', params.type],
     queryFn: () => get<ActivityFeedResponse>(`/call-center/activity${qs ? `?${qs}` : ''}`),
     enabled: params.enabled !== false,
+    refetchInterval: 30_000,
     placeholderData: { items: [] },
   });
 }

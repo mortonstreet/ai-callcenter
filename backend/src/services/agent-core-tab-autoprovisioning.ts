@@ -14,6 +14,36 @@ const DEFAULT_POST_CALL_WEBHOOK_ENDPOINT = `${API_BASE_URL}/api/webhook/agent/el
 
 const DEFAULT_DATA_COLLECTION_SCHEMA = [
   {
+    key: 'customer_name',
+    type: 'string',
+    description: "The caller's full name",
+    required: false,
+  },
+  {
+    key: 'customer_phone',
+    type: 'string',
+    description: "The caller's phone number",
+    required: false,
+  },
+  {
+    key: 'customer_email',
+    type: 'string',
+    description: "The caller's email address",
+    required: false,
+  },
+  {
+    key: 'service_needed',
+    type: 'string',
+    description: 'The type of service the caller is requesting',
+    required: false,
+  },
+  {
+    key: 'customer_address',
+    type: 'string',
+    description: "The caller's service address",
+    required: false,
+  },
+  {
     key: 'resolution_status',
     type: 'enum',
     required: true,

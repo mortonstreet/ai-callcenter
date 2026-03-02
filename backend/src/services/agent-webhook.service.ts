@@ -17,6 +17,7 @@ import {
 } from '@/repositories/organization.repository'
 import * as leadRepository from '@/repositories/lead.repository'
 import { linkLeadToCallLog } from '@/repositories/call-center.repository'
+import { findDefaultByOrganizationId as findDefaultPipelineStage } from '@/repositories/pipeline.repository'
 import logger from '@/lib/logger'
 import { normalizePhone } from '@/utils/phone'
 
@@ -315,6 +316,10 @@ export async function processElevenLabsConversationWebhook(
         },
       )
 
+      const defaultStage = await findDefaultPipelineStage(
+        agent.organizationId,
+      )
+
       const customFieldsPatch: Record<string, unknown> = {}
       if (extracted.serviceNeeded)
         customFieldsPatch.serviceNeeded = extracted.serviceNeeded
@@ -388,7 +393,7 @@ export async function processElevenLabsConversationWebhook(
             Object.keys(customFieldsPatch).length > 0
               ? customFieldsPatch
               : null,
-          pipelineStageId: null,
+          pipelineStageId: defaultStage?.id ?? null,
           dealValue: null,
           updatedAt: new Date(),
         })
