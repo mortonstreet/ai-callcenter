@@ -269,6 +269,21 @@ export const updateCallLogByCallSid = async (
     .executeTakeFirst()
 }
 
+export const linkLeadToCallLog = async (
+  organizationId: string,
+  callSid: string,
+  leadId: string,
+) => {
+  return await db
+    .updateTable('call_log')
+    .set({ leadId, updatedAt: new Date() })
+    .where('organizationId', '=', organizationId)
+    .where('callSid', '=', callSid)
+    .where('leadId', 'is', null)
+    .returningAll()
+    .executeTakeFirst()
+}
+
 export const findCallLogByCallSid = async (callSid: string) => {
   return await db
     .selectFrom('call_log')

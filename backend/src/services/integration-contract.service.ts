@@ -13,6 +13,7 @@ import logger from '@/lib/logger'
 import { enqueueQueueJob } from '@/queues'
 import * as integrationRepository from '@/repositories/integration.repository'
 import * as leadRepository from '@/repositories/lead.repository'
+import { normalizePhone } from '@/utils/phone'
 import {
   getIntegrationProviderAdapter,
   getProviderDisplayName,
@@ -340,19 +341,6 @@ const refreshTokenIfNeeded = async (
   )
 
   return updated || integration
-}
-
-const normalizePhone = (phone?: string | null): string | null => {
-  if (!phone) return null
-  const digits = phone.replace(/\D/g, '')
-  if (!digits) return null
-  if (digits.length === 10) {
-    return `+1${digits}`
-  }
-  if (digits.length === 11 && digits.startsWith('1')) {
-    return `+${digits}`
-  }
-  return `+${digits}`
 }
 
 const normalizeEmail = (email?: string): string | null => {

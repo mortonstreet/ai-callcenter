@@ -3,7 +3,14 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import logger from '@/lib/logger'
 import { findTasksByOrganizationId } from '@/repositories/organization.repository'
 import { findTaskInstanceByConversationId } from '@/repositories/agent.repository'
-import { McpCreateTaskInput, McpCreateTaskInputSchema } from '@/types/mcp'
+import {
+  McpCreateTaskInput,
+  McpCreateTaskInputSchema,
+  McpCreateOrUpdateLeadInput,
+  McpCreateOrUpdateLeadInputSchema,
+} from '@/types/mcp'
+import * as leadRepository from '@/repositories/lead.repository'
+import { normalizePhone } from '@/utils/phone'
 import { formatTasksForMcp } from '@/utils/task'
 import {
   createTaskInstanceWithDispatcher,
@@ -343,6 +350,182 @@ export function createMcpServer(organizationId: string) {
                 error: 'Failed to book appointment',
                 message:
                   'Our scheduling team will contact you within 24 hours to confirm your free inspection appointment.',
+              }),
+            },
+          ],
+        }
+      }
+    },
+  )
+
+  mcpServer.tool(
+    'create-or-update-lead',
+    'Create or update a lead record with customer information collected during the conversation. Call this whenever you collect contact details like name, phone, or email from the caller.',
+    McpCreateOrUpdateLeadInputSchema.shape,
+    async (input: McpCreateOrUpdateLeadInput) => {
+      logger.info(`🔧 TOOL CALLED: create-or-update-lead`)
+      logger.info(`📝 Conversation ID: ${input.conversationId}`)
+
+      try {
+        const email = input.customerEmail?.trim().toLowerCase() || null
+        const phone = input.customerPhone?.trim() || null
+        const normalized = phone ? normalizePhone(phone) : null
+
+        if (!email && !normalized) {
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text: JSON.stringify({
+                  success: false,
+                  error:
+                    'At least one of customerPhone or customerEmail is required to identify the lead',
+                }),
+              },
+            ],
+          }
+        }
+
+        let firstName: string | null = null
+        let lastName: string | null = null
+        if (input.customerName?.trim()) {
+          const parts = input.customerName.trim().split(/\s+/)
+          firstName = parts[0] || null
+          lastName = parts.length > 1 ? parts.slice(1).join(' ') : null
+        }
+
+        const existingLead =
+          await leadRepository.findByOrganizationAndContact(organizationId, {
+            email,
+            normalizedPhone: normalized,
+          })
+
+        let lead: Awaited<ReturnType<typeof leadRepository.create>>
+        let matchedExisting = false
+
+        if (existingLead) {
+          matchedExisting = true
+
+          const updates: Record<string, unknown> = {}
+          if (!existingLead.firstName && firstName)
+            updates.firstName = firstName
+          if (!existingLead.lastName && lastName) updates.lastName = lastName
+          if (!existingLead.email && email) updates.email = email
+          if (!existingLead.phone && phone) {
+            updates.phone = phone
+            updates.normalizedPhone = normalized
+          }
+
+          const prevCustom =
+            typeof existingLead.customFields === 'object' &&
+            existingLead.customFields !== null
+              ? (existingLead.customFields as Record<string, unknown>)
+              : {}
+          const merged = { ...prevCustom }
+          let customFieldsChanged = false
+
+          if (input.serviceNeeded && merged.serviceNeeded !== input.serviceNeeded) {
+            merged.serviceNeeded = input.serviceNeeded
+            customFieldsChanged = true
+          }
+          if (
+            input.customerAddress &&
+            merged.customerAddress !== input.customerAddress
+          ) {
+            merged.customerAddress = input.customerAddress
+            customFieldsChanged = true
+          }
+          if (input.notes && merged.notes !== input.notes) {
+            merged.notes = input.notes
+            customFieldsChanged = true
+          }
+
+          if (customFieldsChanged) updates.customFields = merged
+
+          if (Object.keys(updates).length > 0) {
+            const updated = await leadRepository.update(
+              existingLead.id,
+              updates as any,
+            )
+            lead = updated ?? existingLead
+          } else {
+            lead = existingLead
+          }
+        } else {
+          const customFields: Record<string, unknown> = {}
+          if (input.serviceNeeded) customFields.serviceNeeded = input.serviceNeeded
+          if (input.customerAddress)
+            customFields.customerAddress = input.customerAddress
+          if (input.notes) customFields.notes = input.notes
+
+          lead = await leadRepository.create({
+            organizationId,
+            firstName,
+            lastName,
+            email,
+            phone,
+            normalizedPhone: normalized,
+            company: null,
+            title: null,
+            linkedInUrl: null,
+            website: null,
+            customFields:
+              Object.keys(customFields).length > 0 ? customFields : null,
+            pipelineStageId: null,
+            dealValue: null,
+            updatedAt: new Date(),
+          })
+        }
+
+        if (input.conversationId) {
+          try {
+            const taskInstance = await findTaskInstanceByConversationId(
+              input.conversationId,
+              organizationId,
+            )
+            if (taskInstance) {
+              logger.info(
+                { taskInstanceId: taskInstance.id, leadId: lead.id },
+                'Lead associated with task instance via conversationId',
+              )
+            }
+          } catch (linkError) {
+            logger.warn(
+              { error: linkError },
+              'Could not look up task instance for lead association',
+            )
+          }
+        }
+
+        logger.info(
+          { leadId: lead.id, matchedExisting, phone, email },
+          matchedExisting ? 'Lead updated via MCP tool' : 'Lead created via MCP tool',
+        )
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                success: true,
+                leadId: lead.id,
+                matchedExisting,
+                message: matchedExisting
+                  ? 'Customer information has been updated in our system.'
+                  : 'New lead has been created in our system.',
+              }),
+            },
+          ],
+        }
+      } catch (error) {
+        logger.error(`❌ LEAD UPSERT FAILED:`, error)
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                success: false,
+                error: 'Failed to create or update lead',
               }),
             },
           ],

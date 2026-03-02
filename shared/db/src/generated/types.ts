@@ -557,6 +557,7 @@ export type TaskInstance = {
   tags: unknown | null
   pipelineStage: Generated<string | null>
   pipelineStageId: string | null
+  leadId: string | null
 }
 export type TwilioConfig = {
   id: string

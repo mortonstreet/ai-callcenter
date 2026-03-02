@@ -4,6 +4,19 @@ import { useEffectiveOrganization } from '@/lib/admin-store';
 import { GetRecordingsRequest, PaginatedResponse } from '@/lib/shared-types';
 import { DBRecording } from '@/lib/shared-types';
 
+export interface RecordingLead {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  email: string | null;
+  customFields: unknown | null;
+}
+
+export type RecordingWithLead = DBRecording & {
+  lead: RecordingLead | null;
+};
+
 const QUERY_KEYS = {
   recordings: (organizationId?: string, filters?: Partial<GetRecordingsRequest>) => 
     ['recordings', organizationId, filters],
@@ -14,7 +27,7 @@ const QUERY_KEYS = {
 export function useRecordings(filters?: Partial<Omit<GetRecordingsRequest, 'organizationId'>>) {
   const activeOrganization = useEffectiveOrganization();
   
-  return useQuery<PaginatedResponse<DBRecording>>({
+  return useQuery<PaginatedResponse<RecordingWithLead>>({
     queryKey: QUERY_KEYS.recordings(activeOrganization?.data?.id, filters),
     queryFn: async () => {
       if (!activeOrganization?.data?.id) {
@@ -27,7 +40,7 @@ export function useRecordings(filters?: Partial<Omit<GetRecordingsRequest, 'orga
       if (filters?.sortBy) params.append('sortBy', filters.sortBy);
       if (filters?.sortOrder) params.append('sortOrder', filters.sortOrder);
       
-      return await get<PaginatedResponse<DBRecording>>(
+      return await get<PaginatedResponse<RecordingWithLead>>(
         `/task/${activeOrganization.data.id}/recordings?${params.toString()}`
       );
     },

@@ -259,6 +259,7 @@ export interface DBTaskInstance {
   tags: unknown | null
   pipelineStage: string | null
   pipelineStageId: string | null
+  leadId: string | null
 }
 
 export interface DBRecording {

@@ -228,6 +228,9 @@ export default function LeadDetailPage() {
             })()}
           </div>
 
+          {/* Call Details (from customFields) */}
+          <CallDetailsCard customFields={lead.customFields} />
+
           {/* Created Date */}
           <div className="bg-card border border-border rounded-xl p-6">
             <h2 className="text-lg font-semibold text-foreground mb-2">Created</h2>
@@ -244,6 +247,41 @@ export default function LeadDetailPage() {
             </p>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function CallDetailsCard({ customFields }: { customFields: unknown | null }) {
+  if (!customFields || typeof customFields !== "object") return null;
+  const cf = customFields as Record<string, string | undefined>;
+  const service = cf.serviceNeeded;
+  const address = cf.customerAddress;
+  const time = cf.preferredTimeWindow;
+  if (!service && !address && !time) return null;
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-6">
+      <h2 className="text-lg font-semibold text-foreground mb-3">Call Details</h2>
+      <div className="space-y-3">
+        {service && (
+          <div>
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Service Needed</div>
+            <div className="text-sm text-foreground">{service}</div>
+          </div>
+        )}
+        {address && (
+          <div>
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Address</div>
+            <div className="text-sm text-foreground">{address}</div>
+          </div>
+        )}
+        {time && (
+          <div>
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Preferred Time</div>
+            <div className="text-sm text-foreground">{time}</div>
+          </div>
+        )}
       </div>
     </div>
   );

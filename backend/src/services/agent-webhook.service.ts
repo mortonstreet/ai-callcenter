@@ -11,9 +11,107 @@ import {
   findFirstTaskByAgentId,
   createTask as createTaskRepository,
 } from '@/repositories/agent.repository'
-import { createTaskInstance } from '@/repositories/organization.repository'
+import {
+  createTaskInstance,
+  updateTaskInstance,
+} from '@/repositories/organization.repository'
 import * as leadRepository from '@/repositories/lead.repository'
+import { linkLeadToCallLog } from '@/repositories/call-center.repository'
 import logger from '@/lib/logger'
+import { normalizePhone } from '@/utils/phone'
+
+interface ExtractedLeadFields {
+  firstName: string | null
+  lastName: string | null
+  phone: string | null
+  normalizedPhone: string | null
+  email: string | null
+  serviceNeeded: string | null
+  address: string | null
+  preferredTimeWindow: string | null
+}
+
+/**
+ * Extract structured lead fields from the ElevenLabs webhook payload.
+ * Uses analysis.data_collection_results (structured key/value pairs configured
+ * on the ElevenLabs agent) and falls back to metadata.phone_call.from_number
+ * for the phone field.
+ */
+function extractLeadFieldsFromWebhook(
+  webhook: import('@shared/types/src').ElevenLabsWebhook,
+): ExtractedLeadFields {
+  const dataCollection = (webhook.data.analysis?.data_collection_results ??
+    {}) as Record<string, { value: string; rationale?: string } | string | null>
+  const phoneCall = webhook.data.metadata?.phone_call as
+    | { from_number?: string; call_sid?: string }
+    | null
+    | undefined
+
+  const dcVal = (key: string): string | null => {
+    const entry = dataCollection[key]
+    if (!entry) return null
+    if (typeof entry === 'string') return entry.trim() || null
+    if (typeof entry === 'object' && 'value' in entry) {
+      const v = entry.value
+      return typeof v === 'string' && v.trim() ? v.trim() : null
+    }
+    return null
+  }
+
+  const rawName =
+    dcVal('customer_name') ??
+    dcVal('caller_name') ??
+    dcVal('name') ??
+    dcVal('full_name')
+  let firstName: string | null = null
+  let lastName: string | null = null
+  if (rawName) {
+    const parts = rawName.split(/\s+/)
+    firstName = parts[0] || null
+    lastName = parts.length > 1 ? parts.slice(1).join(' ') : null
+  }
+
+  const rawPhone =
+    dcVal('customer_phone') ??
+    dcVal('phone_number') ??
+    dcVal('phone') ??
+    phoneCall?.from_number ??
+    null
+  const normalized = normalizePhone(rawPhone)
+
+  const email =
+    dcVal('customer_email') ??
+    dcVal('email_address') ??
+    dcVal('email')
+
+  const serviceNeeded =
+    dcVal('service_needed') ??
+    dcVal('service_type') ??
+    dcVal('service_requested') ??
+    dcVal('reason_for_call')
+
+  const address =
+    dcVal('customer_address') ??
+    dcVal('service_address') ??
+    dcVal('address')
+
+  const preferredTimeWindow =
+    dcVal('preferred_time') ??
+    dcVal('preferred_date') ??
+    dcVal('requested_date') ??
+    dcVal('preferred_time_window')
+
+  return {
+    firstName,
+    lastName,
+    phone: rawPhone,
+    normalizedPhone: normalized,
+    email,
+    serviceNeeded,
+    address,
+    preferredTimeWindow,
+  }
+}
 
 const MIN_PRODUCTIVE_DURATION_SECS = 15
 export const ELEVENLABS_WEBHOOK_RETRY_JOB_NAME = 'elevenlabs-webhook-retry'
@@ -207,54 +305,135 @@ export async function processElevenLabsConversationWebhook(
 
   logger.info({ recordingId: recording.id }, 'Recording created successfully')
 
-  // Create or update a Lead record so the call appears in the Leads dashboard
+  // Extract structured lead fields, upsert a Lead, and link to call_log
   try {
-    const phoneCall = webhook.data.metadata?.phone_call as
-      | { from_number?: string }
-      | null
-      | undefined
-    const callerPhone = phoneCall?.from_number || null
+    const extracted = extractLeadFieldsFromWebhook(webhook)
 
-    if (callerPhone && agent.organizationId) {
-      const normalizedPhone = normalizePhoneForLead(callerPhone)
-
-      // Check if a lead already exists for this phone + org
+    if (extracted.normalizedPhone || extracted.email) {
       const existingLead = await leadRepository.findByOrganizationAndContact(
         agent.organizationId,
-        { normalizedPhone },
+        {
+          normalizedPhone: extracted.normalizedPhone,
+          email: extracted.email?.trim().toLowerCase(),
+        },
       )
 
-      if (!existingLead) {
-        const lead = await leadRepository.create({
+      const customFieldsPatch: Record<string, unknown> = {}
+      if (extracted.serviceNeeded) customFieldsPatch.serviceNeeded = extracted.serviceNeeded
+      if (extracted.address) customFieldsPatch.customerAddress = extracted.address
+      if (extracted.preferredTimeWindow)
+        customFieldsPatch.preferredTimeWindow = extracted.preferredTimeWindow
+
+      let lead: Awaited<ReturnType<typeof leadRepository.create>>
+
+      if (existingLead) {
+        const updates: Record<string, unknown> = {}
+        if (!existingLead.firstName && extracted.firstName)
+          updates.firstName = extracted.firstName
+        if (!existingLead.lastName && extracted.lastName)
+          updates.lastName = extracted.lastName
+        if (!existingLead.email && extracted.email)
+          updates.email = extracted.email.trim().toLowerCase()
+        if (!existingLead.phone && extracted.phone) {
+          updates.phone = extracted.phone
+          updates.normalizedPhone = extracted.normalizedPhone
+        }
+
+        if (Object.keys(customFieldsPatch).length > 0) {
+          const prev =
+            typeof existingLead.customFields === 'object' &&
+            existingLead.customFields !== null
+              ? (existingLead.customFields as Record<string, unknown>)
+              : {}
+          const merged = { ...prev }
+          let changed = false
+          for (const [k, v] of Object.entries(customFieldsPatch)) {
+            if (merged[k] !== v) {
+              merged[k] = v
+              changed = true
+            }
+          }
+          if (changed) updates.customFields = merged
+        }
+
+        if (Object.keys(updates).length > 0) {
+          const updated = await leadRepository.update(existingLead.id, updates as any)
+          lead = updated ?? existingLead
+          logger.info(
+            { leadId: lead.id, fieldsUpdated: Object.keys(updates) },
+            'Lead enriched from webhook',
+          )
+        } else {
+          lead = existingLead
+          logger.info(
+            { leadId: lead.id },
+            'Lead already exists, no new fields to update',
+          )
+        }
+      } else {
+        lead = await leadRepository.create({
           organizationId: agent.organizationId,
-          phone: callerPhone,
-          normalizedPhone,
-          firstName: null,
-          lastName: null,
-          email: null,
+          firstName: extracted.firstName,
+          lastName: extracted.lastName,
+          email: extracted.email?.trim().toLowerCase() ?? null,
+          phone: extracted.phone,
+          normalizedPhone: extracted.normalizedPhone,
           company: null,
           title: null,
           linkedInUrl: null,
           website: null,
-          dealValue: null,
+          customFields:
+            Object.keys(customFieldsPatch).length > 0 ? customFieldsPatch : null,
           pipelineStageId: null,
-          customFields: null,
+          dealValue: null,
           updatedAt: new Date(),
         })
         logger.info(
-          { leadId: lead.id, phone: callerPhone },
-          'Lead created from webhook',
+          { leadId: lead.id, phone: extracted.phone, email: extracted.email },
+          'Lead created from webhook with extracted fields',
         )
-      } else {
-        logger.info(
-          { leadId: existingLead.id, phone: callerPhone },
-          'Lead already exists for this caller',
+      }
+
+      // Link lead to call_log (if a matching row exists)
+      const callSid =
+        (
+          webhook.data.metadata?.phone_call as
+            | { call_sid?: string }
+            | null
+            | undefined
+        )?.call_sid || webhook.data.conversation_id
+
+      try {
+        const linked = await linkLeadToCallLog(
+          agent.organizationId,
+          callSid,
+          lead.id,
         )
+        if (linked) {
+          logger.info(
+            { callLogId: linked.id, leadId: lead.id, callSid },
+            'Linked lead to call_log',
+          )
+        }
+      } catch (linkError) {
+        logger.warn({ error: linkError, callSid }, 'Could not link lead to call_log')
+      }
+
+      // Link lead to task_instance
+      if (taskInstance && (!taskInstance.leadId || taskInstance.leadId === lead.id)) {
+        try {
+          await updateTaskInstance(taskInstance.id, { leadId: lead.id })
+          logger.info(
+            { taskInstanceId: taskInstance.id, leadId: lead.id },
+            'Linked lead to task_instance',
+          )
+        } catch (tiError) {
+          logger.warn({ error: tiError }, 'Could not link lead to task_instance')
+        }
       }
     }
   } catch (leadError) {
-    // Don't fail the webhook if lead creation fails
-    logger.warn({ error: leadError }, 'Failed to create lead from webhook')
+    logger.warn({ error: leadError }, 'Failed to extract/upsert lead from webhook')
   }
 
   return {
@@ -264,9 +443,3 @@ export async function processElevenLabsConversationWebhook(
   }
 }
 
-function normalizePhoneForLead(phone: string): string {
-  const digits = phone.replace(/\D/g, '')
-  if (digits.length === 10) return `+1${digits}`
-  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`
-  return `+${digits}`
-}

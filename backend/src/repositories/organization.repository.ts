@@ -342,6 +342,7 @@ export const updateTaskInstance = async (
     tags?: string | null
     pipelineStage?: string | null
     pipelineStageId?: string | null
+    leadId?: string | null
   },
 ) => {
   return await db
@@ -364,60 +365,106 @@ export const getRecordings = async (filters: {
   // Build base query with date filters for counting
   let countQuery = db
     .selectFrom('recording')
-    .where('organizationId', '=', filters.organizationId)
+    .where('recording.organizationId', '=', filters.organizationId)
 
   if (filters.startDate) {
     countQuery = countQuery.where(
-      'createdAt',
+      'recording.createdAt',
       '>=',
       new Date(filters.startDate),
     )
   }
   if (filters.endDate) {
-    countQuery = countQuery.where('createdAt', '<=', new Date(filters.endDate))
+    countQuery = countQuery.where(
+      'recording.createdAt',
+      '<=',
+      new Date(filters.endDate),
+    )
   }
 
-  // Get total count
   const countResult = await countQuery
     .select(db.fn.countAll<number>().as('count'))
     .executeTakeFirst()
   const total = Number(countResult?.count || 0)
 
-  // Build data query
+  // Build data query with lead join through task_instance
   let query = db
     .selectFrom('recording')
-    .where('organizationId', '=', filters.organizationId)
+    .leftJoin(
+      'task_instance',
+      'task_instance.id',
+      'recording.taskInstanceId',
+    )
+    .leftJoin('lead', 'lead.id', 'task_instance.leadId')
+    .where('recording.organizationId', '=', filters.organizationId)
 
   if (filters.startDate) {
-    query = query.where('createdAt', '>=', new Date(filters.startDate))
+    query = query.where(
+      'recording.createdAt',
+      '>=',
+      new Date(filters.startDate),
+    )
   }
   if (filters.endDate) {
-    query = query.where('createdAt', '<=', new Date(filters.endDate))
+    query = query.where(
+      'recording.createdAt',
+      '<=',
+      new Date(filters.endDate),
+    )
   }
 
   query = query.select([
-    'id',
-    'conversationId',
-    'callSid',
-    'taskInstanceId',
-    'organizationId',
-    'callDurationSeconds',
-    'transcriptSummary',
-    'payload',
-    'createdAt',
-    'updatedAt',
+    'recording.id',
+    'recording.conversationId',
+    'recording.callSid',
+    'recording.taskInstanceId',
+    'recording.organizationId',
+    'recording.callDurationSeconds',
+    'recording.transcriptSummary',
+    'recording.callQuality',
+    'recording.callQualityReason',
+    'recording.createdAt',
+    'recording.updatedAt',
+    'lead.id as leadId',
+    'lead.firstName as leadFirstName',
+    'lead.lastName as leadLastName',
+    'lead.phone as leadPhone',
+    'lead.email as leadEmail',
+    'lead.customFields as leadCustomFields',
   ])
 
-  // Apply sorting
   const sortBy = filters.sortBy || 'createdAt'
   const sortOrder = filters.sortOrder || 'desc'
-  query = query.orderBy(sortBy as any, sortOrder)
+  query = query.orderBy(`recording.${sortBy}` as any, sortOrder)
 
-  // Apply pagination
   const offset = (filters.page - 1) * filters.limit
   query = query.limit(filters.limit).offset(offset)
 
-  const data = await query.execute()
+  const rows = await query.execute()
+
+  const data = rows.map((r) => ({
+    id: r.id,
+    conversationId: r.conversationId,
+    callSid: r.callSid,
+    taskInstanceId: r.taskInstanceId,
+    organizationId: r.organizationId,
+    callDurationSeconds: r.callDurationSeconds,
+    transcriptSummary: r.transcriptSummary,
+    callQuality: r.callQuality,
+    callQualityReason: r.callQualityReason,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+    lead: r.leadId
+      ? {
+          id: r.leadId,
+          firstName: r.leadFirstName,
+          lastName: r.leadLastName,
+          phone: r.leadPhone,
+          email: r.leadEmail,
+          customFields: r.leadCustomFields,
+        }
+      : null,
+  }))
 
   return {
     data,
@@ -429,6 +476,70 @@ export const getRecordings = async (filters: {
       hasNextPage: filters.page * filters.limit < total,
       hasPrevPage: filters.page > 1,
     },
+  }
+}
+
+export const getRecordingById = async (
+  recordingId: string,
+  organizationId: string,
+) => {
+  const r = await db
+    .selectFrom('recording')
+    .leftJoin(
+      'task_instance',
+      'task_instance.id',
+      'recording.taskInstanceId',
+    )
+    .leftJoin('lead', 'lead.id', 'task_instance.leadId')
+    .where('recording.id', '=', recordingId)
+    .where('recording.organizationId', '=', organizationId)
+    .select([
+      'recording.id',
+      'recording.conversationId',
+      'recording.callSid',
+      'recording.taskInstanceId',
+      'recording.organizationId',
+      'recording.callDurationSeconds',
+      'recording.cost',
+      'recording.transcriptSummary',
+      'recording.callQuality',
+      'recording.callQualityReason',
+      'recording.createdAt',
+      'recording.updatedAt',
+      'lead.id as leadId',
+      'lead.firstName as leadFirstName',
+      'lead.lastName as leadLastName',
+      'lead.phone as leadPhone',
+      'lead.email as leadEmail',
+      'lead.customFields as leadCustomFields',
+    ])
+    .executeTakeFirst()
+
+  if (!r) return null
+
+  return {
+    id: r.id,
+    conversationId: r.conversationId,
+    callSid: r.callSid,
+    taskInstanceId: r.taskInstanceId,
+    organizationId: r.organizationId,
+    callDurationSeconds: r.callDurationSeconds,
+    cost: r.cost,
+    transcriptSummary: r.transcriptSummary,
+    callQuality: r.callQuality,
+    callQualityReason: r.callQualityReason,
+    createdAt: r.createdAt,
+    updatedAt: r.updatedAt,
+    lead: r.leadId
+      ? {
+          id: r.leadId,
+          firstName: r.leadFirstName,
+          lastName: r.leadLastName,
+          phone: r.leadPhone,
+          email: r.leadEmail,
+          customFields: r.leadCustomFields,
+        }
+      : null,
   }
 }
 

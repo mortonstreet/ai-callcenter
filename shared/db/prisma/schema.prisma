@@ -324,10 +324,14 @@ model TaskInstance {
   pipelineStage   String? @default("new") // Legacy string-based stage
   pipelineStageId String? // FK to dynamic PipelineStage
 
+  // Link to enriched Lead record
+  leadId String?
+
   task             Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
   dispatcher       User?          @relation(fields: [dispatcherId], references: [id], onDelete: SetNull)
   Organization     Organization?  @relation(fields: [organizationId], references: [id])
   pipelineStageRef PipelineStage? @relation(fields: [pipelineStageId], references: [id], onDelete: SetNull)
+  lead             Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
   Recording        Recording[]
 
   @@map("task_instance")
@@ -418,6 +422,7 @@ model Lead {
   smsEnrollments   SmsCampaignEnrollment[]
   smsMessages      SmsCampaignMessage[]
   agentMessages    AgentMessage[]
+  taskInstances    TaskInstance[]
 
   @@map("lead")
 }

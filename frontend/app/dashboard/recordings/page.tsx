@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useRecordings, useSyncRecordings, useUpdateRecordingQuality } from "@/hooks/api/useRecording";
-import { ChevronLeft, ChevronRight, Play, Loader2, ExternalLink, RefreshCw, ChevronDown, ChevronUp, Check, Bot, Phone, Ban, Zap } from "lucide-react";
+import { useRecordings, useSyncRecordings, useUpdateRecordingQuality, RecordingWithLead } from "@/hooks/api/useRecording";
+import { ChevronLeft, ChevronRight, Play, Loader2, ExternalLink, RefreshCw, ChevronDown, ChevronUp, Check, Bot, Phone, Ban, Zap, User } from "lucide-react";
 import { Page } from "@/components/dashboard/Page";
-import { DBRecording, CallQuality } from "@/lib/shared-types";
+import { CallQuality } from "@/lib/shared-types";
 import { getRecordingAudio } from "./actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -81,7 +81,7 @@ export default function RecordingsPage() {
     });
   };
 
-  const handlePlayAudio = async (recording: DBRecording) => {
+  const handlePlayAudio = async (recording: RecordingWithLead) => {
     // If already have audio URL, just play
     if (audioUrls.has(recording.id)) {
       setPlayingId(recording.id);
@@ -116,7 +116,7 @@ export default function RecordingsPage() {
     setPlayingId(null);
   };
 
-  const handleRowClick = (recording: DBRecording, e: React.MouseEvent) => {
+  const handleRowClick = (recording: RecordingWithLead, e: React.MouseEvent) => {
     // Don't navigate if clicking on audio controls or expand button
     if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('audio')) {
       return;
@@ -168,6 +168,9 @@ export default function RecordingsPage() {
                   Date & Time
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Caller
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Duration
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -184,7 +187,7 @@ export default function RecordingsPage() {
             <tbody className="bg-card divide-y divide-border">
               {recordings.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
                     <div className="space-y-2">
                       <p>No recordings found</p>
                       <p className="text-sm">Click &quot;Sync Recordings&quot; to pull recent call recordings</p>
@@ -192,9 +195,13 @@ export default function RecordingsPage() {
                   </td>
                 </tr>
               ) : (
-                recordings.map((recording: DBRecording) => {
+                recordings.map((recording: RecordingWithLead) => {
                   const isExpanded = expandedIds.has(recording.id);
                   const hasSummary = !!recording.transcriptSummary;
+                  const lead = recording.lead;
+                  const callerName = lead
+                    ? [lead.firstName, lead.lastName].filter(Boolean).join(" ") || null
+                    : null;
                   
                   return (
                     <tr 
@@ -209,6 +216,27 @@ export default function RecordingsPage() {
                         <div className="text-sm text-muted-foreground">
                           {new Date(recording.createdAt).toLocaleTimeString()}
                         </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {lead ? (
+                          <div className="flex items-center gap-2">
+                            <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              <User className="h-3.5 w-3.5 text-primary" />
+                            </div>
+                            <div className="min-w-0">
+                              {callerName && (
+                                <div className="text-sm font-medium text-foreground truncate">
+                                  {callerName}
+                                </div>
+                              )}
+                              <div className="text-xs text-muted-foreground truncate">
+                                {lead.phone || lead.email || "—"}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground/50 italic">Unknown</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-sm font-mono text-foreground">
                         {formatDuration(recording.callDurationSeconds)}

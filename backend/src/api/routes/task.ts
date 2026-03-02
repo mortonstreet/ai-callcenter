@@ -17,6 +17,7 @@ import {
   updateTaskInstanceStatusHandler,
   updateTaskInstancePipelineHandler,
   getRecordingsHandler,
+  getRecordingDetailHandler,
   syncRecordingsHandler,
   exportLeadsHandler,
   updateRecordingQualityHandler,
@@ -78,6 +79,20 @@ router.get(
   validateAndMerge(GetRecordingsRequestSchema),
   validateMemberOfOrganizationOrAdmin,
   authenticatedRoute(getRecordingsHandler),
+)
+
+// Single recording detail with joined lead
+const GetRecordingDetailRequestSchema = z.object({
+  organizationId: z.string(),
+  recordingId: z.string(),
+})
+
+router.get(
+  '/:organizationId/recordings/:recordingId',
+  withBetterAuth,
+  validateAndMerge(GetRecordingDetailRequestSchema),
+  validateMemberOfOrganizationOrAdmin,
+  authenticatedRoute(getRecordingDetailHandler),
 )
 
 // Sync recordings from ElevenLabs API

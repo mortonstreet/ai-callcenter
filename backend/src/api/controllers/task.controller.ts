@@ -15,6 +15,7 @@ import {
   updateTaskInstanceStatus,
   updateTaskInstance,
   getRecordings,
+  getRecordingById,
   findAgentsByOrganization,
   getLeadsForExport,
 } from '@/repositories/organization.repository'
@@ -256,6 +257,22 @@ export const getRecordingsHandler: AuthRequestHandler<
   })
 
   res.json(result)
+}
+
+interface GetRecordingDetailRequest {
+  organizationId: string
+  recordingId: string
+}
+
+export const getRecordingDetailHandler: AuthRequestHandler<
+  GetRecordingDetailRequest
+> = async (req, res) => {
+  const { organizationId, recordingId } = req.validated
+  const recording = await getRecordingById(recordingId, organizationId)
+  if (!recording) {
+    return res.status(404).json({ error: 'Recording not found' })
+  }
+  res.json(recording)
 }
 
 // Update pipeline stage handler
