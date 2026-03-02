@@ -316,9 +316,7 @@ export async function processElevenLabsConversationWebhook(
         },
       )
 
-      const defaultStage = await findDefaultPipelineStage(
-        agent.organizationId,
-      )
+      const defaultStage = await findDefaultPipelineStage(agent.organizationId)
 
       const customFieldsPatch: Record<string, unknown> = {}
       if (extracted.serviceNeeded)
