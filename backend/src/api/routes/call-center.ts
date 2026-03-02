@@ -586,25 +586,7 @@ router.get(
     try {
       const { db } = await import('@/lib/db')
 
-      // ── Query call_log (Twilio calls) ──
-      let callLogQuery = db
-        .selectFrom('call_log')
-        .where('organizationId', '=', orgId)
-
-      if (startDate) {
-        callLogQuery = callLogQuery.where(
-          'startedAt',
-          '>=',
-          new Date(startDate),
-        )
-      }
-      if (endDate) {
-        callLogQuery = callLogQuery.where('startedAt', '<=', new Date(endDate))
-      }
-
-      const calls = await callLogQuery.selectAll().execute()
-
-      // ── Query recording (ElevenLabs voice AI calls) ──
+      // ── Query recordings (ElevenLabs voice AI calls) ──
       let recordingQuery = db
         .selectFrom('recording')
         .where('organizationId', '=', orgId)
@@ -626,60 +608,25 @@ router.get(
 
       const recordings = await recordingQuery.selectAll().execute()
 
-      // ── Metrics from call_log ──
-      const clOutbound = calls.filter((c) => c.direction === 'outbound').length
-      const clInbound = calls.filter((c) => c.direction === 'inbound').length
-      const clConnected = calls.filter(
-        (c) =>
-          c.status === 'completed' ||
-          c.status === 'in-progress' ||
-          (c.duration && c.duration > 0),
-      ).length
-      const clTalkTime = calls.reduce((sum, c) => sum + (c.duration || 0), 0)
-
-      // ── Metrics from recordings (all voice AI calls are inbound) ──
-      const recConnected = recordings.filter(
+      // ── Metrics ──
+      const totalCalls = recordings.length
+      const inboundCalls = recordings.length
+      const outboundCalls = 0
+      const connectedCalls = recordings.filter(
         (r) => r.callDurationSeconds > 0,
       ).length
-      const recTalkTime = recordings.reduce(
+      const connectionRate =
+        totalCalls > 0 ? Math.round((connectedCalls / totalCalls) * 100) : 0
+      const totalTalkTimeSeconds = recordings.reduce(
         (sum, r) => sum + (r.callDurationSeconds || 0),
         0,
       )
-
-      // ── Merged metrics ──
-      const totalCalls = calls.length + recordings.length
-      const outboundCalls = clOutbound
-      const inboundCalls = clInbound + recordings.length
-      const connectedCalls = clConnected + recConnected
-      const connectionRate =
-        totalCalls > 0 ? Math.round((connectedCalls / totalCalls) * 100) : 0
-      const totalTalkTimeSeconds = clTalkTime + recTalkTime
       const avgCallDurationSeconds =
         connectedCalls > 0
           ? Math.round(totalTalkTimeSeconds / connectedCalls)
           : 0
 
-      // ── Disposition breakdown ──
-      const dispositions = await findDispositions(orgId)
-      const dispositionMap = new Map(dispositions.map((d) => [d.id, d]))
-
-      const dispositionCounts: Record<string, number> = {}
-      let noDispositionCount = 0
-
-      // Count from call_log
-      for (const call of calls) {
-        if (call.dispositionId) {
-          dispositionCounts[call.dispositionId] =
-            (dispositionCounts[call.dispositionId] || 0) + 1
-        } else if (call.outcome) {
-          const key = `outcome:${call.outcome}`
-          dispositionCounts[key] = (dispositionCounts[key] || 0) + 1
-        } else {
-          noDispositionCount++
-        }
-      }
-
-      // Count from recordings by callQuality
+      // ── Disposition breakdown (by callQuality) ──
       const qualityColors: Record<string, string> = {
         productive: '#22c55e',
         short_call: '#eab308',
@@ -694,82 +641,32 @@ router.get(
         robocall: 'Robocall',
         spam: 'Spam',
       }
+
+      const qualityCounts: Record<string, number> = {}
       for (const rec of recordings) {
         const quality = (rec.callQuality as string) || 'productive'
-        const key = `quality:${quality}`
-        dispositionCounts[key] = (dispositionCounts[key] || 0) + 1
+        qualityCounts[quality] = (qualityCounts[quality] || 0) + 1
       }
 
-      const outcomeColors: Record<string, string> = {
-        booked: '#22c55e',
-        follow_up: '#3b82f6',
-        not_interested: '#6b7280',
-        no_answer: '#eab308',
-        voicemail: '#8b5cf6',
-        wrong_number: '#ef4444',
-      }
-
-      const dispositionBreakdown = [
-        ...Object.entries(dispositionCounts).map(([id, count]) => {
-          if (id.startsWith('quality:')) {
-            const quality = id.replace('quality:', '')
-            return {
-              dispositionId: null,
-              label: qualityLabels[quality] || quality,
-              color: qualityColors[quality] || '#6B7280',
-              count,
-            }
-          }
-          if (id.startsWith('outcome:')) {
-            const outcome = id.replace('outcome:', '')
-            return {
-              dispositionId: null,
-              label: outcome
-                .replace(/_/g, ' ')
-                .replace(/\b\w/g, (l) => l.toUpperCase()),
-              color: outcomeColors[outcome] || '#6B7280',
-              count,
-            }
-          }
-          const disp = dispositionMap.get(id)
-          return {
-            dispositionId: id,
-            label: disp?.label || 'Unknown',
-            color: disp?.color || '#6B7280',
-            count,
-          }
-        }),
-        ...(noDispositionCount > 0
-          ? [
-              {
-                dispositionId: null,
-                label: 'No Status',
-                color: '#22c55e',
-                count: noDispositionCount,
-              },
-            ]
-          : []),
-      ].sort((a, b) => b.count - a.count)
+      const dispositionBreakdown = Object.entries(qualityCounts)
+        .map(([quality, count]) => ({
+          dispositionId: null,
+          label: qualityLabels[quality] || quality,
+          color: qualityColors[quality] || '#6B7280',
+          count,
+        }))
+        .sort((a, b) => b.count - a.count)
 
       // ── Calls over time ──
       const callsByDate: Record<string, { outbound: number; inbound: number }> =
         {}
 
-      for (const call of calls) {
-        const date = new Date(call.startedAt).toISOString().split('T')[0]
-        if (!callsByDate[date]) callsByDate[date] = { outbound: 0, inbound: 0 }
-        if (call.direction === 'outbound') callsByDate[date].outbound++
-        else callsByDate[date].inbound++
-      }
-
-      // Add recordings to inbound counts
       for (const rec of recordings) {
         const date = new Date(rec.createdAt).toISOString().split('T')[0]
         if (!callsByDate[date]) callsByDate[date] = { outbound: 0, inbound: 0 }
         callsByDate[date].inbound++
       }
 
-      // Fill in missing dates
       if (startDate && endDate) {
         const start = new Date(startDate)
         const end = new Date(endDate)
@@ -814,7 +711,7 @@ router.get(
 
 /**
  * GET /call-center/activity
- * Get activity feed — merges call_log (Twilio), recording (ElevenLabs), and lead data.
+ * Get activity feed — merges recording (ElevenLabs) and lead data.
  */
 router.get('/activity', withBetterAuth, async (req: Request, res: Response) => {
   const orgId = getOrgId(req)
@@ -839,34 +736,6 @@ router.get('/activity', withBetterAuth, async (req: Request, res: Response) => {
     }
 
     const items: ActivityItem[] = []
-
-    // ── Call log items (Twilio) ──
-    if (type === 'all' || type === 'calls') {
-      const calls = await db
-        .selectFrom('call_log')
-        .where('organizationId', '=', orgId)
-        .orderBy('startedAt', 'desc')
-        .limit(limit)
-        .selectAll()
-        .execute()
-
-      for (const call of calls) {
-        items.push({
-          id: call.id,
-          type: 'call',
-          userId: call.userId || '',
-          userName: '',
-          description: `Call ${call.direction} - ${Math.floor((call.duration || 0) / 60)}:${String((call.duration || 0) % 60).padStart(2, '0')} duration`,
-          metadata: {
-            callDuration: call.duration || 0,
-            disposition: call.outcome || undefined,
-          },
-          createdAt: call.startedAt.toISOString
-            ? call.startedAt.toISOString()
-            : new Date(call.startedAt).toISOString(),
-        })
-      }
-    }
 
     // ── Recording items (ElevenLabs voice AI) ──
     if (type === 'all' || type === 'calls') {

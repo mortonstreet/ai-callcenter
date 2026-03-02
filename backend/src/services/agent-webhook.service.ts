@@ -211,6 +211,8 @@ export async function processElevenLabsConversationWebhook(
     'Found agent for webhook',
   )
 
+  const defaultStage = await findDefaultPipelineStage(agent.organizationId)
+
   let taskInstance = await findTaskInstanceByConversationId(
     webhook.data.conversation_id,
     agent.organizationId,
@@ -252,7 +254,7 @@ export async function processElevenLabsConversationWebhook(
       dispatcherId: null,
       organizationId: agent.organizationId,
       pipelineStage: PipelineStage.NEW,
-      pipelineStageId: null,
+      pipelineStageId: defaultStage?.id ?? null,
       leadType: null,
       resolutionType: null,
       customerType: null,
@@ -316,8 +318,6 @@ export async function processElevenLabsConversationWebhook(
         },
       )
 
-      const defaultStage = await findDefaultPipelineStage(agent.organizationId)
-
       const customFieldsPatch: Record<string, unknown> = {}
       if (extracted.serviceNeeded)
         customFieldsPatch.serviceNeeded = extracted.serviceNeeded
@@ -339,6 +339,9 @@ export async function processElevenLabsConversationWebhook(
         if (!existingLead.phone && extracted.phone) {
           updates.phone = extracted.phone
           updates.normalizedPhone = extracted.normalizedPhone
+        }
+        if (!existingLead.pipelineStageId && defaultStage) {
+          updates.pipelineStageId = defaultStage.id
         }
 
         if (Object.keys(customFieldsPatch).length > 0) {
@@ -429,13 +432,19 @@ export async function processElevenLabsConversationWebhook(
         )
       }
 
-      // Link lead to task_instance
+      // Link lead to task_instance and backfill pipelineStageId
       if (
         taskInstance &&
         (!taskInstance.leadId || taskInstance.leadId === lead.id)
       ) {
         try {
-          await updateTaskInstance(taskInstance.id, { leadId: lead.id })
+          const tiUpdates: { leadId: string; pipelineStageId?: string } = {
+            leadId: lead.id,
+          }
+          if (!taskInstance.pipelineStageId && defaultStage) {
+            tiUpdates.pipelineStageId = defaultStage.id
+          }
+          await updateTaskInstance(taskInstance.id, tiUpdates)
           logger.info(
             { taskInstanceId: taskInstance.id, leadId: lead.id },
             'Linked lead to task_instance',
