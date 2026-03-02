@@ -26,14 +26,8 @@ export const McpCreateOrUpdateLeadInputSchema = z.object({
     .describe(
       'The conversation ID - DO NOT ASK THE USER FOR THIS, get from system__conversation_id',
     ),
-  customerName: z
-    .string()
-    .optional()
-    .describe('Full name of the customer'),
-  customerPhone: z
-    .string()
-    .optional()
-    .describe('Phone number of the customer'),
+  customerName: z.string().optional().describe('Full name of the customer'),
+  customerPhone: z.string().optional().describe('Phone number of the customer'),
   customerEmail: z
     .string()
     .optional()

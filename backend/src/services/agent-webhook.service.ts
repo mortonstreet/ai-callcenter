@@ -80,9 +80,7 @@ function extractLeadFieldsFromWebhook(
   const normalized = normalizePhone(rawPhone)
 
   const email =
-    dcVal('customer_email') ??
-    dcVal('email_address') ??
-    dcVal('email')
+    dcVal('customer_email') ?? dcVal('email_address') ?? dcVal('email')
 
   const serviceNeeded =
     dcVal('service_needed') ??
@@ -91,9 +89,7 @@ function extractLeadFieldsFromWebhook(
     dcVal('reason_for_call')
 
   const address =
-    dcVal('customer_address') ??
-    dcVal('service_address') ??
-    dcVal('address')
+    dcVal('customer_address') ?? dcVal('service_address') ?? dcVal('address')
 
   const preferredTimeWindow =
     dcVal('preferred_time') ??
@@ -319,8 +315,10 @@ export async function processElevenLabsConversationWebhook(
       )
 
       const customFieldsPatch: Record<string, unknown> = {}
-      if (extracted.serviceNeeded) customFieldsPatch.serviceNeeded = extracted.serviceNeeded
-      if (extracted.address) customFieldsPatch.customerAddress = extracted.address
+      if (extracted.serviceNeeded)
+        customFieldsPatch.serviceNeeded = extracted.serviceNeeded
+      if (extracted.address)
+        customFieldsPatch.customerAddress = extracted.address
       if (extracted.preferredTimeWindow)
         customFieldsPatch.preferredTimeWindow = extracted.preferredTimeWindow
 
@@ -357,7 +355,10 @@ export async function processElevenLabsConversationWebhook(
         }
 
         if (Object.keys(updates).length > 0) {
-          const updated = await leadRepository.update(existingLead.id, updates as any)
+          const updated = await leadRepository.update(
+            existingLead.id,
+            updates as any,
+          )
           lead = updated ?? existingLead
           logger.info(
             { leadId: lead.id, fieldsUpdated: Object.keys(updates) },
@@ -383,7 +384,9 @@ export async function processElevenLabsConversationWebhook(
           linkedInUrl: null,
           website: null,
           customFields:
-            Object.keys(customFieldsPatch).length > 0 ? customFieldsPatch : null,
+            Object.keys(customFieldsPatch).length > 0
+              ? customFieldsPatch
+              : null,
           pipelineStageId: null,
           dealValue: null,
           updatedAt: new Date(),
@@ -416,11 +419,17 @@ export async function processElevenLabsConversationWebhook(
           )
         }
       } catch (linkError) {
-        logger.warn({ error: linkError, callSid }, 'Could not link lead to call_log')
+        logger.warn(
+          { error: linkError, callSid },
+          'Could not link lead to call_log',
+        )
       }
 
       // Link lead to task_instance
-      if (taskInstance && (!taskInstance.leadId || taskInstance.leadId === lead.id)) {
+      if (
+        taskInstance &&
+        (!taskInstance.leadId || taskInstance.leadId === lead.id)
+      ) {
         try {
           await updateTaskInstance(taskInstance.id, { leadId: lead.id })
           logger.info(
@@ -428,12 +437,18 @@ export async function processElevenLabsConversationWebhook(
             'Linked lead to task_instance',
           )
         } catch (tiError) {
-          logger.warn({ error: tiError }, 'Could not link lead to task_instance')
+          logger.warn(
+            { error: tiError },
+            'Could not link lead to task_instance',
+          )
         }
       }
     }
   } catch (leadError) {
-    logger.warn({ error: leadError }, 'Failed to extract/upsert lead from webhook')
+    logger.warn(
+      { error: leadError },
+      'Failed to extract/upsert lead from webhook',
+    )
   }
 
   return {
@@ -442,4 +457,3 @@ export async function processElevenLabsConversationWebhook(
     organizationId: agent.organizationId,
   }
 }
-

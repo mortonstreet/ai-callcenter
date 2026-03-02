@@ -394,11 +394,13 @@ export function createMcpServer(organizationId: string) {
           lastName = parts.length > 1 ? parts.slice(1).join(' ') : null
         }
 
-        const existingLead =
-          await leadRepository.findByOrganizationAndContact(organizationId, {
+        const existingLead = await leadRepository.findByOrganizationAndContact(
+          organizationId,
+          {
             email,
             normalizedPhone: normalized,
-          })
+          },
+        )
 
         let lead: Awaited<ReturnType<typeof leadRepository.create>>
         let matchedExisting = false
@@ -424,7 +426,10 @@ export function createMcpServer(organizationId: string) {
           const merged = { ...prevCustom }
           let customFieldsChanged = false
 
-          if (input.serviceNeeded && merged.serviceNeeded !== input.serviceNeeded) {
+          if (
+            input.serviceNeeded &&
+            merged.serviceNeeded !== input.serviceNeeded
+          ) {
             merged.serviceNeeded = input.serviceNeeded
             customFieldsChanged = true
           }
@@ -453,7 +458,8 @@ export function createMcpServer(organizationId: string) {
           }
         } else {
           const customFields: Record<string, unknown> = {}
-          if (input.serviceNeeded) customFields.serviceNeeded = input.serviceNeeded
+          if (input.serviceNeeded)
+            customFields.serviceNeeded = input.serviceNeeded
           if (input.customerAddress)
             customFields.customerAddress = input.customerAddress
           if (input.notes) customFields.notes = input.notes
@@ -499,7 +505,9 @@ export function createMcpServer(organizationId: string) {
 
         logger.info(
           { leadId: lead.id, matchedExisting, phone, email },
-          matchedExisting ? 'Lead updated via MCP tool' : 'Lead created via MCP tool',
+          matchedExisting
+            ? 'Lead updated via MCP tool'
+            : 'Lead created via MCP tool',
         )
 
         return {

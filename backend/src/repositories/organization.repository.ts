@@ -390,11 +390,7 @@ export const getRecordings = async (filters: {
   // Build data query with lead join through task_instance
   let query = db
     .selectFrom('recording')
-    .leftJoin(
-      'task_instance',
-      'task_instance.id',
-      'recording.taskInstanceId',
-    )
+    .leftJoin('task_instance', 'task_instance.id', 'recording.taskInstanceId')
     .leftJoin('lead', 'lead.id', 'task_instance.leadId')
     .where('recording.organizationId', '=', filters.organizationId)
 
@@ -406,11 +402,7 @@ export const getRecordings = async (filters: {
     )
   }
   if (filters.endDate) {
-    query = query.where(
-      'recording.createdAt',
-      '<=',
-      new Date(filters.endDate),
-    )
+    query = query.where('recording.createdAt', '<=', new Date(filters.endDate))
   }
 
   query = query.select([
@@ -485,11 +477,7 @@ export const getRecordingById = async (
 ) => {
   const r = await db
     .selectFrom('recording')
-    .leftJoin(
-      'task_instance',
-      'task_instance.id',
-      'recording.taskInstanceId',
-    )
+    .leftJoin('task_instance', 'task_instance.id', 'recording.taskInstanceId')
     .leftJoin('lead', 'lead.id', 'task_instance.leadId')
     .where('recording.id', '=', recordingId)
     .where('recording.organizationId', '=', organizationId)
