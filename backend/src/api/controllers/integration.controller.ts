@@ -112,17 +112,9 @@ export const integrationCallbackHandler: AuthRequestHandler<
       })
     }
 
-    await completeIntegrationCallback(
-      organizationId,
-      provider,
-      code,
-      state,
-    )
+    await completeIntegrationCallback(organizationId, provider, code, state)
 
-    return res
-      .status(200)
-      .type('html')
-      .send(`<!doctype html>
+    return res.status(200).type('html').send(`<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />

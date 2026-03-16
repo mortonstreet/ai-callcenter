@@ -99,10 +99,7 @@ const ScheduleFollowUpCallInputSchema = z.object({
     ),
   customerName: z.string().describe('Full name of the customer'),
   customerPhone: z.string().describe('Best callback number for the customer'),
-  customerEmail: z
-    .string()
-    .optional()
-    .describe('Customer email, if available'),
+  customerEmail: z.string().optional().describe('Customer email, if available'),
   scheduledStartTime: z
     .string()
     .describe(
@@ -122,9 +119,7 @@ const ScheduleFollowUpCallInputSchema = z.object({
     .describe('Extra notes for the contractor follow-up call'),
 })
 
-type ScheduleFollowUpCallInput = z.infer<
-  typeof ScheduleFollowUpCallInputSchema
->
+type ScheduleFollowUpCallInput = z.infer<typeof ScheduleFollowUpCallInputSchema>
 
 // Placeholder email for bookings without customer email
 const PLACEHOLDER_EMAIL = 'callback@meerkatpestcontrol.com'

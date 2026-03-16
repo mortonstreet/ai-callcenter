@@ -6,8 +6,7 @@ const GOOGLE_OAUTH_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const GOOGLE_USERINFO_URL = 'https://openidconnect.googleapis.com/v1/userinfo'
 const GOOGLE_CALENDAR_LIST_URL =
   'https://www.googleapis.com/calendar/v3/users/me/calendarList'
-const GOOGLE_FREEBUSY_URL =
-  'https://www.googleapis.com/calendar/v3/freeBusy'
+const GOOGLE_FREEBUSY_URL = 'https://www.googleapis.com/calendar/v3/freeBusy'
 
 export interface GoogleTokenSet {
   accessToken: string
@@ -86,11 +85,7 @@ export class GoogleCalendarClient {
     url.searchParams.set('prompt', 'consent')
     url.searchParams.set(
       'scope',
-      [
-        'openid',
-        'email',
-        'https://www.googleapis.com/auth/calendar',
-      ].join(' '),
+      ['openid', 'email', 'https://www.googleapis.com/auth/calendar'].join(' '),
     )
     url.searchParams.set('state', input.state)
 

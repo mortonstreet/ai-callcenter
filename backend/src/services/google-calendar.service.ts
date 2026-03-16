@@ -218,9 +218,7 @@ const overlapsBusy = (
   endTime: Date,
   busyWindows: Array<{ start: Date; end: Date }>,
 ) =>
-  busyWindows.some(
-    (window) => startTime < window.end && endTime > window.start,
-  )
+  busyWindows.some((window) => startTime < window.end && endTime > window.start)
 
 export const buildCandidateSlots = (input: {
   startDate: Date
@@ -249,11 +247,7 @@ export const buildCandidateSlots = (input: {
       hour < input.workingHoursEnd;
       hour += 1
     ) {
-      for (
-        let minute = 0;
-        minute < 60;
-        minute += input.slotIntervalMinutes
-      ) {
+      for (let minute = 0; minute < 60; minute += input.slotIntervalMinutes) {
         const start = new Date(currentDay)
         start.setHours(hour, minute, 0, 0)
         const end = new Date(
@@ -299,7 +293,9 @@ export const buildCandidateSlots = (input: {
   return slots
 }
 
-const getAuthorizedGoogleCalendarConnection = async (organizationId: string) => {
+const getAuthorizedGoogleCalendarConnection = async (
+  organizationId: string,
+) => {
   const integration =
     await integrationRepository.findIntegrationByOrganizationAndProvider(
       organizationId,
@@ -409,7 +405,9 @@ export const listGoogleCalendarFollowUpSlots = async (input: {
   )
   const timeMax =
     candidateSlots[candidateSlots.length - 1]?.end ||
-    new Date(now.getTime() + config.availabilityWindowDays * 24 * 60 * 60 * 1000)
+    new Date(
+      now.getTime() + config.availabilityWindowDays * 24 * 60 * 60 * 1000,
+    )
 
   const freeBusy = await googleCalendarClient.queryFreeBusy({
     accessToken: connection.accessToken || '',
@@ -419,12 +417,12 @@ export const listGoogleCalendarFollowUpSlots = async (input: {
     timeZone: config.calendarTimeZone || undefined,
   })
 
-  const busyWindows = (
-    freeBusy.calendars?.[config.calendarId]?.busy || []
-  ).map((window) => ({
-    start: new Date(window.start),
-    end: new Date(window.end),
-  }))
+  const busyWindows = (freeBusy.calendars?.[config.calendarId]?.busy || []).map(
+    (window) => ({
+      start: new Date(window.start),
+      end: new Date(window.end),
+    }),
+  )
 
   const availableSlots: FollowUpSlot[] = candidateSlots
     .filter((slot) => !overlapsBusy(slot.start, slot.end, busyWindows))
