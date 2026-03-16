@@ -1,6 +1,11 @@
 import { z } from 'zod'
 
-const integrationProviders = ['jobber', 'workiz', 'servicetitan'] as const
+const integrationProviders = [
+  'jobber',
+  'workiz',
+  'servicetitan',
+  'google_calendar',
+] as const
 
 export const IntegrationProviderSchema = z.enum(integrationProviders)
 export type IntegrationProvider = z.infer<typeof IntegrationProviderSchema>

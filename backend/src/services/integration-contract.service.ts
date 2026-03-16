@@ -333,7 +333,10 @@ const refreshTokenIfNeeded = async (
       lastSyncStatus: integration.lastSyncStatus,
       externalAccountId:
         refreshed.externalAccountId || integration.externalAccountId || null,
-      config: integration.config,
+      config: {
+        ...toConfigRecord(integration.config),
+        ...(refreshed.config || {}),
+      },
       createdByUserId: integration.createdByUserId,
       displayName: integration.displayName,
       lastSyncAt: integration.lastSyncAt,
@@ -492,7 +495,10 @@ export const connectIntegration = async (
       existing: existing || undefined,
       status: 'connected',
       createdByUserId: userId,
-      config: sanitizeConfigForView(existingConfig),
+      config: {
+        ...sanitizeConfigForView(existingConfig),
+        ...(tokenSet.config || {}),
+      },
       accessToken: encryptSecret(tokenSet.accessToken),
       refreshToken: encryptSecret(tokenSet.refreshToken),
       tokenExpiresAt: tokenSet.tokenExpiresAt || null,
@@ -594,7 +600,10 @@ export const completeIntegrationCallback = async (
       existing,
       status: 'connected',
       createdByUserId: existing.createdByUserId,
-      config: nextConfig,
+      config: {
+        ...nextConfig,
+        ...(exchanged.config || {}),
+      },
       accessToken: encryptSecret(exchanged.accessToken),
       refreshToken: encryptSecret(exchanged.refreshToken),
       tokenExpiresAt: exchanged.tokenExpiresAt || null,

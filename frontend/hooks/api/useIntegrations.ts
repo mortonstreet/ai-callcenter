@@ -3,7 +3,11 @@ import { del, get, patch, post } from '@/lib/api'
 import { QUERY_KEYS } from '@/lib/config'
 import { useEffectiveOrganization } from '@/lib/admin-store'
 
-export type IntegrationProvider = 'jobber' | 'workiz' | 'servicetitan'
+export type IntegrationProvider =
+  | 'jobber'
+  | 'workiz'
+  | 'servicetitan'
+  | 'google_calendar'
 export type IntegrationConnectionStatus =
   | 'connected'
   | 'disconnected'

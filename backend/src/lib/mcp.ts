@@ -18,6 +18,10 @@ import {
 } from '@/services/task.service'
 import { CalComClient } from '@/clients/calcom.client'
 import { config } from '@/config'
+import {
+  listGoogleCalendarFollowUpSlots,
+  scheduleGoogleCalendarFollowUpCall,
+} from '@/services/google-calendar.service'
 
 // Schema for book-appointment input - email is optional for phone callback appointments
 const BookAppointmentInputSchema = z.object({
@@ -64,6 +68,63 @@ const BookAppointmentInputSchema = z.object({
 })
 
 type BookAppointmentInput = z.infer<typeof BookAppointmentInputSchema>
+
+const GetFollowUpSlotsInputSchema = z.object({
+  preferredDate: z
+    .string()
+    .optional()
+    .describe(
+      'Optional preferred date, such as "tomorrow", "next Tuesday", or "2026-03-20"',
+    ),
+  preferredTimeframe: z
+    .string()
+    .optional()
+    .describe(
+      'Optional time preference such as "morning", "afternoon", or "evening"',
+    ),
+  durationMinutes: z
+    .number()
+    .optional()
+    .describe('Optional follow-up call duration in minutes'),
+})
+
+type GetFollowUpSlotsInput = z.infer<typeof GetFollowUpSlotsInputSchema>
+
+const ScheduleFollowUpCallInputSchema = z.object({
+  conversationId: z
+    .string()
+    .optional()
+    .describe(
+      'The conversation ID to link the follow-up to the current call thread',
+    ),
+  customerName: z.string().describe('Full name of the customer'),
+  customerPhone: z.string().describe('Best callback number for the customer'),
+  customerEmail: z
+    .string()
+    .optional()
+    .describe('Customer email, if available'),
+  scheduledStartTime: z
+    .string()
+    .describe(
+      'The exact ISO start time chosen by the customer, ideally copied from get-follow-up-slots',
+    ),
+  durationMinutes: z
+    .number()
+    .optional()
+    .describe('Optional follow-up call duration in minutes'),
+  serviceType: z
+    .string()
+    .optional()
+    .describe('Type of service the caller needs'),
+  notes: z
+    .string()
+    .optional()
+    .describe('Extra notes for the contractor follow-up call'),
+})
+
+type ScheduleFollowUpCallInput = z.infer<
+  typeof ScheduleFollowUpCallInputSchema
+>
 
 // Placeholder email for bookings without customer email
 const PLACEHOLDER_EMAIL = 'callback@meerkatpestcontrol.com'
@@ -145,11 +206,121 @@ export function createMcpServer(organizationId: string) {
     },
   )
 
+  mcpServer.tool(
+    'get-follow-up-slots',
+    'Check the connected Google Calendar and return specific available times for a contractor follow-up call. Use this before you offer times to the caller.',
+    GetFollowUpSlotsInputSchema.shape,
+    async (input: GetFollowUpSlotsInput) => {
+      logger.info(`🔧 TOOL CALLED: get-follow-up-slots`)
+
+      try {
+        const result = await listGoogleCalendarFollowUpSlots({
+          organizationId,
+          preferredDate: input.preferredDate,
+          preferredTimeframe: input.preferredTimeframe,
+          durationMinutes: input.durationMinutes,
+        })
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                success: result.slots.length > 0,
+                connectedEmail: result.connectedEmail,
+                calendarSummary: result.calendarSummary,
+                calendarTimeZone: result.calendarTimeZone,
+                slots: result.slots,
+                message:
+                  result.slots.length > 0
+                    ? 'Here are the next available follow-up call times.'
+                    : 'No open follow-up call slots were found in the current search window.',
+              }),
+            },
+          ],
+        }
+      } catch (error) {
+        logger.error(`❌ FOLLOW-UP SLOT LOOKUP FAILED:`, error)
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                success: false,
+                error: 'Failed to check follow-up availability',
+                message:
+                  'Calendar availability could not be checked. Offer to have the team call back to confirm a time.',
+              }),
+            },
+          ],
+        }
+      }
+    },
+  )
+
+  mcpServer.tool(
+    'schedule-follow-up-call',
+    'Schedule a contractor follow-up call on the connected Google Calendar after the caller picks one of the offered times.',
+    ScheduleFollowUpCallInputSchema.shape,
+    async (input: ScheduleFollowUpCallInput) => {
+      logger.info(`🔧 TOOL CALLED: schedule-follow-up-call`)
+
+      try {
+        const result = await scheduleGoogleCalendarFollowUpCall({
+          organizationId,
+          conversationId: input.conversationId,
+          customerName: input.customerName,
+          customerPhone: input.customerPhone,
+          customerEmail: input.customerEmail,
+          scheduledStartTime: input.scheduledStartTime,
+          durationMinutes: input.durationMinutes,
+          serviceType: input.serviceType,
+          notes: input.notes,
+        })
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                success: true,
+                eventId: result.eventId,
+                status: result.status,
+                startAt: result.startAt,
+                endAt: result.endAt,
+                htmlLink: result.htmlLink,
+                connectedEmail: result.connectedEmail,
+                calendarSummary: result.calendarSummary,
+                message:
+                  'The follow-up call has been scheduled on the connected Google Calendar.',
+              }),
+            },
+          ],
+        }
+      } catch (error) {
+        logger.error(`❌ FOLLOW-UP SCHEDULING FAILED:`, error)
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                success: false,
+                error: 'Failed to schedule follow-up call',
+                message:
+                  'The follow-up call could not be scheduled. Offer to have the team call back to confirm the time manually.',
+              }),
+            },
+          ],
+        }
+      }
+    },
+  )
+
   // Book appointment tool - schedules via Cal.com
   // Supports bookings with or without email - phone callbacks for customers without email
   mcpServer.tool(
     'book-appointment',
-    'Book a free inspection appointment for the customer. Call this AFTER collecting all customer information and creating the task. Email is optional - if not provided, we will schedule a phone callback.',
+    'Legacy booking tool for older appointment flows. Prefer get-follow-up-slots and schedule-follow-up-call for contractor follow-up call scheduling.',
     BookAppointmentInputSchema.shape,
     async (input: BookAppointmentInput) => {
       const hasEmail = input.customerEmail && input.customerEmail.trim() !== ''

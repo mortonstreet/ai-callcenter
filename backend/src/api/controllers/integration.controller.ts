@@ -112,16 +112,39 @@ export const integrationCallbackHandler: AuthRequestHandler<
       })
     }
 
-    const integration = await completeIntegrationCallback(
+    await completeIntegrationCallback(
       organizationId,
       provider,
       code,
       state,
     )
 
-    return res.json({
-      data: integration,
-    })
+    return res
+      .status(200)
+      .type('html')
+      .send(`<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Integration Connected</title>
+    <style>
+      body { font-family: ui-sans-serif, system-ui, sans-serif; padding: 32px; color: #111827; }
+      .muted { color: #6b7280; }
+    </style>
+  </head>
+  <body>
+    <h1>${provider} connected</h1>
+    <p class="muted">You can close this window. RevCenter will refresh the integration status automatically.</p>
+    <script>
+      if (window.opener && !window.opener.closed) {
+        try {
+          window.opener.location.reload();
+        } catch (error) {}
+      }
+      setTimeout(() => window.close(), 400);
+    </script>
+  </body>
+</html>`)
   } catch (error) {
     if (error instanceof IntegrationServiceError) {
       return sendIntegrationServiceError(req, res, error)

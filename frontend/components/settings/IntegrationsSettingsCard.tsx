@@ -26,6 +26,7 @@ interface ProviderMeta {
   provider: IntegrationProvider;
   label: string;
   description: string;
+  kind: "crm" | "calendar";
 }
 
 interface ProviderConfigForm {
@@ -35,23 +36,39 @@ interface ProviderConfigForm {
   pushAppointments: boolean;
   autoSync: boolean;
   syncWindowDays: number;
+  followUpDurationMinutes: number;
+  slotIntervalMinutes: number;
+  availabilityWindowDays: number;
+  minimumNoticeHours: number;
+  workingHoursStart: number;
+  workingHoursEnd: number;
 }
 
 const PROVIDERS: ProviderMeta[] = [
   {
+    provider: "google_calendar",
+    label: "Google Calendar",
+    description:
+      "Connect the org admin calendar so the agent can check real-time availability and book contractor follow-up calls.",
+    kind: "calendar",
+  },
+  {
     provider: "jobber",
     label: "Jobber",
     description: "Sync customers and jobs, and push booked outcomes back to Jobber.",
+    kind: "crm",
   },
   {
     provider: "workiz",
     label: "Workiz",
     description: "Token-based CRM connection for contacts, service requests, and appointments.",
+    kind: "crm",
   },
   {
     provider: "servicetitan",
     label: "ServiceTitan",
     description: "Bi-directional sync for customers, calls, jobs, and booking outcomes.",
+    kind: "crm",
   },
 ];
 
@@ -69,6 +86,12 @@ const defaultConfig: ProviderConfigForm = {
   pushAppointments: false,
   autoSync: false,
   syncWindowDays: 14,
+  followUpDurationMinutes: 15,
+  slotIntervalMinutes: 30,
+  availabilityWindowDays: 7,
+  minimumNoticeHours: 2,
+  workingHoursStart: 9,
+  workingHoursEnd: 17,
 };
 
 const asBoolean = (value: unknown, fallback: boolean): boolean => {
@@ -97,6 +120,30 @@ const toFormConfig = (integration?: IntegrationConnection): ProviderConfigForm =
     ),
     autoSync: asBoolean(config.autoSync, defaultConfig.autoSync),
     syncWindowDays: asNumber(config.syncWindowDays, defaultConfig.syncWindowDays),
+    followUpDurationMinutes: asNumber(
+      config.followUpDurationMinutes,
+      defaultConfig.followUpDurationMinutes,
+    ),
+    slotIntervalMinutes: asNumber(
+      config.slotIntervalMinutes,
+      defaultConfig.slotIntervalMinutes,
+    ),
+    availabilityWindowDays: asNumber(
+      config.availabilityWindowDays,
+      defaultConfig.availabilityWindowDays,
+    ),
+    minimumNoticeHours: asNumber(
+      config.minimumNoticeHours,
+      defaultConfig.minimumNoticeHours,
+    ),
+    workingHoursStart: asNumber(
+      config.workingHoursStart,
+      defaultConfig.workingHoursStart,
+    ),
+    workingHoursEnd: asNumber(
+      config.workingHoursEnd,
+      defaultConfig.workingHoursEnd,
+    ),
   };
 };
 
@@ -139,6 +186,18 @@ function IntegrationProviderCard({
     (job) => job.status === "failed",
   );
   const lastError = integration?.lastError || latestFailedJob?.errorSummary || null;
+  const connectedEmail =
+    typeof integration?.config?.connectedEmail === "string"
+      ? integration.config.connectedEmail
+      : null;
+  const calendarSummary =
+    typeof integration?.config?.calendarSummary === "string"
+      ? integration.config.calendarSummary
+      : null;
+  const calendarTimeZone =
+    typeof integration?.config?.calendarTimeZone === "string"
+      ? integration.config.calendarTimeZone
+      : null;
 
   const isBusy =
     connectMutation.isPending ||
@@ -204,15 +263,27 @@ function IntegrationProviderCard({
 
   const handleSaveConfig = async () => {
     try {
+      const config =
+        meta.kind === "calendar"
+          ? {
+              followUpDurationMinutes: configForm.followUpDurationMinutes,
+              slotIntervalMinutes: configForm.slotIntervalMinutes,
+              availabilityWindowDays: configForm.availabilityWindowDays,
+              minimumNoticeHours: configForm.minimumNoticeHours,
+              workingHoursStart: configForm.workingHoursStart,
+              workingHoursEnd: configForm.workingHoursEnd,
+            }
+          : {
+              pullCustomers: configForm.pullCustomers,
+              pullJobs: configForm.pullJobs,
+              pushLeads: configForm.pushLeads,
+              pushAppointments: configForm.pushAppointments,
+              autoSync: configForm.autoSync,
+              syncWindowDays: configForm.syncWindowDays,
+            };
+
       await updateConfigMutation.mutateAsync({
-        config: {
-          pullCustomers: configForm.pullCustomers,
-          pullJobs: configForm.pullJobs,
-          pushLeads: configForm.pushLeads,
-          pushAppointments: configForm.pushAppointments,
-          autoSync: configForm.autoSync,
-          syncWindowDays: configForm.syncWindowDays,
-        },
+        config,
       });
       setIsConfigModalOpen(false);
       toast.success(`${meta.label} configuration saved`);
@@ -243,28 +314,34 @@ function IntegrationProviderCard({
         <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Last Sync
+              {meta.kind === "calendar" ? "Connected Account" : "Last Sync"}
             </p>
             <p className="text-foreground mt-1">
-              {formatTimestamp(integration?.lastSyncAt)}
+              {meta.kind === "calendar"
+                ? connectedEmail || "Not connected"
+                : formatTimestamp(integration?.lastSyncAt)}
             </p>
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Latest Job
+              {meta.kind === "calendar" ? "Calendar" : "Latest Job"}
             </p>
             <p className="text-foreground mt-1">
-              {latestJob
-                ? `${latestJob.direction.toUpperCase()} • ${latestJob.status}`
-                : "No sync jobs yet"}
+              {meta.kind === "calendar"
+                ? calendarSummary || "Primary calendar"
+                : latestJob
+                  ? `${latestJob.direction.toUpperCase()} • ${latestJob.status}`
+                  : "No sync jobs yet"}
             </p>
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">
-              Updated
+              {meta.kind === "calendar" ? "Timezone" : "Updated"}
             </p>
             <p className="text-foreground mt-1">
-              {formatTimestamp(integration?.updatedAt)}
+              {meta.kind === "calendar"
+                ? calendarTimeZone || "Default timezone"
+                : formatTimestamp(integration?.updatedAt)}
             </p>
           </div>
         </div>
@@ -311,22 +388,26 @@ function IntegrationProviderCard({
               >
                 Configure
               </Button>
-              <Button
-                variant="outline"
-                onClick={handlePullSync}
-                disabled={isBusy || status !== "connected"}
-                loading={pullSyncMutation.isPending}
-              >
-                Pull Sync
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handlePushSync}
-                disabled={isBusy || status !== "connected"}
-                loading={pushSyncMutation.isPending}
-              >
-                Push Sync
-              </Button>
+              {meta.kind === "crm" && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={handlePullSync}
+                    disabled={isBusy || status !== "connected"}
+                    loading={pullSyncMutation.isPending}
+                  >
+                    Pull Sync
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handlePushSync}
+                    disabled={isBusy || status !== "connected"}
+                    loading={pushSyncMutation.isPending}
+                  >
+                    Push Sync
+                  </Button>
+                </>
+              )}
             </>
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -340,81 +421,210 @@ function IntegrationProviderCard({
         isOpen={isConfigModalOpen}
         onClose={() => setIsConfigModalOpen(false)}
         title={`${meta.label} Configuration`}
-        subtitle="Choose the sync behavior for this provider."
+        subtitle={
+          meta.kind === "calendar"
+            ? "Configure how the agent reads availability and schedules follow-up calls."
+            : "Choose the sync behavior for this provider."
+        }
       >
         <div className="space-y-4">
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <input
-              type="checkbox"
-              checked={configForm.pullCustomers}
-              onChange={(e) =>
-                setConfigForm((prev) => ({
-                  ...prev,
-                  pullCustomers: e.target.checked,
-                }))
-              }
-            />
-            Pull customers
-          </label>
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <input
-              type="checkbox"
-              checked={configForm.pullJobs}
-              onChange={(e) =>
-                setConfigForm((prev) => ({ ...prev, pullJobs: e.target.checked }))
-              }
-            />
-            Pull jobs/appointments
-          </label>
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <input
-              type="checkbox"
-              checked={configForm.pushLeads}
-              onChange={(e) =>
-                setConfigForm((prev) => ({ ...prev, pushLeads: e.target.checked }))
-              }
-            />
-            Push leads
-          </label>
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <input
-              type="checkbox"
-              checked={configForm.pushAppointments}
-              onChange={(e) =>
-                setConfigForm((prev) => ({
-                  ...prev,
-                  pushAppointments: e.target.checked,
-                }))
-              }
-            />
-            Push appointments
-          </label>
-          <label className="flex items-center gap-2 text-sm text-foreground">
-            <input
-              type="checkbox"
-              checked={configForm.autoSync}
-              onChange={(e) =>
-                setConfigForm((prev) => ({ ...prev, autoSync: e.target.checked }))
-              }
-            />
-            Auto-sync
-          </label>
-          <label className="space-y-1 block">
-            <span className="text-sm text-foreground">Sync window (days)</span>
-            <input
-              type="number"
-              min={1}
-              max={90}
-              value={configForm.syncWindowDays}
-              onChange={(e) =>
-                setConfigForm((prev) => ({
-                  ...prev,
-                  syncWindowDays: asNumber(e.target.value, defaultConfig.syncWindowDays),
-                }))
-              }
-              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
-            />
-          </label>
+          {meta.kind === "calendar" ? (
+            <>
+              <label className="space-y-1 block">
+                <span className="text-sm text-foreground">Follow-up call duration (minutes)</span>
+                <input
+                  type="number"
+                  min={10}
+                  max={120}
+                  value={configForm.followUpDurationMinutes}
+                  onChange={(e) =>
+                    setConfigForm((prev) => ({
+                      ...prev,
+                      followUpDurationMinutes: asNumber(
+                        e.target.value,
+                        defaultConfig.followUpDurationMinutes,
+                      ),
+                    }))
+                  }
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
+                />
+              </label>
+              <label className="space-y-1 block">
+                <span className="text-sm text-foreground">Availability search window (days)</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={configForm.availabilityWindowDays}
+                  onChange={(e) =>
+                    setConfigForm((prev) => ({
+                      ...prev,
+                      availabilityWindowDays: asNumber(
+                        e.target.value,
+                        defaultConfig.availabilityWindowDays,
+                      ),
+                    }))
+                  }
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
+                />
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className="space-y-1 block">
+                  <span className="text-sm text-foreground">Workday start hour</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={23}
+                    value={configForm.workingHoursStart}
+                    onChange={(e) =>
+                      setConfigForm((prev) => ({
+                        ...prev,
+                        workingHoursStart: asNumber(
+                          e.target.value,
+                          defaultConfig.workingHoursStart,
+                        ),
+                      }))
+                    }
+                    className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
+                  />
+                </label>
+                <label className="space-y-1 block">
+                  <span className="text-sm text-foreground">Workday end hour</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={24}
+                    value={configForm.workingHoursEnd}
+                    onChange={(e) =>
+                      setConfigForm((prev) => ({
+                        ...prev,
+                        workingHoursEnd: asNumber(
+                          e.target.value,
+                          defaultConfig.workingHoursEnd,
+                        ),
+                      }))
+                    }
+                    className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
+                  />
+                </label>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className="space-y-1 block">
+                  <span className="text-sm text-foreground">Slot interval (minutes)</span>
+                  <input
+                    type="number"
+                    min={10}
+                    max={120}
+                    value={configForm.slotIntervalMinutes}
+                    onChange={(e) =>
+                      setConfigForm((prev) => ({
+                        ...prev,
+                        slotIntervalMinutes: asNumber(
+                          e.target.value,
+                          defaultConfig.slotIntervalMinutes,
+                        ),
+                      }))
+                    }
+                    className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
+                  />
+                </label>
+                <label className="space-y-1 block">
+                  <span className="text-sm text-foreground">Minimum notice (hours)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={72}
+                    value={configForm.minimumNoticeHours}
+                    onChange={(e) =>
+                      setConfigForm((prev) => ({
+                        ...prev,
+                        minimumNoticeHours: asNumber(
+                          e.target.value,
+                          defaultConfig.minimumNoticeHours,
+                        ),
+                      }))
+                    }
+                    className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
+                  />
+                </label>
+              </div>
+            </>
+          ) : (
+            <>
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={configForm.pullCustomers}
+                  onChange={(e) =>
+                    setConfigForm((prev) => ({
+                      ...prev,
+                      pullCustomers: e.target.checked,
+                    }))
+                  }
+                />
+                Pull customers
+              </label>
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={configForm.pullJobs}
+                  onChange={(e) =>
+                    setConfigForm((prev) => ({ ...prev, pullJobs: e.target.checked }))
+                  }
+                />
+                Pull jobs/appointments
+              </label>
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={configForm.pushLeads}
+                  onChange={(e) =>
+                    setConfigForm((prev) => ({ ...prev, pushLeads: e.target.checked }))
+                  }
+                />
+                Push leads
+              </label>
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={configForm.pushAppointments}
+                  onChange={(e) =>
+                    setConfigForm((prev) => ({
+                      ...prev,
+                      pushAppointments: e.target.checked,
+                    }))
+                  }
+                />
+                Push appointments
+              </label>
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={configForm.autoSync}
+                  onChange={(e) =>
+                    setConfigForm((prev) => ({ ...prev, autoSync: e.target.checked }))
+                  }
+                />
+                Auto-sync
+              </label>
+              <label className="space-y-1 block">
+                <span className="text-sm text-foreground">Sync window (days)</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={90}
+                  value={configForm.syncWindowDays}
+                  onChange={(e) =>
+                    setConfigForm((prev) => ({
+                      ...prev,
+                      syncWindowDays: asNumber(e.target.value, defaultConfig.syncWindowDays),
+                    }))
+                  }
+                  className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
+                />
+              </label>
+            </>
+          )}
 
           <div className="pt-2 flex justify-end gap-2">
             <Button
@@ -455,7 +665,7 @@ export default function IntegrationsSettingsCard({
     <Card title="Integrations">
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">
-          Manage Jobber, Workiz, and ServiceTitan CRM connections, configs, and sync jobs.
+          Manage Google Calendar and CRM integrations, along with provider-specific connection settings.
         </p>
 
         {integrationsQuery.isLoading && !integrationsQuery.data ? (

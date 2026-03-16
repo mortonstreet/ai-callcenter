@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
 import { config } from '@/config'
+import { GoogleCalendarClient } from '@/clients/google-calendar.client'
 import {
   IntegrationProvider,
   IntegrationSyncDirection,
@@ -39,6 +40,7 @@ export interface ProviderTokenSet {
   tokenExpiresAt?: Date | null
   scopes?: string | null
   externalAccountId?: string | null
+  config?: Record<string, unknown>
 }
 
 export interface ProviderCustomerRecord {
@@ -147,6 +149,8 @@ const defaultPushResult = async (
     message: `${provider} push accepted`,
   }
 }
+
+const googleCalendarClient = new GoogleCalendarClient()
 
 const jobberAdapter: CrmProviderAdapter = {
   provider: 'jobber',
@@ -285,13 +289,106 @@ const serviceTitanAdapter: CrmProviderAdapter = {
     defaultPushResult('servicetitan', appointment),
 }
 
+const googleCalendarAdapter: CrmProviderAdapter = {
+  provider: 'google_calendar',
+  label: 'Google Calendar',
+  authMode: 'oauth',
+  buildAuthorizeUrl: ({ organizationId, state }) =>
+    googleCalendarClient.buildAuthorizeUrl({
+      redirectUri: buildFallbackRedirectUri('google_calendar', organizationId),
+      state,
+    }),
+  exchangeCode: async ({ organizationId, code }) => {
+    if (!code) {
+      throw new Error('Missing Google authorization code')
+    }
+
+    const tokenSet = await googleCalendarClient.exchangeCode({
+      code,
+      redirectUri: buildFallbackRedirectUri('google_calendar', organizationId),
+    })
+    const profile = await googleCalendarClient.getPrimaryCalendarProfile(
+      tokenSet.accessToken,
+    )
+
+    return {
+      accessToken: tokenSet.accessToken,
+      refreshToken: tokenSet.refreshToken || null,
+      tokenExpiresAt: tokenSet.expiresIn
+        ? new Date(Date.now() + tokenSet.expiresIn * 1000)
+        : null,
+      scopes: tokenSet.scope || null,
+      externalAccountId: profile.email,
+      config: {
+        connectedEmail: profile.email,
+        calendarId: profile.calendarId,
+        calendarSummary: profile.calendarSummary,
+        calendarTimeZone: profile.timeZone,
+        followUpDurationMinutes: 15,
+        slotIntervalMinutes: 30,
+        availabilityWindowDays: 7,
+        minimumNoticeHours: 2,
+        workingHoursStart: 9,
+        workingHoursEnd: 17,
+      },
+    }
+  },
+  refreshToken: async ({ organizationId, refreshToken }) => {
+    if (!refreshToken) {
+      throw new Error('Missing Google refresh token')
+    }
+
+    const tokenSet = await googleCalendarClient.refreshAccessToken(refreshToken)
+    const profile = await googleCalendarClient.getPrimaryCalendarProfile(
+      tokenSet.accessToken,
+    )
+
+    return {
+      accessToken: tokenSet.accessToken,
+      refreshToken,
+      tokenExpiresAt: tokenSet.expiresIn
+        ? new Date(Date.now() + tokenSet.expiresIn * 1000)
+        : null,
+      scopes: tokenSet.scope || null,
+      externalAccountId: profile.email,
+      config: {
+        connectedEmail: profile.email,
+        calendarId: profile.calendarId,
+        calendarSummary: profile.calendarSummary,
+        calendarTimeZone: profile.timeZone,
+      },
+    }
+  },
+  testConnection: async ({ accessToken }) => {
+    if (!accessToken) {
+      return {
+        ok: false,
+        message: 'Google Calendar is not connected',
+      }
+    }
+
+    const profile = await googleCalendarClient.testConnection(accessToken)
+    return {
+      ok: true,
+      message: `Connected to ${profile.email} (${profile.calendarSummary})`,
+    }
+  },
+  pullCustomers: defaultPullCustomers,
+  pullJobsOrAppointments: defaultPullJobs,
+  pushLead: async ({ lead }) => defaultPushResult('google_calendar', lead),
+  pushAppointment: async ({ appointment }) =>
+    defaultPushResult('google_calendar', appointment),
+}
+
 const adapters: Record<IntegrationProvider, CrmProviderAdapter> = {
+  google_calendar: googleCalendarAdapter,
   jobber: jobberAdapter,
   workiz: workizAdapter,
   servicetitan: serviceTitanAdapter,
 }
 
 export const supportedIntegrationProviders: IntegrationProvider[] = [
+  'google_calendar',
   'jobber',
   'workiz',
   'servicetitan',
