@@ -12,7 +12,6 @@
     "start": "pnpm start:api",
     "start:api": "node dist/server.mjs",
     "start:worker": "node dist/worker.mjs",
-    "cli:script": "tsx cli/script.ts",
     "cli:create-agent": "tsx cli/create-agent.ts",
     "cli:make-admin": "tsx cli/make-admin.ts"
   },
