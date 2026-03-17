@@ -101,6 +101,9 @@ const buildFallbackRedirectUri = (
 ) =>
   `${config.backendUrl}/api/integrations/${provider}/callback?organizationId=${organizationId}`
 
+const buildStaticProviderRedirectUri = (provider: IntegrationProvider) =>
+  `${config.backendUrl}/api/integrations/${provider}/callback`
+
 const buildOauthAuthorizeUrl = (
   baseUrl: string,
   params: Record<string, string>,
@@ -293,19 +296,19 @@ const googleCalendarAdapter: CrmProviderAdapter = {
   provider: 'google_calendar',
   label: 'Google Calendar',
   authMode: 'oauth',
-  buildAuthorizeUrl: ({ organizationId, state }) =>
+  buildAuthorizeUrl: ({ state }) =>
     googleCalendarClient.buildAuthorizeUrl({
-      redirectUri: buildFallbackRedirectUri('google_calendar', organizationId),
+      redirectUri: buildStaticProviderRedirectUri('google_calendar'),
       state,
     }),
-  exchangeCode: async ({ organizationId, code }) => {
+  exchangeCode: async ({ code }) => {
     if (!code) {
       throw new Error('Missing Google authorization code')
     }
 
     const tokenSet = await googleCalendarClient.exchangeCode({
       code,
-      redirectUri: buildFallbackRedirectUri('google_calendar', organizationId),
+      redirectUri: buildStaticProviderRedirectUri('google_calendar'),
     })
     const profile = await googleCalendarClient.getPrimaryCalendarProfile(
       tokenSet.accessToken,
