@@ -1,4 +1,5 @@
 import { decryptSecret, encryptSecret } from '@/lib/encryption'
+import { config as appConfig } from '@/config'
 import * as integrationRepository from '@/repositories/integration.repository'
 import {
   getIntegrationProviderAdapter,
@@ -28,6 +29,18 @@ export interface FollowUpSlot {
   label: string
 }
 
+export interface ExactFollowUpAvailabilityResult {
+  available: boolean
+  requestedStartAt: string
+  requestedEndAt: string
+  requestedLabel: string
+  reason: string | null
+  alternatives: FollowUpSlot[]
+  connectedEmail: string | null
+  calendarSummary: string | null
+  calendarTimeZone: string | null
+}
+
 const DEFAULT_CONFIG: GoogleCalendarConfig = {
   connectedEmail: null,
   calendarId: 'primary',
@@ -39,6 +52,23 @@ const DEFAULT_CONFIG: GoogleCalendarConfig = {
   minimumNoticeHours: 2,
   workingHoursStart: 9,
   workingHoursEnd: 17,
+}
+
+const TIMEZONE_ALIASES: Record<string, string> = {
+  est: 'America/New_York',
+  edt: 'America/New_York',
+  et: 'America/New_York',
+  cst: 'America/Chicago',
+  cdt: 'America/Chicago',
+  ct: 'America/Chicago',
+  mst: 'America/Denver',
+  mdt: 'America/Denver',
+  mt: 'America/Denver',
+  pst: 'America/Los_Angeles',
+  pdt: 'America/Los_Angeles',
+  pt: 'America/Los_Angeles',
+  utc: 'UTC',
+  gmt: 'UTC',
 }
 
 const toRecord = (value: unknown): Record<string, unknown> => {
@@ -202,6 +232,185 @@ const parsePreferredDate = (input?: string, now = new Date()): Date | null => {
 
   parsed.setHours(0, 0, 0, 0)
   return parsed
+}
+
+const resolveTimeZone = (
+  explicitTimeZone?: string,
+  fallbackTimeZone?: string | null,
+): string => {
+  if (explicitTimeZone?.trim()) {
+    const normalized = explicitTimeZone.trim().toLowerCase()
+    return TIMEZONE_ALIASES[normalized] || explicitTimeZone.trim()
+  }
+
+  if (fallbackTimeZone?.trim()) {
+    return fallbackTimeZone.trim()
+  }
+
+  return appConfig.timezone
+}
+
+const getDateTimeFormatterParts = (date: Date, timeZone: string) => {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
+
+  return formatter.formatToParts(date).reduce<Record<string, string>>(
+    (acc, part) => {
+      if (part.type !== 'literal') {
+        acc[part.type] = part.value
+      }
+      return acc
+    },
+    {},
+  )
+}
+
+const zonedDateTimeToUtc = (input: {
+  year: number
+  month: number
+  day: number
+  hour: number
+  minute: number
+  timeZone: string
+}) => {
+  const utcGuess = Date.UTC(
+    input.year,
+    input.month - 1,
+    input.day,
+    input.hour,
+    input.minute,
+    0,
+    0,
+  )
+  const parts = getDateTimeFormatterParts(new Date(utcGuess), input.timeZone)
+  const asIfUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second),
+    0,
+  )
+
+  return new Date(utcGuess - (asIfUtc - utcGuess))
+}
+
+const extractDateDescriptor = (input: string) => {
+  const normalized = input.trim().toLowerCase()
+
+  if (normalized.includes('tomorrow')) {
+    return 'tomorrow'
+  }
+
+  if (normalized.includes('today')) {
+    return 'today'
+  }
+
+  const isoMatch = normalized.match(/\b(\d{4}-\d{2}-\d{2})\b/)
+  if (isoMatch?.[1]) {
+    return isoMatch[1]
+  }
+
+  const weekdayMatch = normalized.match(
+    /\b(?:next\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/,
+  )
+  if (weekdayMatch?.[1]) {
+    return normalized.includes('next ') ? `next ${weekdayMatch[1]}` : weekdayMatch[1]
+  }
+
+  return null
+}
+
+const parseHourAndMinute = (input: string) => {
+  const normalized = input.trim().toLowerCase()
+  const amPmMatch = normalized.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/)
+
+  if (amPmMatch) {
+    let hour = Number(amPmMatch[1])
+    const minute = Number(amPmMatch[2] || '0')
+    const meridiem = amPmMatch[3]
+
+    if (meridiem === 'pm' && hour !== 12) {
+      hour += 12
+    }
+    if (meridiem === 'am' && hour === 12) {
+      hour = 0
+    }
+
+    return { hour, minute }
+  }
+
+  const twentyFourHourMatch = normalized.match(/\b(\d{1,2}):(\d{2})\b/)
+  if (twentyFourHourMatch) {
+    return {
+      hour: Number(twentyFourHourMatch[1]),
+      minute: Number(twentyFourHourMatch[2]),
+    }
+  }
+
+  return null
+}
+
+export const parseExactRequestedDateTime = (input: {
+  requestedTime: string
+  timeZone?: string
+  fallbackTimeZone?: string | null
+  now?: Date
+}) => {
+  const now = input.now || new Date()
+  const requestedTime = input.requestedTime.trim()
+
+  if (!requestedTime) {
+    return null
+  }
+
+  const timezoneMatch = requestedTime
+    .toLowerCase()
+    .match(/\b(est|edt|et|cst|cdt|ct|mst|mdt|mt|pst|pdt|pt|utc|gmt)\b/)
+  const timeZone = resolveTimeZone(
+    input.timeZone || timezoneMatch?.[1],
+    input.fallbackTimeZone,
+  )
+
+  const dateDescriptor = extractDateDescriptor(requestedTime)
+  const timeParts = parseHourAndMinute(requestedTime)
+
+  if (!dateDescriptor || !timeParts) {
+    return null
+  }
+
+  const baseDate = parsePreferredDate(dateDescriptor, now)
+  if (!baseDate) {
+    return null
+  }
+
+  const zonedStart = zonedDateTimeToUtc({
+    year: baseDate.getFullYear(),
+    month: baseDate.getMonth() + 1,
+    day: baseDate.getDate(),
+    hour: timeParts.hour,
+    minute: timeParts.minute,
+    timeZone,
+  })
+
+  return {
+    start: zonedStart,
+    timeZone,
+  }
+}
+
+const getHourInTimeZone = (date: Date, timeZone: string) => {
+  const parts = getDateTimeFormatterParts(date, timeZone)
+  return Number(parts.hour)
 }
 
 const formatSlotLabel = (value: Date) =>
@@ -439,6 +648,103 @@ export const listGoogleCalendarFollowUpSlots = async (input: {
     calendarTimeZone: config.calendarTimeZone,
     slots: availableSlots,
   }
+}
+
+export const checkGoogleCalendarExactFollowUpAvailability = async (input: {
+  organizationId: string
+  requestedTime: string
+  timeZone?: string
+  durationMinutes?: number
+}) => {
+  const { connection, config } = await getAuthorizedGoogleCalendarConnection(
+    input.organizationId,
+  )
+
+  const durationMinutes = clamp(
+    input.durationMinutes || config.followUpDurationMinutes,
+    10,
+    120,
+  )
+  const parsed = parseExactRequestedDateTime({
+    requestedTime: input.requestedTime,
+    timeZone: input.timeZone,
+    fallbackTimeZone: config.calendarTimeZone,
+  })
+
+  if (!parsed) {
+    throw new Error(
+      'Could not parse the requested time. Use a phrase like "tomorrow at 3pm ET" or an ISO timestamp.',
+    )
+  }
+
+  const start = parsed.start
+  const end = new Date(start.getTime() + durationMinutes * 60 * 1000)
+  const localHour = getHourInTimeZone(start, parsed.timeZone)
+  const now = new Date()
+
+  let reason: string | null = null
+
+  if (
+    localHour < config.workingHoursStart ||
+    localHour >= config.workingHoursEnd
+  ) {
+    reason = 'Outside the configured follow-up call hours'
+  } else if (
+    start.getTime() <
+    now.getTime() + config.minimumNoticeHours * 60 * 60 * 1000
+  ) {
+    reason = 'Does not meet the minimum notice window'
+  } else {
+    const freeBusy = await googleCalendarClient.queryFreeBusy({
+      accessToken: connection.accessToken || '',
+      calendarId: config.calendarId,
+      timeMin: start.toISOString(),
+      timeMax: end.toISOString(),
+      timeZone: config.calendarTimeZone || parsed.timeZone,
+    })
+
+    const busyWindows = (freeBusy.calendars?.[config.calendarId]?.busy || []).map(
+      (window) => ({
+        start: new Date(window.start),
+        end: new Date(window.end),
+      }),
+    )
+
+    if (overlapsBusy(start, end, busyWindows)) {
+      reason = 'The connected Google Calendar is already booked at that time'
+    }
+  }
+
+  const requestedDateLabel = start.toLocaleString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: parsed.timeZone,
+    timeZoneName: 'short',
+  })
+
+  const alternativesResult = await listGoogleCalendarFollowUpSlots({
+    organizationId: input.organizationId,
+    preferredDate: start.toISOString().slice(0, 10),
+    preferredTimeframe:
+      localHour < 12 ? 'morning' : localHour < 17 ? 'afternoon' : 'evening',
+    durationMinutes,
+    maxSlots: 3,
+  })
+
+  return {
+    available: reason === null,
+    requestedStartAt: start.toISOString(),
+    requestedEndAt: end.toISOString(),
+    requestedLabel: requestedDateLabel,
+    reason,
+    alternatives: alternativesResult.slots,
+    connectedEmail: config.connectedEmail,
+    calendarSummary: config.calendarSummary,
+    calendarTimeZone: config.calendarTimeZone,
+  } satisfies ExactFollowUpAvailabilityResult
 }
 
 export const scheduleGoogleCalendarFollowUpCall = async (input: {

@@ -13,6 +13,8 @@ import {
   UpdateIntegrationConfigRequest,
 } from '@shared/types/src/requests/integrations'
 import { sendApiError } from '@/api/utils/error-contract'
+import * as integrationRepository from '@/repositories/integration.repository'
+import { isMemberOfOrganization } from '@/services/user.service'
 import {
   completeIntegrationCallback,
   connectIntegration,
@@ -112,7 +114,60 @@ export const integrationCallbackHandler: AuthRequestHandler<
       })
     }
 
-    await completeIntegrationCallback(organizationId, provider, code, state)
+    let resolvedOrganizationId = organizationId
+
+    if (!resolvedOrganizationId && state) {
+      const pendingIntegration =
+        await integrationRepository.findIntegrationByProviderAndOauthState(
+          provider,
+          state,
+        )
+
+      if (!pendingIntegration) {
+        return sendApiError(req, res, 404, {
+          code: 'INTEGRATION_NOT_FOUND',
+          message: `Pending ${provider} integration was not found`,
+          userMessage: 'Start a new connection attempt and retry.',
+          details: { provider },
+        })
+      }
+
+      const isMember = await isMemberOfOrganization(
+        req.user.id,
+        pendingIntegration.organizationId,
+      )
+
+      if (
+        !isMember &&
+        !req.user.isAdmin &&
+        pendingIntegration.createdByUserId !== req.user.id
+      ) {
+        return sendApiError(req, res, 401, {
+          code: 'ORG_UNAUTHORIZED',
+          message: 'Unauthorized',
+          userMessage: 'You do not have access to this organization.',
+          retryable: false,
+        })
+      }
+
+      resolvedOrganizationId = pendingIntegration.organizationId
+    }
+
+    if (!resolvedOrganizationId) {
+      return sendApiError(req, res, 400, {
+        code: 'ORG_SCOPE_REQUIRED',
+        message: 'Organization scope is required',
+        userMessage: 'Select an organization and retry.',
+        retryable: false,
+      })
+    }
+
+    await completeIntegrationCallback(
+      resolvedOrganizationId,
+      provider,
+      code,
+      state,
+    )
 
     return res.status(200).type('html').send(`<!doctype html>
 <html>

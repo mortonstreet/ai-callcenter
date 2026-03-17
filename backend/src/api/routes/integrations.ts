@@ -69,11 +69,6 @@ router.post(
 router.get(
   '/:provider/callback',
   validateAndMerge(IntegrationCallbackRequestSchema),
-  resolveOrganizationScope,
-  validateMemberOfOrganizationIsOrAdmin([
-    OrganizationRole.ADMIN,
-    OrganizationRole.OWNER,
-  ]),
   authenticatedRoute(integrationCallbackHandler),
 )
 

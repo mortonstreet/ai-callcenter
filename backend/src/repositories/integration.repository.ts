@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { withId } from './utils'
+import { sql } from 'kysely'
 import {
   DBIntegration,
   DBIntegrationSyncJob,
@@ -42,6 +43,22 @@ export const findIntegrationByOrganizationAndProvider = async (
     .selectFrom('integration')
     .where('organizationId', '=', organizationId)
     .where('provider', '=', provider)
+    .selectAll()
+    .executeTakeFirst()
+}
+
+export const findIntegrationByProviderAndOauthState = async (
+  provider: string,
+  oauthState: string,
+): Promise<DBIntegration | undefined> => {
+  return db
+    .selectFrom('integration')
+    .where('provider', '=', provider)
+    .where(
+      sql<boolean>`
+        COALESCE(("config"->>'oauthState'), '') = ${oauthState}
+      `,
+    )
     .selectAll()
     .executeTakeFirst()
 }

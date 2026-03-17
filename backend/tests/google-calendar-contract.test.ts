@@ -9,6 +9,7 @@ import { buildWizardIntentProfileV1 } from '../src/services/agent-profile.servic
 import {
   buildCandidateSlots,
   normalizeGoogleCalendarConfig,
+  parseExactRequestedDateTime,
 } from '../src/services/google-calendar.service'
 
 test('integration provider schema accepts google calendar', () => {
@@ -68,4 +69,31 @@ test('google calendar config normalization and slot generation use safe defaults
 
   assert.ok(slots.length > 0)
   assert.equal(slots[0].start.getHours(), 9)
+})
+
+test('default prompt tells agent to verify exact requested times', () => {
+  const intentProfile = buildWizardIntentProfileV1({
+    companyName: 'Northwind HVAC',
+    agentName: 'Ava',
+    industry: 'hvac',
+    useCase: 'customer_support',
+    services: ['AC repair'],
+    mainObjective: 'Schedule qualified follow-up calls',
+  })
+
+  const compiled = compileSystemPrompt(intentProfile)
+
+  assert.match(compiled.systemPrompt, /check-follow-up-time/)
+  assert.match(compiled.systemPrompt, /Never confirm an exact requested time/i)
+})
+
+test('parses exact requested natural language times with timezone aliases', () => {
+  const parsed = parseExactRequestedDateTime({
+    requestedTime: 'tomorrow at 9pm EST',
+    now: new Date('2026-03-16T12:00:00.000Z'),
+  })
+
+  assert.ok(parsed)
+  assert.equal(parsed?.timeZone, 'America/New_York')
+  assert.equal(parsed?.start.toISOString(), '2026-03-18T01:00:00.000Z')
 })

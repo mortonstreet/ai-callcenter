@@ -19,6 +19,7 @@ import {
 import { CalComClient } from '@/clients/calcom.client'
 import { config } from '@/config'
 import {
+  checkGoogleCalendarExactFollowUpAvailability,
   listGoogleCalendarFollowUpSlots,
   scheduleGoogleCalendarFollowUpCall,
 } from '@/services/google-calendar.service'
@@ -89,6 +90,26 @@ const GetFollowUpSlotsInputSchema = z.object({
 })
 
 type GetFollowUpSlotsInput = z.infer<typeof GetFollowUpSlotsInputSchema>
+
+const CheckFollowUpTimeInputSchema = z.object({
+  requestedTime: z
+    .string()
+    .describe(
+      'The exact requested time, such as "tomorrow at 9pm EST", "next Tuesday 2:30pm ET", or "2026-03-20T18:00:00-04:00"',
+    ),
+  timeZone: z
+    .string()
+    .optional()
+    .describe(
+      'Optional timezone if it is not already included in requestedTime, such as "America/New_York" or "EST"',
+    ),
+  durationMinutes: z
+    .number()
+    .optional()
+    .describe('Optional follow-up call duration in minutes'),
+})
+
+type CheckFollowUpTimeInput = z.infer<typeof CheckFollowUpTimeInputSchema>
 
 const ScheduleFollowUpCallInputSchema = z.object({
   conversationId: z
@@ -193,6 +214,62 @@ export function createMcpServer(organizationId: string) {
               text: JSON.stringify({
                 success: false,
                 error: 'Failed to create task',
+              }),
+            },
+          ],
+        }
+      }
+    },
+  )
+
+  mcpServer.tool(
+    'check-follow-up-time',
+    'Check whether one specific requested follow-up call time is truly available on the connected Google Calendar. Use this before saying yes to an exact requested time.',
+    CheckFollowUpTimeInputSchema.shape,
+    async (input: CheckFollowUpTimeInput) => {
+      logger.info(`🔧 TOOL CALLED: check-follow-up-time`)
+
+      try {
+        const result = await checkGoogleCalendarExactFollowUpAvailability({
+          organizationId,
+          requestedTime: input.requestedTime,
+          timeZone: input.timeZone,
+          durationMinutes: input.durationMinutes,
+        })
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                success: true,
+                available: result.available,
+                requestedStartAt: result.requestedStartAt,
+                requestedEndAt: result.requestedEndAt,
+                requestedLabel: result.requestedLabel,
+                reason: result.reason,
+                alternatives: result.alternatives,
+                connectedEmail: result.connectedEmail,
+                calendarSummary: result.calendarSummary,
+                calendarTimeZone: result.calendarTimeZone,
+                message: result.available
+                  ? 'That requested follow-up time is available.'
+                  : 'That exact requested follow-up time is not available.',
+              }),
+            },
+          ],
+        }
+      } catch (error) {
+        logger.error(`❌ EXACT FOLLOW-UP CHECK FAILED:`, error)
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                success: false,
+                error: 'Failed to check the requested follow-up time',
+                message:
+                  'The exact requested time could not be verified. Ask for another time or offer specific slots from the live calendar.',
               }),
             },
           ],
