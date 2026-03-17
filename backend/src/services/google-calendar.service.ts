@@ -262,15 +262,14 @@ const getDateTimeFormatterParts = (date: Date, timeZone: string) => {
     second: '2-digit',
   })
 
-  return formatter.formatToParts(date).reduce<Record<string, string>>(
-    (acc, part) => {
+  return formatter
+    .formatToParts(date)
+    .reduce<Record<string, string>>((acc, part) => {
       if (part.type !== 'literal') {
         acc[part.type] = part.value
       }
       return acc
-    },
-    {},
-  )
+    }, {})
 }
 
 const zonedDateTimeToUtc = (input: {
@@ -324,7 +323,9 @@ const extractDateDescriptor = (input: string) => {
     /\b(?:next\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/,
   )
   if (weekdayMatch?.[1]) {
-    return normalized.includes('next ') ? `next ${weekdayMatch[1]}` : weekdayMatch[1]
+    return normalized.includes('next ')
+      ? `next ${weekdayMatch[1]}`
+      : weekdayMatch[1]
   }
 
   return null
@@ -703,12 +704,12 @@ export const checkGoogleCalendarExactFollowUpAvailability = async (input: {
       timeZone: config.calendarTimeZone || parsed.timeZone,
     })
 
-    const busyWindows = (freeBusy.calendars?.[config.calendarId]?.busy || []).map(
-      (window) => ({
-        start: new Date(window.start),
-        end: new Date(window.end),
-      }),
-    )
+    const busyWindows = (
+      freeBusy.calendars?.[config.calendarId]?.busy || []
+    ).map((window) => ({
+      start: new Date(window.start),
+      end: new Date(window.end),
+    }))
 
     if (overlapsBusy(start, end, busyWindows)) {
       reason = 'The connected Google Calendar is already booked at that time'
