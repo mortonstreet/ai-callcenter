@@ -1,0 +1,11 @@
+{
+  "mode": "api",
+  "input": "/Users/mortonstreet/revcenter/revcenter-cli/runs/20260306-224630-hvac-front-desk/wizard-request.json",
+  "submission": {
+    "jobId": "prov_219194fd913c",
+    "agentId": "agent_24abcc230f90",
+    "status": "queued",
+    "correlationId": "revcenter-cli:HVAC Front Desk:HVAC Front Desk",
+    "reusedExisting": false
+  }
+}

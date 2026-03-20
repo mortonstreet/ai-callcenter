@@ -1,0 +1,58 @@
+{
+  "mode": "api",
+  "input": "/Users/mortonstreet/revcenter/revcenter-cli/runs/20260306-230809-hvac-front-desk/wizard-request.json",
+  "render": {
+    "normalizedRequest": {
+      "name": "HVAC Front Desk",
+      "industry": "hvac",
+      "useCase": "customer_support",
+      "services": [
+        "AC repair",
+        "Heating repair",
+        "Seasonal maintenance",
+        "Ductless mini split"
+      ],
+      "discoveryQuestions": [
+        "What type of unit do you have and how old is it?",
+        "Is the system not turning on",
+        "or is airflow weak?",
+        "When did you first notice the issue?"
+      ],
+      "mainObjective": "Resolve inbound service calls, capture caller context, and book qualified jobs.",
+      "greeting": {
+        "mode": "generated"
+      },
+      "routing": {
+        "businessTimezone": "America/Los_Angeles",
+        "languages": [
+          "en"
+        ]
+      },
+      "agentName": "HVAC Front Desk"
+    },
+    "summary": {
+      "organizationName": "HVAC Front Desk",
+      "agentName": "HVAC Front Desk",
+      "industry": "hvac",
+      "useCase": "customer_support",
+      "serviceCount": 4,
+      "knowledgeSourceCount": 0,
+      "hasCustomGreeting": false,
+      "voiceId": null
+    },
+    "resolvedProfile": {
+      "profileKey": "hvac",
+      "profileVersion": null,
+      "selectedVoiceId": null,
+      "greetingMode": "generated"
+    },
+    "promptPreview": {
+      "compiledPromptSummary": "Use case customer_support; 4 service area(s); goal: Resolve inbound service calls, capture caller context, and book qualified jobs.",
+      "knowledgeSourceCount": 0
+    },
+    "warnings": [
+      "No knowledge sources were provided.",
+      "No explicit voice was selected."
+    ]
+  }
+}

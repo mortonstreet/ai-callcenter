@@ -1,0 +1,734 @@
+{
+  "jobs": {
+    "prov_677f39910897": {
+      "jobId": "prov_677f39910897",
+      "organizationId": "org_7ef9bba9de12",
+      "organizationName": "Northwind HVAC",
+      "agentId": "agent_9639d626a2d3",
+      "agentName": "Northwind Dispatch",
+      "correlationId": "revcenter-cli:Northwind HVAC",
+      "idempotencyKey": "revcenter-cli:northwind-hvac:1772831965501",
+      "request": {
+        "name": "Northwind HVAC",
+        "domain": "northwind.example.com",
+        "industry": "hvac",
+        "useCase": "inbound_lead_capture",
+        "services": [
+          "Repairs",
+          "Installations"
+        ],
+        "discoveryQuestions": [
+          "What unit is having issues?",
+          "What is the service address?"
+        ],
+        "mainObjective": "Capture qualified inbound calls and book service visits.",
+        "knowledgeSources": [
+          "https://northwind.example.com"
+        ],
+        "voiceSelection": {
+          "voiceId": "voice_demo_123"
+        },
+        "greeting": {
+          "mode": "generated"
+        },
+        "routing": {
+          "businessTimezone": "America/Los_Angeles",
+          "languages": [
+            "en"
+          ]
+        },
+        "agentName": "Northwind Dispatch"
+      },
+      "summary": {
+        "organizationName": "Northwind HVAC",
+        "agentName": "Northwind Dispatch",
+        "industry": "hvac",
+        "useCase": "inbound_lead_capture",
+        "serviceCount": 2,
+        "knowledgeSourceCount": 1,
+        "hasCustomGreeting": false,
+        "voiceId": "voice_demo_123"
+      },
+      "status": "completed",
+      "reusedExisting": false,
+      "provider": "LOCAL_STUB",
+      "providerExternalId": null,
+      "readinessStatus": "ready",
+      "lastErrorCode": null,
+      "lastErrorMessage": null,
+      "options": {
+        "testMode": true,
+        "requireProvider": false,
+        "waitForTerminal": false
+      },
+      "steps": [
+        {
+          "stepId": "validate_request",
+          "stepOrder": 1,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "normalize_request",
+          "stepOrder": 2,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "resolve_profile",
+          "stepOrder": 3,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "compile_prompt_and_greeting",
+          "stepOrder": 4,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "persist_versions_and_finalize",
+          "stepOrder": 5,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        }
+      ],
+      "createdAt": "2026-03-06T21:19:25.503Z",
+      "updatedAt": "2026-03-06T21:19:26.267Z"
+    },
+    "prov_d712bd8c06b5": {
+      "jobId": "prov_d712bd8c06b5",
+      "organizationId": "org_027f289b335a",
+      "organizationName": "Northwind HVAC",
+      "agentId": "agent_34207387522d",
+      "agentName": "Northwind Dispatch",
+      "correlationId": "revcenter-cli:Northwind HVAC",
+      "idempotencyKey": "revcenter-cli:northwind-hvac:1772832295099",
+      "request": {
+        "name": "Northwind HVAC",
+        "domain": "northwind.example.com",
+        "industry": "hvac",
+        "useCase": "inbound_lead_capture",
+        "services": [
+          "Repairs",
+          "Installations"
+        ],
+        "discoveryQuestions": [
+          "What unit is having issues?",
+          "What is the service address?"
+        ],
+        "mainObjective": "Capture qualified inbound calls and book service visits.",
+        "knowledgeSources": [
+          "https://northwind.example.com"
+        ],
+        "voiceSelection": {
+          "voiceId": "voice_demo_123"
+        },
+        "greeting": {
+          "mode": "generated"
+        },
+        "routing": {
+          "businessTimezone": "America/Los_Angeles",
+          "languages": [
+            "en"
+          ]
+        },
+        "agentName": "Northwind Dispatch"
+      },
+      "summary": {
+        "organizationName": "Northwind HVAC",
+        "agentName": "Northwind Dispatch",
+        "industry": "hvac",
+        "useCase": "inbound_lead_capture",
+        "serviceCount": 2,
+        "knowledgeSourceCount": 1,
+        "hasCustomGreeting": false,
+        "voiceId": "voice_demo_123"
+      },
+      "status": "completed",
+      "reusedExisting": false,
+      "provider": "LOCAL_STUB",
+      "providerExternalId": null,
+      "readinessStatus": "ready",
+      "lastErrorCode": null,
+      "lastErrorMessage": null,
+      "options": {
+        "testMode": true,
+        "requireProvider": false,
+        "waitForTerminal": false
+      },
+      "steps": [
+        {
+          "stepId": "validate_request",
+          "stepOrder": 1,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "normalize_request",
+          "stepOrder": 2,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "resolve_profile",
+          "stepOrder": 3,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "compile_prompt_and_greeting",
+          "stepOrder": 4,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "persist_versions_and_finalize",
+          "stepOrder": 5,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        }
+      ],
+      "createdAt": "2026-03-06T21:24:55.100Z",
+      "updatedAt": "2026-03-06T21:24:55.872Z"
+    },
+    "prov_04485c597ce7": {
+      "jobId": "prov_04485c597ce7",
+      "organizationId": "org_9044e39d93ab",
+      "organizationName": "Northwind HVAC",
+      "agentId": "agent_1332f3ea12ab",
+      "agentName": "Northwind HVAC Service Desk",
+      "correlationId": "revcenter-cli:Northwind HVAC",
+      "idempotencyKey": "revcenter-cli:northwind-hvac:1772833870911",
+      "request": {
+        "name": "Northwind HVAC",
+        "domain": "northwind.example.com",
+        "industry": "hvac",
+        "useCase": "inbound_lead_capture",
+        "services": [
+          "Repairs",
+          "Installations"
+        ],
+        "discoveryQuestions": [
+          "What service do you need help with today?",
+          "What is the service address?"
+        ],
+        "mainObjective": "Book qualified service calls.",
+        "knowledgeSources": [
+          "https://northwind.example.com"
+        ],
+        "greeting": {
+          "mode": "generated"
+        },
+        "routing": {
+          "businessTimezone": "America/Los_Angeles",
+          "languages": [
+            "en"
+          ]
+        },
+        "agentName": "Northwind HVAC Service Desk"
+      },
+      "summary": {
+        "organizationName": "Northwind HVAC",
+        "agentName": "Northwind HVAC Service Desk",
+        "industry": "hvac",
+        "useCase": "inbound_lead_capture",
+        "serviceCount": 2,
+        "knowledgeSourceCount": 1,
+        "hasCustomGreeting": false,
+        "voiceId": null
+      },
+      "status": "completed",
+      "reusedExisting": false,
+      "provider": "LOCAL_STUB",
+      "providerExternalId": null,
+      "readinessStatus": "ready",
+      "lastErrorCode": null,
+      "lastErrorMessage": null,
+      "options": {
+        "testMode": true,
+        "requireProvider": false,
+        "waitForTerminal": false
+      },
+      "steps": [
+        {
+          "stepId": "validate_request",
+          "stepOrder": 1,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "normalize_request",
+          "stepOrder": 2,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "resolve_profile",
+          "stepOrder": 3,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "compile_prompt_and_greeting",
+          "stepOrder": 4,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "persist_versions_and_finalize",
+          "stepOrder": 5,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        }
+      ],
+      "createdAt": "2026-03-06T21:51:10.912Z",
+      "updatedAt": "2026-03-06T21:51:11.680Z"
+    },
+    "prov_e87043221a59": {
+      "jobId": "prov_e87043221a59",
+      "organizationId": "org_8522cb43d4f4",
+      "organizationName": "Northwind HVAC",
+      "agentId": "agent_ab46fd434447",
+      "agentName": "Northwind HVAC Service Desk",
+      "correlationId": "revcenter-cli:Northwind HVAC",
+      "idempotencyKey": "revcenter-cli:northwind-hvac:1772835145479",
+      "request": {
+        "name": "Northwind HVAC",
+        "industry": "hvac",
+        "useCase": "inbound_lead_capture",
+        "services": [
+          "AC repair",
+          "Heating maintenance",
+          "Emergency dispatch"
+        ],
+        "discoveryQuestions": [
+          "What service do you need help with today?",
+          "What is the service address?",
+          "What is the best callback number?"
+        ],
+        "mainObjective": "Capture qualified inbound calls, route urgent issues, and book service appointments.",
+        "voiceSelection": {
+          "voiceId": "cgSgspJ2msm6clMCkdW9"
+        },
+        "greeting": {
+          "mode": "generated"
+        },
+        "routing": {
+          "businessTimezone": "America/Los_Angeles",
+          "languages": [
+            "en"
+          ]
+        },
+        "agentName": "Northwind HVAC Service Desk"
+      },
+      "summary": {
+        "organizationName": "Northwind HVAC",
+        "agentName": "Northwind HVAC Service Desk",
+        "industry": "hvac",
+        "useCase": "inbound_lead_capture",
+        "serviceCount": 3,
+        "knowledgeSourceCount": 0,
+        "hasCustomGreeting": false,
+        "voiceId": "cgSgspJ2msm6clMCkdW9"
+      },
+      "status": "completed",
+      "reusedExisting": false,
+      "provider": "LOCAL_STUB",
+      "providerExternalId": null,
+      "readinessStatus": "ready",
+      "lastErrorCode": null,
+      "lastErrorMessage": null,
+      "options": {
+        "testMode": true,
+        "requireProvider": false,
+        "waitForTerminal": false
+      },
+      "steps": [
+        {
+          "stepId": "validate_request",
+          "stepOrder": 1,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "normalize_request",
+          "stepOrder": 2,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "resolve_profile",
+          "stepOrder": 3,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "compile_prompt_and_greeting",
+          "stepOrder": 4,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "persist_versions_and_finalize",
+          "stepOrder": 5,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        }
+      ],
+      "createdAt": "2026-03-06T22:12:25.481Z",
+      "updatedAt": "2026-03-06T22:12:26.247Z"
+    },
+    "prov_219194fd913c": {
+      "jobId": "prov_219194fd913c",
+      "organizationId": "org_fa036e98d102",
+      "organizationName": "HVAC Front Desk",
+      "agentId": "agent_24abcc230f90",
+      "agentName": "HVAC Front Desk",
+      "correlationId": "revcenter-cli:HVAC Front Desk:HVAC Front Desk",
+      "idempotencyKey": "revcenter-cli:hvac-front-desk:1772837190410",
+      "request": {
+        "name": "HVAC Front Desk",
+        "industry": "hvac",
+        "useCase": "customer_support",
+        "services": [
+          "AC repair",
+          "Heating repair",
+          "Seasonal maintenance",
+          "Ductless mini split"
+        ],
+        "mainObjective": "Book qualified HVAC calls and route urgent issues.",
+        "greeting": {
+          "mode": "generated"
+        },
+        "routing": {
+          "businessTimezone": "America/Los_Angeles",
+          "languages": [
+            "en"
+          ]
+        },
+        "agentName": "HVAC Front Desk"
+      },
+      "summary": {
+        "organizationName": "HVAC Front Desk",
+        "agentName": "HVAC Front Desk",
+        "industry": "hvac",
+        "useCase": "customer_support",
+        "serviceCount": 4,
+        "knowledgeSourceCount": 0,
+        "hasCustomGreeting": false,
+        "voiceId": null
+      },
+      "status": "completed",
+      "reusedExisting": false,
+      "provider": "LOCAL_STUB",
+      "providerExternalId": null,
+      "readinessStatus": "ready",
+      "lastErrorCode": null,
+      "lastErrorMessage": null,
+      "options": {
+        "testMode": true,
+        "requireProvider": false,
+        "waitForTerminal": false
+      },
+      "steps": [
+        {
+          "stepId": "validate_request",
+          "stepOrder": 1,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "normalize_request",
+          "stepOrder": 2,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "resolve_profile",
+          "stepOrder": 3,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "compile_prompt_and_greeting",
+          "stepOrder": 4,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "persist_versions_and_finalize",
+          "stepOrder": 5,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        }
+      ],
+      "createdAt": "2026-03-06T22:46:30.411Z",
+      "updatedAt": "2026-03-06T22:46:31.182Z"
+    },
+    "prov_2bfb13e0b552": {
+      "jobId": "prov_2bfb13e0b552",
+      "organizationId": "org_65872636c258",
+      "organizationName": "HVAC Front Desk",
+      "agentId": "agent_fb92e8b72650",
+      "agentName": "HVAC Front Desk",
+      "correlationId": "revcenter-cli:HVAC Front Desk:HVAC Front Desk",
+      "idempotencyKey": "revcenter-cli:hvac-front-desk:1772838489713",
+      "request": {
+        "name": "HVAC Front Desk",
+        "industry": "hvac",
+        "useCase": "customer_support",
+        "services": [
+          "AC repair",
+          "Heating repair",
+          "Seasonal maintenance",
+          "Ductless mini split"
+        ],
+        "discoveryQuestions": [
+          "What type of unit do you have and how old is it?",
+          "Is the system not turning on",
+          "or is airflow weak?",
+          "When did you first notice the issue?"
+        ],
+        "mainObjective": "Resolve inbound service calls, capture caller context, and book qualified jobs.",
+        "greeting": {
+          "mode": "generated"
+        },
+        "routing": {
+          "businessTimezone": "America/Los_Angeles",
+          "languages": [
+            "en"
+          ]
+        },
+        "agentName": "HVAC Front Desk"
+      },
+      "summary": {
+        "organizationName": "HVAC Front Desk",
+        "agentName": "HVAC Front Desk",
+        "industry": "hvac",
+        "useCase": "customer_support",
+        "serviceCount": 4,
+        "knowledgeSourceCount": 0,
+        "hasCustomGreeting": false,
+        "voiceId": null
+      },
+      "status": "completed",
+      "reusedExisting": false,
+      "provider": "LOCAL_STUB",
+      "providerExternalId": null,
+      "readinessStatus": "ready",
+      "lastErrorCode": null,
+      "lastErrorMessage": null,
+      "options": {
+        "testMode": true,
+        "requireProvider": false,
+        "waitForTerminal": false
+      },
+      "steps": [
+        {
+          "stepId": "validate_request",
+          "stepOrder": 1,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "normalize_request",
+          "stepOrder": 2,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "resolve_profile",
+          "stepOrder": 3,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "compile_prompt_and_greeting",
+          "stepOrder": 4,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "persist_versions_and_finalize",
+          "stepOrder": 5,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        }
+      ],
+      "createdAt": "2026-03-06T23:08:09.714Z",
+      "updatedAt": "2026-03-06T23:08:10.482Z"
+    },
+    "prov_e0322656aa32": {
+      "jobId": "prov_e0322656aa32",
+      "organizationId": "org_a98183dc9377",
+      "organizationName": "HVAC Front Desk",
+      "agentId": "agent_829e9fd1a545",
+      "agentName": "HVAC Front Desk",
+      "correlationId": "revcenter-cli:HVAC Front Desk:HVAC Front Desk",
+      "idempotencyKey": "revcenter-cli:hvac-front-desk:1772838741987",
+      "request": {
+        "name": "HVAC Front Desk",
+        "industry": "hvac",
+        "useCase": "customer_support",
+        "services": [
+          "AC repair",
+          "Heating repair",
+          "Seasonal maintenance",
+          "Ductless mini split"
+        ],
+        "discoveryQuestions": [
+          "What type of unit do you have and how old is it?",
+          "Is the system not turning on, or is airflow weak?",
+          "When did you first notice the issue?"
+        ],
+        "mainObjective": "Resolve inbound service calls, capture caller context, and book qualified jobs.",
+        "greeting": {
+          "mode": "generated"
+        },
+        "routing": {
+          "businessTimezone": "America/Los_Angeles",
+          "languages": [
+            "en"
+          ]
+        },
+        "agentName": "HVAC Front Desk"
+      },
+      "summary": {
+        "organizationName": "HVAC Front Desk",
+        "agentName": "HVAC Front Desk",
+        "industry": "hvac",
+        "useCase": "customer_support",
+        "serviceCount": 4,
+        "knowledgeSourceCount": 0,
+        "hasCustomGreeting": false,
+        "voiceId": null
+      },
+      "status": "completed",
+      "reusedExisting": false,
+      "provider": "LOCAL_STUB",
+      "providerExternalId": null,
+      "readinessStatus": "ready",
+      "lastErrorCode": null,
+      "lastErrorMessage": null,
+      "options": {
+        "testMode": true,
+        "requireProvider": false,
+        "waitForTerminal": false
+      },
+      "steps": [
+        {
+          "stepId": "validate_request",
+          "stepOrder": 1,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "normalize_request",
+          "stepOrder": 2,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "resolve_profile",
+          "stepOrder": 3,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "compile_prompt_and_greeting",
+          "stepOrder": 4,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        },
+        {
+          "stepId": "persist_versions_and_finalize",
+          "stepOrder": 5,
+          "status": "completed",
+          "attempts": 1,
+          "lastErrorCode": null,
+          "lastErrorMessage": null
+        }
+      ],
+      "createdAt": "2026-03-06T23:12:21.988Z",
+      "updatedAt": "2026-03-06T23:12:22.761Z"
+    }
+  },
+  "jobsByIdempotencyKey": {
+    "revcenter-cli:northwind-hvac:1772831965501": "prov_677f39910897",
+    "revcenter-cli:northwind-hvac:1772832295099": "prov_d712bd8c06b5",
+    "revcenter-cli:northwind-hvac:1772833870911": "prov_04485c597ce7",
+    "revcenter-cli:northwind-hvac:1772835145479": "prov_e87043221a59",
+    "revcenter-cli:hvac-front-desk:1772837190410": "prov_219194fd913c",
+    "revcenter-cli:hvac-front-desk:1772838489713": "prov_2bfb13e0b552",
+    "revcenter-cli:hvac-front-desk:1772838741987": "prov_e0322656aa32"
+  }
+}

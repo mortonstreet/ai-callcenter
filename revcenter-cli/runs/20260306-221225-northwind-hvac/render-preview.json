@@ -1,0 +1,58 @@
+{
+  "mode": "api",
+  "input": "/Users/mortonstreet/revcenter/revcenter-cli/runs/20260306-221225-northwind-hvac/wizard-request.json",
+  "render": {
+    "normalizedRequest": {
+      "name": "Northwind HVAC",
+      "industry": "hvac",
+      "useCase": "inbound_lead_capture",
+      "services": [
+        "AC repair",
+        "Heating maintenance",
+        "Emergency dispatch"
+      ],
+      "discoveryQuestions": [
+        "What service do you need help with today?",
+        "What is the service address?",
+        "What is the best callback number?"
+      ],
+      "mainObjective": "Capture qualified inbound calls, route urgent issues, and book service appointments.",
+      "voiceSelection": {
+        "voiceId": "cgSgspJ2msm6clMCkdW9"
+      },
+      "greeting": {
+        "mode": "generated"
+      },
+      "routing": {
+        "businessTimezone": "America/Los_Angeles",
+        "languages": [
+          "en"
+        ]
+      },
+      "agentName": "Northwind HVAC Service Desk"
+    },
+    "summary": {
+      "organizationName": "Northwind HVAC",
+      "agentName": "Northwind HVAC Service Desk",
+      "industry": "hvac",
+      "useCase": "inbound_lead_capture",
+      "serviceCount": 3,
+      "knowledgeSourceCount": 0,
+      "hasCustomGreeting": false,
+      "voiceId": "cgSgspJ2msm6clMCkdW9"
+    },
+    "resolvedProfile": {
+      "profileKey": "hvac",
+      "profileVersion": null,
+      "selectedVoiceId": "cgSgspJ2msm6clMCkdW9",
+      "greetingMode": "generated"
+    },
+    "promptPreview": {
+      "compiledPromptSummary": "Use case inbound_lead_capture; 3 service area(s); goal: Capture qualified inbound calls, route urgent issues, and book service appointments.",
+      "knowledgeSourceCount": 0
+    },
+    "warnings": [
+      "No knowledge sources were provided."
+    ]
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "mode": "api",
+  "input": "/Users/mortonstreet/revcenter/revcenter-cli/runs/20260306-215110-northwind-hvac/wizard-request.json",
+  "render": {
+    "normalizedRequest": {
+      "name": "Northwind HVAC",
+      "domain": "northwind.example.com",
+      "industry": "hvac",
+      "useCase": "inbound_lead_capture",
+      "services": [
+        "Repairs",
+        "Installations"
+      ],
+      "discoveryQuestions": [
+        "What service do you need help with today?",
+        "What is the service address?"
+      ],
+      "mainObjective": "Book qualified service calls.",
+      "knowledgeSources": [
+        "https://northwind.example.com"
+      ],
+      "greeting": {
+        "mode": "generated"
+      },
+      "routing": {
+        "businessTimezone": "America/Los_Angeles",
+        "languages": [
+          "en"
+        ]
+      },
+      "agentName": "Northwind HVAC Service Desk"
+    },
+    "summary": {
+      "organizationName": "Northwind HVAC",
+      "agentName": "Northwind HVAC Service Desk",
+      "industry": "hvac",
+      "useCase": "inbound_lead_capture",
+      "serviceCount": 2,
+      "knowledgeSourceCount": 1,
+      "hasCustomGreeting": false,
+      "voiceId": null
+    },
+    "resolvedProfile": {
+      "profileKey": "hvac",
+      "profileVersion": null,
+      "selectedVoiceId": null,
+      "greetingMode": "generated"
+    },
+    "promptPreview": {
+      "compiledPromptSummary": "Use case inbound_lead_capture; 2 service area(s); goal: Book qualified service calls.",
+      "knowledgeSourceCount": 1
+    },
+    "warnings": [
+      "No explicit voice was selected."
+    ]
+  }
+}

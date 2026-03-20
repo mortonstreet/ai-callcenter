@@ -409,11 +409,10 @@ export const startWizardProvisioningContract = async (input: {
         idempotencyKey,
       })
 
-      const fallbackJob =
-        await findAgentProvisioningJobByOrganizationAndId(
-          input.organizationId,
-          job.id,
-        )
+      const fallbackJob = await findAgentProvisioningJobByOrganizationAndId(
+        input.organizationId,
+        job.id,
+      )
       const fallbackSteps = await listAgentProvisioningSteps(job.id)
 
       return {
@@ -603,11 +602,10 @@ export const retryWizardProvisioningContract = async (input: {
         idempotencyKey,
       })
 
-      const fallbackJob =
-        await findAgentProvisioningJobByOrganizationAndId(
-          sourceJob.organizationId,
-          job.id,
-        )
+      const fallbackJob = await findAgentProvisioningJobByOrganizationAndId(
+        sourceJob.organizationId,
+        job.id,
+      )
       const fallbackSteps = await listAgentProvisioningSteps(job.id)
 
       return {

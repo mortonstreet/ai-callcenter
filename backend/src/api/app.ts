@@ -14,6 +14,7 @@ import campaignWebhookRoutes from './routes/webhooks-campaigns'
 
 const app = express()
 const BILLING_WEBHOOK_PATH = '/api/billing/webhook'
+const JSON_BODY_LIMIT = '1mb'
 
 const captureRawBillingWebhookBody = (
   req: express.Request & { rawBodyText?: string },
@@ -49,9 +50,19 @@ app.use('/api/webhooks/integrations', integrationWebhookRoutes)
 app.use('/api/webhooks/campaigns', campaignWebhookRoutes)
 app.use('/api/campaigns/webhooks', campaignWebhookRoutes)
 
-app.use(express.json({ verify: captureRawBillingWebhookBody }))
-app.use(express.urlencoded({ extended: false }))
-app.use(bodyParser.json({ verify: captureRawBillingWebhookBody }))
+app.use(
+  express.json({
+    limit: JSON_BODY_LIMIT,
+    verify: captureRawBillingWebhookBody,
+  }),
+)
+app.use(express.urlencoded({ extended: false, limit: JSON_BODY_LIMIT }))
+app.use(
+  bodyParser.json({
+    limit: JSON_BODY_LIMIT,
+    verify: captureRawBillingWebhookBody,
+  }),
+)
 
 // Routes
 app.use('/api', apiRoutes)

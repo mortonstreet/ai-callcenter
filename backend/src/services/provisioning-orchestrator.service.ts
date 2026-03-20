@@ -4,7 +4,7 @@ import { AgentExternalType } from '@shared/types/src'
 import { db } from '@/lib/db'
 import logger from '@/lib/logger'
 import { formatToSlug } from '@/utils'
-import { enqueueQueueJob } from '@/queues'
+import { enqueueQueueJob, QueueUnavailableError } from '@/queues'
 import { QUEUE_NAMES, QueueJobPayload } from '@/types/queues'
 import { updateUserLastActiveOrganizationId } from '@/repositories/auth.repository'
 import {
@@ -115,7 +115,20 @@ export interface WizardOnboardingInput {
   services: string[]
   useCase?: string
   website?: string
+  knowledgeSources?: string[]
   mainGoal?: string
+  voiceSelection?: {
+    voiceId?: string
+  }
+  greeting?: {
+    mode?: 'generated' | 'custom'
+    customText?: string
+  }
+  routing?: {
+    transferNumber?: string
+    businessTimezone?: string
+    languages?: string[]
+  }
   agent: {
     name: string
     openingLine?: string
@@ -130,7 +143,20 @@ interface NormalizedWizardInput {
   services: string[]
   useCase: string
   website: string | null
+  knowledgeSources: string[]
   mainGoal: string | null
+  voiceSelection: {
+    voiceId: string | null
+  }
+  greeting: {
+    mode: 'generated' | 'custom'
+    customText: string | null
+  }
+  routing: {
+    transferNumber: string | null
+    businessTimezone: string | null
+    languages: string[]
+  }
   agent: {
     name: string
     openingLine: string | null
@@ -260,6 +286,20 @@ const normalizeStringArray = (value: unknown): string[] => {
   return [...new Set(normalized)]
 }
 
+const normalizeOptionalString = (value: unknown): string | null => {
+  const normalized = normalizeString(value)
+  return normalized.length > 0 ? normalized : null
+}
+
+const isHttpUrl = (value: string): boolean => {
+  try {
+    const parsed = new URL(value)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 const asRecord = (value: unknown): Record<string, unknown> => {
   if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
     return value as Record<string, unknown>
@@ -370,21 +410,36 @@ const normalizeWizardInput = (
   input: WizardOnboardingInput | Record<string, unknown>,
 ): NormalizedWizardInput => {
   const raw = asRecord(input)
-  const greeting = asRecord(raw.greeting)
+  const rawGreeting = asRecord(raw.greeting)
+  const rawRouting = asRecord(raw.routing)
+  const rawVoiceSelection = asRecord(raw.voiceSelection)
 
   if (typeof raw.agentName === 'string') {
     const knowledgeSources = normalizeStringArray(raw.knowledgeSources)
-    const websiteFromKnowledgeSource = knowledgeSources.find((source) => {
-      try {
-        new URL(source)
-        return true
-      } catch {
-        return false
-      }
-    })
+    const websiteFromKnowledgeSource = knowledgeSources.find((source) =>
+      isHttpUrl(source),
+    )
 
-    const greetingMode = normalizeString(greeting.mode)
-    const customGreeting = normalizeString(greeting.customText)
+    const greetingMode = normalizeString(rawGreeting.mode)
+    const customGreeting = normalizeOptionalString(rawGreeting.customText)
+    const fallbackOpeningLine =
+      normalizeOptionalString(raw.firstMessage) ||
+      normalizeOptionalString(raw.customGreeting)
+
+    const resolvedGreetingMode: 'generated' | 'custom' =
+      greetingMode === 'custom' && customGreeting ? 'custom' : 'generated'
+    const openingLine =
+      resolvedGreetingMode === 'custom' ? customGreeting : fallbackOpeningLine
+    const website =
+      normalizeOptionalString(raw.website) || websiteFromKnowledgeSource || null
+    const mergedKnowledgeSources =
+      knowledgeSources.length > 0 ? knowledgeSources : website ? [website] : []
+
+    const discoveryQuestions = normalizeStringArray(raw.discoveryQuestions)
+    const serviceQuestions =
+      discoveryQuestions.length > 0
+        ? discoveryQuestions
+        : normalizeStringArray(raw.serviceQuestions)
 
     return {
       name:
@@ -396,46 +451,107 @@ const normalizeWizardInput = (
       industry: normalizeString(raw.industry),
       services: normalizeStringArray(raw.services),
       useCase: normalizeString(raw.useCase) || 'customer_support',
-      website:
-        normalizeString(raw.website) || websiteFromKnowledgeSource || null,
+      website,
+      knowledgeSources: mergedKnowledgeSources,
       mainGoal:
         normalizeString(raw.mainObjective) ||
         normalizeString(raw.mainGoal) ||
         null,
+      voiceSelection: {
+        voiceId:
+          normalizeOptionalString(rawVoiceSelection.voiceId) ||
+          normalizeOptionalString(raw.voiceId),
+      },
+      greeting: {
+        mode: resolvedGreetingMode,
+        customText: resolvedGreetingMode === 'custom' ? customGreeting : null,
+      },
+      routing: {
+        transferNumber: normalizeOptionalString(rawRouting.transferNumber),
+        businessTimezone: normalizeOptionalString(rawRouting.businessTimezone),
+        languages: normalizeStringArray(rawRouting.languages),
+      },
       agent: {
         name: normalizeString(raw.agentName),
-        openingLine:
-          greetingMode === 'custom' && customGreeting
-            ? customGreeting
-            : normalizeString(raw.firstMessage) ||
-              normalizeString(raw.customGreeting) ||
-              null,
-        serviceQuestions:
-          normalizeStringArray(raw.discoveryQuestions).length > 0
-            ? normalizeStringArray(raw.discoveryQuestions)
-            : normalizeStringArray(raw.serviceQuestions),
+        openingLine,
+        serviceQuestions,
       },
     }
   }
 
   const rawAgent = asRecord(raw.agent)
+  const knowledgeSources = normalizeStringArray(raw.knowledgeSources)
+  const websiteFromKnowledgeSource = knowledgeSources.find((source) =>
+    isHttpUrl(source),
+  )
+  const website =
+    normalizeOptionalString(raw.website) || websiteFromKnowledgeSource || null
+  const mergedKnowledgeSources =
+    knowledgeSources.length > 0 ? knowledgeSources : website ? [website] : []
+
+  const fallbackOpeningLine =
+    normalizeOptionalString(rawAgent.openingLine) ||
+    normalizeOptionalString(raw.firstMessage) ||
+    normalizeOptionalString(raw.customGreeting)
+  const greetingMode = normalizeString(rawGreeting.mode)
+  const customGreeting =
+    normalizeOptionalString(rawGreeting.customText) || fallbackOpeningLine
+  const resolvedGreetingMode: 'generated' | 'custom' =
+    greetingMode === 'custom' && customGreeting
+      ? 'custom'
+      : fallbackOpeningLine
+        ? 'custom'
+        : 'generated'
+
+  const agentServiceQuestions = normalizeStringArray(rawAgent.serviceQuestions)
+
   return {
     name: normalizeString(raw.name),
-    domain: normalizeString(raw.domain) || null,
+    domain: normalizeOptionalString(raw.domain),
     industry: normalizeString(raw.industry),
     services: normalizeStringArray(raw.services),
     useCase: normalizeString(raw.useCase) || 'customer_support',
-    website: normalizeString(raw.website) || null,
-    mainGoal: normalizeString(raw.mainGoal) || null,
+    website,
+    knowledgeSources: mergedKnowledgeSources,
+    mainGoal: normalizeOptionalString(raw.mainGoal),
+    voiceSelection: {
+      voiceId:
+        normalizeOptionalString(rawVoiceSelection.voiceId) ||
+        normalizeOptionalString(raw.voiceId) ||
+        normalizeOptionalString(rawAgent.voiceId),
+    },
+    greeting: {
+      mode: resolvedGreetingMode,
+      customText: resolvedGreetingMode === 'custom' ? customGreeting : null,
+    },
+    routing: {
+      transferNumber:
+        normalizeOptionalString(rawRouting.transferNumber) ||
+        normalizeOptionalString(raw.transferNumber),
+      businessTimezone:
+        normalizeOptionalString(rawRouting.businessTimezone) ||
+        normalizeOptionalString(raw.businessTimezone),
+      languages: normalizeStringArray(rawRouting.languages),
+    },
     agent: {
       name: normalizeString(rawAgent.name),
-      openingLine: normalizeString(rawAgent.openingLine) || null,
-      serviceQuestions: normalizeStringArray(rawAgent.serviceQuestions),
+      openingLine: fallbackOpeningLine,
+      serviceQuestions:
+        agentServiceQuestions.length > 0
+          ? agentServiceQuestions
+          : normalizeStringArray(raw.discoveryQuestions),
     },
   }
 }
 
 const buildIntentProfile = (input: NormalizedWizardInput) => {
+  const routingLanguages =
+    input.routing.languages.length > 0 ? input.routing.languages : ['en']
+  const knowledgeSourceManifest = input.knowledgeSources.map((source) => ({
+    type: isHttpUrl(source) ? 'website' : 'document',
+    value: source,
+  }))
+
   return {
     schemaVersion: 'wizard_intent_profile_v1',
     inputSchemaVersion: 'wizard_input_v2',
@@ -451,26 +567,22 @@ const buildIntentProfile = (input: NormalizedWizardInput) => {
     discoveryQuestions: input.agent.serviceQuestions,
     objective: input.mainGoal,
     routing: {
-      transferNumber: null,
-      businessTimezone: null,
-      languages: ['en'],
+      transferNumber: input.routing.transferNumber,
+      businessTimezone: input.routing.businessTimezone,
+      languages: routingLanguages,
     },
     greeting: {
-      mode: input.agent.openingLine ? 'custom' : 'generated',
-      customText: input.agent.openingLine,
+      mode: input.greeting.mode,
+      customText:
+        input.greeting.mode === 'custom'
+          ? input.greeting.customText || input.agent.openingLine
+          : null,
     },
     voiceSelection: {
-      voiceId: null,
+      voiceId: input.voiceSelection.voiceId,
       fallbackVoiceId: null,
     },
-    knowledgeSources: input.website
-      ? [
-          {
-            type: 'website',
-            value: input.website,
-          },
-        ]
-      : [],
+    knowledgeSources: knowledgeSourceManifest,
   }
 }
 
@@ -478,6 +590,7 @@ const compilePromptAndGreeting = (input: {
   wizardInput: NormalizedWizardInput
   intentProfile: Record<string, unknown>
 }) => {
+  const generatedGreeting = `Hi, thanks for calling ${input.wizardInput.name}. How can I help today?`
   const sections = [
     `You are the voice assistant for ${input.wizardInput.name}.`,
     `Industry: ${input.wizardInput.industry.replace(/_/g, ' ')}.`,
@@ -498,8 +611,11 @@ const compilePromptAndGreeting = (input: {
 
   const prompt = sections.join('\n\n')
   const greeting =
-    input.wizardInput.agent.openingLine ||
-    `Hi, thanks for calling ${input.wizardInput.name}. How can I help today?`
+    input.wizardInput.greeting.mode === 'custom'
+      ? input.wizardInput.greeting.customText ||
+        input.wizardInput.agent.openingLine ||
+        generatedGreeting
+      : generatedGreeting
 
   const profileHash = createHash('sha1')
     .update(
@@ -515,7 +631,7 @@ const compilePromptAndGreeting = (input: {
     prompt,
     greeting,
     profileHash,
-    selectedVoiceId: null,
+    selectedVoiceId: input.wizardInput.voiceSelection.voiceId || null,
   }
 }
 
@@ -692,6 +808,32 @@ const enqueueProvisioningJob = async (input: {
   )
 }
 
+const triggerInlineProvisioningOrchestrationFallback = (input: {
+  jobId: string
+  organizationId: string
+  agentId: string
+  correlationId: string
+  idempotencyKey: string
+}) => {
+  void processProvisioningOrchestrationJob({
+    provisioningJobId: input.jobId,
+    organizationId: input.organizationId,
+    agentId: input.agentId,
+    correlationId: input.correlationId,
+    idempotencyKey: `${input.idempotencyKey}:inline`,
+  }).catch((error) => {
+    logger.error(
+      {
+        error,
+        provisioningJobId: input.jobId,
+        organizationId: input.organizationId,
+        agentId: input.agentId,
+      },
+      'Inline provisioning orchestration fallback failed',
+    )
+  })
+}
+
 const ensureValidWizardInput = (input: NormalizedWizardInput) => {
   if (!input.name) {
     throw new ProvisioningStepError({
@@ -737,7 +879,14 @@ const buildAgentProvisionRetryPayload = (input: {
   state: StepRuntimeState
 }): AgentProvisionRetryPayload => {
   const compiledGreeting =
-    input.state.compiledGreeting || input.wizardInput.agent.openingLine
+    input.state.compiledGreeting ||
+    input.wizardInput.greeting.customText ||
+    input.wizardInput.agent.openingLine
+  const knowledgeSources = input.wizardInput.knowledgeSources
+  const customGreeting =
+    input.wizardInput.greeting.mode === 'custom'
+      ? compiledGreeting || undefined
+      : undefined
 
   return {
     agentId: input.job.agentId,
@@ -750,13 +899,21 @@ const buildAgentProvisionRetryPayload = (input: {
     industry: input.wizardInput.industry,
     useCase: input.wizardInput.useCase,
     website: input.wizardInput.website || undefined,
-    knowledgeSources: input.wizardInput.website
-      ? [input.wizardInput.website]
-      : undefined,
+    knowledgeSources:
+      knowledgeSources.length > 0 ? knowledgeSources : undefined,
+    transferNumber: input.wizardInput.routing.transferNumber || undefined,
+    businessTimezone: input.wizardInput.routing.businessTimezone || undefined,
+    languages:
+      input.wizardInput.routing.languages.length > 0
+        ? input.wizardInput.routing.languages
+        : undefined,
     mainGoal: input.wizardInput.mainGoal || undefined,
-    voiceId: input.state.selectedVoiceId || undefined,
-    greetingMode: compiledGreeting ? 'custom' : 'generated',
-    customGreeting: compiledGreeting || undefined,
+    voiceId:
+      input.state.selectedVoiceId ||
+      input.wizardInput.voiceSelection.voiceId ||
+      undefined,
+    greetingMode: customGreeting ? 'custom' : 'generated',
+    customGreeting,
     firstMessage: compiledGreeting || undefined,
     services: input.wizardInput.services,
     discoveryQuestions: input.wizardInput.agent.serviceQuestions,
@@ -845,16 +1002,19 @@ const executeStep = async (input: {
     }
 
     case 'ingest_knowledge_sources': {
+      const knowledgeSources =
+        input.wizardInput.knowledgeSources.length > 0
+          ? input.wizardInput.knowledgeSources
+          : input.wizardInput.website
+            ? [input.wizardInput.website]
+            : []
+
       return {
         ...input.state,
-        ingestedKnowledgeSources: input.wizardInput.website
-          ? [
-              {
-                type: 'website',
-                source: input.wizardInput.website,
-              },
-            ]
-          : [],
+        ingestedKnowledgeSources: knowledgeSources.map((source) => ({
+          type: isHttpUrl(source) ? 'website' : 'document',
+          source,
+        })),
       }
     }
 
@@ -1009,6 +1169,10 @@ export const startOnboardingProvisioning = async (
     services: normalizedWizardInput.services,
     useCase: normalizedWizardInput.useCase,
     website: normalizedWizardInput.website,
+    knowledgeSources: normalizedWizardInput.knowledgeSources,
+    voiceSelection: normalizedWizardInput.voiceSelection,
+    greeting: normalizedWizardInput.greeting,
+    routing: normalizedWizardInput.routing,
     mainGoal: normalizedWizardInput.mainGoal,
     lifecycleStatus: 'payment_required',
     planType: 'paid',
@@ -1081,7 +1245,7 @@ export const startOnboardingProvisioning = async (
             useCase: normalizedWizardInput.useCase,
             website: normalizedWizardInput.website,
             mainGoal: normalizedWizardInput.mainGoal,
-            voiceId: null,
+            voiceId: normalizedWizardInput.voiceSelection.voiceId,
             status: 'draft',
             syncPending: true,
             lastSyncAt: null,
@@ -1153,15 +1317,15 @@ export const startOnboardingProvisioning = async (
         correlationId,
         lastErrorCode: null,
         lastErrorMessage: null,
-        eventLog: [
+        eventLog: JSON.stringify([
           {
             type: 'queued',
             at: now.toISOString(),
             attempt: 0,
             correlationId,
           },
-        ],
-        metadata: {},
+        ]),
+        metadata: JSON.stringify({}),
         createdAt: now,
         startedAt: null,
         completedAt: null,
@@ -1198,25 +1362,63 @@ export const startOnboardingProvisioning = async (
     })
   } catch (error) {
     const failure = classifyProvisioningError(error)
+    if (error instanceof QueueUnavailableError) {
+      logger.warn(
+        {
+          provisioningJobId: created.provisioningJob.id,
+          organizationId: created.organization.id,
+          agentId: created.placeholderAgent.id,
+          errorCode: failure.code,
+          errorMessage: failure.message,
+        },
+        'Queue unavailable; running onboarding provisioning inline fallback',
+      )
 
-    await updateAgentProvisioningJob(created.provisioningJob.id, {
-      status: 'failed',
-      lastErrorCode: failure.code,
-      lastErrorMessage: failure.message,
-      completedAt: new Date(),
-    })
+      await updateAgentProvisioningJob(created.provisioningJob.id, {
+        status: 'running',
+        startedAt: new Date(),
+        completedAt: null,
+        lastErrorCode: 'PROVISIONING_INLINE_FALLBACK',
+        lastErrorMessage: failure.message,
+      })
 
-    await updateOrganizationProvisioningMetadata({
-      organizationId: created.organization.id,
-      jobId: created.provisioningJob.id,
-      status: 'failed',
-      correlationId,
-      attempt: 1,
-      lastErrorCode: failure.code,
-      lastErrorMessage: failure.message,
-    })
+      await updateOrganizationProvisioningMetadata({
+        organizationId: created.organization.id,
+        jobId: created.provisioningJob.id,
+        status: 'running',
+        correlationId,
+        attempt: 1,
+        lastErrorCode: 'PROVISIONING_INLINE_FALLBACK',
+        lastErrorMessage: failure.message,
+      })
 
-    throw error
+      triggerInlineProvisioningOrchestrationFallback({
+        jobId: created.provisioningJob.id,
+        organizationId: created.organization.id,
+        agentId: created.placeholderAgent.id,
+        correlationId,
+        idempotencyKey: input.idempotencyKey,
+      })
+    } else {
+      await updateAgentProvisioningJob(created.provisioningJob.id, {
+        status: 'failed',
+        lastErrorCode: failure.code,
+        lastErrorMessage: failure.message,
+        completedAt: new Date(),
+      })
+
+      await updateOrganizationProvisioningMetadata({
+        organizationId: created.organization.id,
+        jobId: created.provisioningJob.id,
+        status: 'failed',
+        correlationId,
+        attempt: 1,
+        lastErrorCode: failure.code,
+        lastErrorMessage: failure.message,
+      })
+
+      throw error
+    }
   }
 
   const snapshot = await getJobSnapshot(created.provisioningJob.id)
@@ -1659,14 +1861,61 @@ export const retryProvisioningJob = async (input: {
     attempt: nextAttempt,
   })
 
-  await enqueueProvisioningJob({
-    jobId: existing.id,
-    organizationId: existing.organizationId,
-    agentId: existing.agentId,
-    correlationId: input.correlationId,
-    idempotencyKey: existing.idempotencyKey,
-    attempt: nextAttempt,
-  })
+  try {
+    await enqueueProvisioningJob({
+      jobId: existing.id,
+      organizationId: existing.organizationId,
+      agentId: existing.agentId,
+      correlationId: input.correlationId,
+      idempotencyKey: existing.idempotencyKey,
+      attempt: nextAttempt,
+    })
+  } catch (error) {
+    const failure = classifyProvisioningError(error)
+
+    if (!(error instanceof QueueUnavailableError)) {
+      throw error
+    }
+
+    logger.warn(
+      {
+        provisioningJobId: existing.id,
+        organizationId: existing.organizationId,
+        agentId: existing.agentId,
+        errorCode: failure.code,
+        errorMessage: failure.message,
+      },
+      'Queue unavailable; running provisioning retry inline fallback',
+    )
+
+    await updateAgentProvisioningJob(existing.id, {
+      status: 'running',
+      startedAt: new Date(),
+      completedAt: null,
+      lastErrorCode: 'PROVISIONING_INLINE_FALLBACK',
+      lastErrorMessage: failure.message,
+    })
+
+    await updateOrganizationProvisioningMetadata({
+      organizationId: existing.organizationId,
+      jobId: existing.id,
+      status: 'running',
+      stepId: failedStepId || undefined,
+      correlationId: input.correlationId,
+      attempt: nextAttempt,
+      lastErrorCode: 'PROVISIONING_INLINE_FALLBACK',
+      lastErrorMessage: failure.message,
+    })
+
+    triggerInlineProvisioningOrchestrationFallback({
+      jobId: existing.id,
+      organizationId: existing.organizationId,
+      agentId: existing.agentId,
+      correlationId: input.correlationId,
+      idempotencyKey:
+        requestIdempotencyKey || existing.idempotencyKey || existing.id,
+    })
+  }
 
   const snapshot = await getJobSnapshot(existing.id)
   if (!snapshot) {

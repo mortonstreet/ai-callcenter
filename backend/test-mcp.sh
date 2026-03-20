@@ -2,7 +2,7 @@
 
 API_KEY="sk_9e9e21be536fb5800eeeca0142140c7f199062ebe6154acf"
 ORG_ID="4nEvK4my318ApynG0qFxMSQu4UOVCehj"
-BASE_URL="http://localhost:8000/api/mcp/sse"
+BASE_URL="https://api.revcenter.ai/api/mcp/sse"
 
 echo "=== Testing MCP Connection ==="
 

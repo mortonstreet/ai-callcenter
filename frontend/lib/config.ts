@@ -1,7 +1,17 @@
 import { z } from 'zod'
 
+const runtimeNodeEnv =
+  process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test'
+    ? process.env.NODE_ENV
+    : 'development'
+
+const defaultApiUrl =
+  runtimeNodeEnv === 'production'
+    ? 'https://api.revcenter.ai/api'
+    : 'http://localhost:8000/api'
+
 const envSchema = z.object({
-  API_URL: z.url().default('https://api.revcenter.ai/api'),
+  API_URL: z.url().default(defaultApiUrl),
   NODE_ENV: z
     .enum(['development', 'production', 'test'])
     .default('development'),
@@ -19,7 +29,7 @@ export const ENDPOINTS = {
   AUTH: {
     VERIFY_EMAIL: '/auth/verify-email',
     RESET_PASSWORD: '/auth/reset-password',
-    FORGOT_PASSWORD: '/auth/forget-password',
+    FORGOT_PASSWORD: '/auth/request-password-reset',
     SIGN_IN: '/auth/sign-in',
     SIGN_UP: '/auth/sign-up',
     SIGN_OUT: '/auth/sign-out',

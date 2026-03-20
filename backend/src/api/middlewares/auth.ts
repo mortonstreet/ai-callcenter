@@ -1,7 +1,7 @@
 import { Express, Request, Response, NextFunction } from 'express'
 import passport from 'passport'
 import { Strategy as JwtStrategy, ExtractJwt } from 'passport-jwt'
-import { createHash, createHmac } from 'crypto'
+import { createHash, createHmac, timingSafeEqual } from 'crypto'
 import { config, McpProvider } from '@/config'
 import logger from '@/lib/logger'
 import { findById } from '@/repositories/user.repository'
@@ -82,6 +82,116 @@ const extractWebhookEventIdFromBody = (bodyString: string): string | null => {
   }
 
   return null
+}
+
+type ParsedSignatureHeader = {
+  timestamp: string
+  providedSignature: string
+}
+
+type WebhookSecretCandidate = {
+  secret: string
+  source: 'agent' | 'provider'
+}
+
+const parseSignatureHeader = (
+  signatureHeader: string,
+): ParsedSignatureHeader | null => {
+  const signatureParts = signatureHeader.split(',')
+  const timestamp = signatureParts
+    .find((part) => part.startsWith('t='))
+    ?.split('=')[1]
+    ?.trim()
+  const providedSignature = signatureParts
+    .find((part) => part.startsWith('v0='))
+    ?.split('=')[1]
+    ?.trim()
+
+  if (!timestamp || !providedSignature) {
+    return null
+  }
+
+  return {
+    timestamp,
+    providedSignature,
+  }
+}
+
+const getRawBodyString = (rawBody: unknown): string | null => {
+  if (Buffer.isBuffer(rawBody)) {
+    return rawBody.toString('utf8')
+  }
+
+  if (typeof rawBody === 'string') {
+    return rawBody
+  }
+
+  return null
+}
+
+const buildWebhookSecretCandidates = (input: {
+  agentSecret?: string | null
+  providerSecret?: string | null
+}): WebhookSecretCandidate[] => {
+  const candidates: WebhookSecretCandidate[] = []
+  const seen = new Set<string>()
+
+  const pushIfPresent = (
+    secret: string | null | undefined,
+    source: WebhookSecretCandidate['source'],
+  ) => {
+    if (!secret) return
+    const normalized = secret.trim()
+    if (!normalized || seen.has(normalized)) {
+      return
+    }
+    seen.add(normalized)
+    candidates.push({
+      secret: normalized,
+      source,
+    })
+  }
+
+  pushIfPresent(input.agentSecret, 'agent')
+  pushIfPresent(input.providerSecret, 'provider')
+
+  return candidates
+}
+
+const signaturesMatch = (left: string, right: string): boolean => {
+  const leftBuffer = Buffer.from(left, 'utf8')
+  const rightBuffer = Buffer.from(right, 'utf8')
+  if (leftBuffer.length !== rightBuffer.length) {
+    return false
+  }
+  return timingSafeEqual(leftBuffer, rightBuffer)
+}
+
+const resolveMatchingWebhookSecret = (input: {
+  timestamp: string
+  bodyString: string
+  providedSignature: string
+  candidates: WebhookSecretCandidate[]
+}) => {
+  const payload = `${input.timestamp}.${input.bodyString}`
+
+  for (const candidate of input.candidates) {
+    const calculatedSignature = createHmac('sha256', candidate.secret)
+      .update(payload, 'utf8')
+      .digest('hex')
+
+    if (signaturesMatch(input.providedSignature, calculatedSignature)) {
+      return {
+        matched: true,
+        source: candidate.source,
+      } as const
+    }
+  }
+
+  return {
+    matched: false,
+    source: null,
+  } as const
 }
 
 const ensureWebhookNotReplayed = async (input: {
@@ -214,6 +324,19 @@ export const withBetterAuth = async (
     )
 
     if (!lifecycleDecision.allowed) {
+      const nonProductionDetails =
+        config.nodeEnv === 'production'
+          ? {}
+          : {
+              details: {
+                requestPath,
+                requiredPath: lifecycleDecision.requiredPath,
+                lifecycleStatus: lifecycleSnapshot.lifecycleStatus,
+                planType: lifecycleSnapshot.planType,
+                provisioningStatus: lifecycleSnapshot.provisioningStatus,
+              },
+            }
+
       return sendApiError(req, res, 403, {
         code: 'ORG_LIFECYCLE_BLOCKED',
         message:
@@ -221,13 +344,7 @@ export const withBetterAuth = async (
           'Organization lifecycle gate blocked access',
         userMessage:
           'Complete the required organization setup step before continuing.',
-        details: {
-          requestPath,
-          requiredPath: lifecycleDecision.requiredPath,
-          lifecycleStatus: lifecycleSnapshot.lifecycleStatus,
-          planType: lifecycleSnapshot.planType,
-          provisioningStatus: lifecycleSnapshot.provisioningStatus,
-        },
+        ...nonProductionDetails,
       })
     }
   }
@@ -357,21 +474,12 @@ export const withElevenLabsWebhookAuth = async (
       ? signatureHeaderRaw[0]
       : signatureHeaderRaw
 
-    // Parse signature header: t=1764013624,v0=62f4716d1de3d37a936730dc817c98855214d345a22cb69bb802330e6eaa2bd2
-    const signatureParts = signatureHeader.split(',')
-    const timestampMatch = signatureParts
-      .find((p: string) => p.startsWith('t='))
-      ?.split('=')[1]
-    const signatureMatch = signatureParts
-      .find((p: string) => p.startsWith('v0='))
-      ?.split('=')[1]
-
-    if (!timestampMatch || !signatureMatch) {
+    const parsedSignatureHeader = parseSignatureHeader(signatureHeader)
+    if (!parsedSignatureHeader) {
       return res.status(401).json({ error: 'Invalid signature format' })
     }
 
-    const timestamp = timestampMatch
-    const providedSignature = signatureMatch
+    const { timestamp, providedSignature } = parsedSignatureHeader
 
     // Get raw body - should be a Buffer from express.raw()
     const rawBody = req.body
@@ -379,13 +487,15 @@ export const withElevenLabsWebhookAuth = async (
       return res.status(400).json({ error: 'Missing request body' })
     }
 
-    // Convert to string if it's a Buffer
-    const bodyString = Buffer.isBuffer(rawBody)
-      ? rawBody.toString('utf8')
-      : rawBody
+    const bodyString = getRawBodyString(rawBody)
+    if (bodyString === null) {
+      return res.status(400).json({
+        error: 'Invalid body type; expected raw request body',
+      })
+    }
 
     // Try to find webhook secret from database first (scalable approach)
-    let webhookSecret: string | null = null
+    let agentWebhookSecret: string | null = null
     const agentExternalId = extractAgentIdFromBody(bodyString)
 
     if (agentExternalId) {
@@ -394,38 +504,45 @@ export const withElevenLabsWebhookAuth = async (
         AgentExternalType.ELEVEN_LABS,
       )
       if (agent?.webhookSecret) {
-        webhookSecret = agent.webhookSecret
+        agentWebhookSecret = agent.webhookSecret
         logger.info(`Using webhook secret from agent: ${agent.name}`)
       }
     }
 
-    // Fallback to env config if no database secret found
-    if (!webhookSecret) {
-      webhookSecret = config.elevenLabs.webhookKey
-    }
+    const providerWebhookSecret = config.elevenLabs.webhookKey
+    const webhookSecretCandidates = buildWebhookSecretCandidates({
+      agentSecret: agentWebhookSecret,
+      providerSecret: providerWebhookSecret,
+    })
 
-    if (!webhookSecret) {
+    if (webhookSecretCandidates.length === 0) {
       logger.error('No webhook secret available for verification')
       return res.status(500).json({ error: 'Webhook secret not configured' })
     }
 
-    // ElevenLabs signature format: HMAC-SHA256(timestamp + "." + body)
-    const payload = `${timestamp}.${bodyString}`
+    const signatureResult = resolveMatchingWebhookSecret({
+      timestamp,
+      bodyString,
+      providedSignature,
+      candidates: webhookSecretCandidates,
+    })
 
-    // Calculate HMAC signature
-    const hmac = createHmac('sha256', webhookSecret)
-    const calculatedSignature = hmac.update(payload, 'utf8').digest('hex')
-
-    // Compare signatures
-    if (providedSignature !== calculatedSignature) {
+    if (!signatureResult.matched) {
       logger.warn('Webhook signature verification failed', {
-        provided: providedSignature,
-        calculated: calculatedSignature,
         timestamp,
         agentExternalId,
+        candidateCount: webhookSecretCandidates.length,
       })
       return res.status(401).json({ error: 'Invalid signature' })
     }
+
+    logger.info(
+      {
+        agentExternalId,
+        secretSource: signatureResult.source,
+      },
+      'Webhook signature verified',
+    )
 
     // Optional: Verify timestamp is recent (within 5 minutes) to prevent replay attacks
     const timestampNum = parseInt(timestamp, 10)
@@ -504,74 +621,74 @@ export const withWebhookAuth = async (
       ? signatureHeaderRaw[0]
       : signatureHeaderRaw
 
-    // Parse signature header: t=timestamp,v0=signature
-    const signatureParts = signatureHeader.split(',')
-    const timestampMatch = signatureParts
-      .find((p: string) => p.startsWith('t='))
-      ?.split('=')[1]
-    const signatureMatch = signatureParts
-      .find((p: string) => p.startsWith('v0='))
-      ?.split('=')[1]
-
-    if (!timestampMatch || !signatureMatch) {
+    const parsedSignatureHeader = parseSignatureHeader(signatureHeader)
+    if (!parsedSignatureHeader) {
       return res.status(401).json({ error: 'Invalid signature format' })
     }
 
-    const timestamp = timestampMatch
-    const providedSignature = signatureMatch
+    const { timestamp, providedSignature } = parsedSignatureHeader
 
     const rawBody = req.body
     if (!rawBody) {
       return res.status(400).json({ error: 'Missing request body' })
     }
 
-    const bodyString = Buffer.isBuffer(rawBody)
-      ? rawBody.toString('utf8')
-      : rawBody
+    const bodyString = getRawBodyString(rawBody)
+    if (bodyString === null) {
+      return res.status(400).json({
+        error: 'Invalid body type; expected raw request body',
+      })
+    }
 
     // Try to find webhook secret from database first (scalable approach)
-    let webhookSecret: string | null = null
+    let agentWebhookSecret: string | null = null
     let providerName = providerSlug
     const agentExternalId = extractAgentIdFromBody(bodyString)
 
     if (agentExternalId) {
-      const agent = await findAgentByExternalId(agentExternalId, 'ELEVEN_LABS')
+      const agent = await findAgentByExternalId(
+        agentExternalId,
+        AgentExternalType.ELEVEN_LABS,
+      )
       if (agent?.webhookSecret) {
-        webhookSecret = agent.webhookSecret
+        agentWebhookSecret = agent.webhookSecret
         providerName = agent.name
         logger.info(`Using webhook secret from agent: ${agent.name}`)
       }
     }
 
     // Fallback to env config provider if no database secret found
-    if (!webhookSecret) {
-      const provider = findProviderBySlug(providerSlug)
-      if (provider) {
-        webhookSecret = provider.webhookKey
-        providerName = provider.name
-      }
+    let providerWebhookSecret: string | null = null
+    const provider = findProviderBySlug(providerSlug)
+    if (provider) {
+      providerWebhookSecret = provider.webhookKey
+      providerName = provider.name
     }
 
-    if (!webhookSecret) {
+    const webhookSecretCandidates = buildWebhookSecretCandidates({
+      agentSecret: agentWebhookSecret,
+      providerSecret: providerWebhookSecret,
+    })
+
+    if (webhookSecretCandidates.length === 0) {
       logger.warn(`No webhook secret found for provider: ${providerSlug}`)
       return res
         .status(404)
         .json({ error: 'Unknown provider or missing webhook secret' })
     }
 
-    // Signature format: HMAC-SHA256(timestamp + "." + body)
-    const payload = `${timestamp}.${bodyString}`
+    const signatureResult = resolveMatchingWebhookSecret({
+      timestamp,
+      bodyString,
+      providedSignature,
+      candidates: webhookSecretCandidates,
+    })
 
-    // Calculate signature using found webhook key
-    const hmac = createHmac('sha256', webhookSecret)
-    const calculatedSignature = hmac.update(payload, 'utf8').digest('hex')
-
-    if (providedSignature !== calculatedSignature) {
+    if (!signatureResult.matched) {
       logger.warn(`[${providerName}] Webhook signature verification failed`, {
-        provided: providedSignature,
-        calculated: calculatedSignature,
         timestamp,
         agentExternalId,
+        candidateCount: webhookSecretCandidates.length,
       })
       return res.status(401).json({ error: 'Invalid signature' })
     }

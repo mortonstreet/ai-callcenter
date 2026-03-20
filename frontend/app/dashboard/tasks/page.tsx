@@ -213,7 +213,8 @@ export default function TasksPage() {
 
     setIsExporting(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL || 'https://api.revcenter.ai/api';
       const { startDate, endDate } = getDateRangeFromPreset();
 
       const params = new URLSearchParams();

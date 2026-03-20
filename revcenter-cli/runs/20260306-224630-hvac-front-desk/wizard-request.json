@@ -1,0 +1,21 @@
+{
+  "industry": "hvac",
+  "useCase": "customer_support",
+  "services": [
+    "AC repair",
+    "Heating repair",
+    "Seasonal maintenance",
+    "Ductless mini split"
+  ],
+  "mainObjective": "Book qualified HVAC calls and route urgent issues.",
+  "greeting": {
+    "mode": "generated"
+  },
+  "routing": {
+    "businessTimezone": "America/Los_Angeles",
+    "languages": [
+      "en"
+    ]
+  },
+  "agentName": "HVAC Front Desk"
+}

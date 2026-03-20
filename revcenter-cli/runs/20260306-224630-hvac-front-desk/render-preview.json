@@ -1,0 +1,52 @@
+{
+  "mode": "api",
+  "input": "/Users/mortonstreet/revcenter/revcenter-cli/runs/20260306-224630-hvac-front-desk/wizard-request.json",
+  "render": {
+    "normalizedRequest": {
+      "name": "HVAC Front Desk",
+      "industry": "hvac",
+      "useCase": "customer_support",
+      "services": [
+        "AC repair",
+        "Heating repair",
+        "Seasonal maintenance",
+        "Ductless mini split"
+      ],
+      "mainObjective": "Book qualified HVAC calls and route urgent issues.",
+      "greeting": {
+        "mode": "generated"
+      },
+      "routing": {
+        "businessTimezone": "America/Los_Angeles",
+        "languages": [
+          "en"
+        ]
+      },
+      "agentName": "HVAC Front Desk"
+    },
+    "summary": {
+      "organizationName": "HVAC Front Desk",
+      "agentName": "HVAC Front Desk",
+      "industry": "hvac",
+      "useCase": "customer_support",
+      "serviceCount": 4,
+      "knowledgeSourceCount": 0,
+      "hasCustomGreeting": false,
+      "voiceId": null
+    },
+    "resolvedProfile": {
+      "profileKey": "hvac",
+      "profileVersion": null,
+      "selectedVoiceId": null,
+      "greetingMode": "generated"
+    },
+    "promptPreview": {
+      "compiledPromptSummary": "Use case customer_support; 4 service area(s); goal: Book qualified HVAC calls and route urgent issues.",
+      "knowledgeSourceCount": 0
+    },
+    "warnings": [
+      "No knowledge sources were provided.",
+      "No explicit voice was selected."
+    ]
+  }
+}

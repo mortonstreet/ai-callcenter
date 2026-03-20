@@ -62,11 +62,50 @@ const IanaTimezoneSchema = z
     'Invalid IANA timezone',
   )
 
+const OptionalTransferNumberSchema = z.preprocess((value) => {
+  if (typeof value !== 'string') {
+    return value
+  }
+
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}, z.string().min(3).optional())
+
+const OptionalBusinessTimezoneSchema = z.preprocess((value) => {
+  if (typeof value !== 'string') {
+    return value
+  }
+
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : undefined
+}, IanaTimezoneSchema.optional())
+
+const OptionalLanguagesSchema = z.preprocess((value) => {
+  if (!Array.isArray(value)) {
+    return value
+  }
+
+  const normalized: string[] = []
+
+  for (const entry of value) {
+    if (typeof entry !== 'string') {
+      return value
+    }
+
+    const trimmed = entry.trim()
+    if (trimmed.length > 0) {
+      normalized.push(trimmed)
+    }
+  }
+
+  return normalized.length > 0 ? normalized : undefined
+}, z.array(z.string().min(2)).max(10).optional())
+
 export const WizardRoutingSchema = z
   .object({
-    transferNumber: z.string().min(3).optional(),
-    businessTimezone: IanaTimezoneSchema.optional(),
-    languages: z.array(z.string().min(2)).max(10).optional(),
+    transferNumber: OptionalTransferNumberSchema,
+    businessTimezone: OptionalBusinessTimezoneSchema,
+    languages: OptionalLanguagesSchema,
   })
   .strict()
 

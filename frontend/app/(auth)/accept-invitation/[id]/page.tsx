@@ -49,7 +49,7 @@ function AcceptInvitationContent() {
     try {
       // Call the better-auth organization accept invitation endpoint
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"}/auth/organization/accept-invitation`,
+        `${process.env.NEXT_PUBLIC_API_URL || "https://api.revcenter.ai/api"}/auth/organization/accept-invitation`,
         {
           method: "POST",
           headers: {
@@ -150,4 +150,3 @@ function AcceptInvitationContent() {
     </div>
   );
 }
-

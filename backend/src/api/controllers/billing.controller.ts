@@ -145,19 +145,22 @@ export const stripeWebhookHandler = async (req: Request, res: Response) => {
   const signatureHeader = Array.isArray(signatureHeaderRaw)
     ? signatureHeaderRaw[0]
     : signatureHeaderRaw
-  const rawBody =
-    requestWithRaw.rawBodyText ||
-    (req.body ? JSON.stringify(req.body) : JSON.stringify({}))
+  if (typeof requestWithRaw.rawBodyText !== 'string') {
+    return sendApiError(req, res, 400, {
+      code: 'BILLING_WEBHOOK_RAW_BODY_MISSING',
+      message: 'Missing raw request body for Stripe signature verification',
+      userMessage: 'Webhook payload could not be verified.',
+    })
+  }
+
+  const rawBody = requestWithRaw.rawBodyText
 
   try {
-    const result = await handleStripeWebhook({
+    await handleStripeWebhook({
       rawBody,
       signatureHeader,
     })
-    return res.status(200).json({
-      received: true,
-      data: result,
-    })
+    return res.status(200).json({ received: true })
   } catch (error) {
     const message =
       error instanceof Error

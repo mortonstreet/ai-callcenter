@@ -3,6 +3,29 @@ import { z } from 'zod'
 import { existsSync } from 'fs'
 import { resolve } from 'path'
 
+const runtimeNodeEnv =
+  process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test'
+    ? process.env.NODE_ENV
+    : 'development'
+
+const defaultCorsOrigins =
+  runtimeNodeEnv === 'production'
+    ? 'https://www.revcenter.ai,https://revcenter.ai,https://app.revcenter.ai'
+    : 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:3001,http://127.0.0.1:3001'
+
+const defaultBackendUrl =
+  runtimeNodeEnv === 'production'
+    ? 'https://api.revcenter.ai'
+    : 'http://localhost:8000'
+
+const defaultCookieDomain =
+  runtimeNodeEnv === 'production' ? 'revcenter.ai' : 'localhost'
+
+const defaultRedisUrl =
+  runtimeNodeEnv === 'production'
+    ? 'redis://redis.revcenter.ai:6379'
+    : 'redis://localhost:6380'
+
 // Load .env.local first if it exists (for local development), then .env
 const envLocalPath = resolve(process.cwd(), '.env.local')
 if (existsSync(envLocalPath)) {
@@ -60,23 +83,21 @@ const envSchema = z.object({
   TIMEZONE: z.string().default('America/New_York'),
   CORS_ORIGIN: z
     .string()
-    .default(
-      'https://www.revcenter.ai,https://revcenter.ai,https://app.revcenter.ai',
-    )
+    .default(defaultCorsOrigins)
     .transform((val) => {
       if (val === '*') return '*'
       return val.includes(',') ? val.split(',').map((s) => s.trim()) : val
     }),
-  BACKEND_URL: z.string().url().default('https://api.revcenter.ai'),
+  BACKEND_URL: z.string().url().default(defaultBackendUrl),
   FRONTEND_URL: z.string().url(),
-  COOKIE_DOMAIN: z.string().default('revcenter.ai'),
+  COOKIE_DOMAIN: z.string().default(defaultCookieDomain),
   DATABASE_URL: z.string().url(),
   DB_HOST: z.string(),
   DB_PORT: z.coerce.number(),
   DB_USER: z.string(),
   DB_PASSWORD: z.string(),
   DB_NAME: z.string(),
-  REDIS_URL: z.string().url().default('redis://redis.revcenter.ai:6379'),
+  REDIS_URL: z.string().url().default(defaultRedisUrl),
   BETTERSTACK_TOKEN: z.string(),
   BETTERSTACK_HOST: z.string(),
   SENTRY_DSN: z.string(),

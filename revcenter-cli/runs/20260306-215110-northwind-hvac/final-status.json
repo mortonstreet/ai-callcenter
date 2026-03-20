@@ -1,0 +1,125 @@
+{
+  "mode": "api",
+  "input": "/Users/mortonstreet/revcenter/revcenter-cli/runs/20260306-215110-northwind-hvac/wizard-request.json",
+  "render": {
+    "normalizedRequest": {
+      "name": "Northwind HVAC",
+      "domain": "northwind.example.com",
+      "industry": "hvac",
+      "useCase": "inbound_lead_capture",
+      "services": [
+        "Repairs",
+        "Installations"
+      ],
+      "discoveryQuestions": [
+        "What service do you need help with today?",
+        "What is the service address?"
+      ],
+      "mainObjective": "Book qualified service calls.",
+      "knowledgeSources": [
+        "https://northwind.example.com"
+      ],
+      "greeting": {
+        "mode": "generated"
+      },
+      "routing": {
+        "businessTimezone": "America/Los_Angeles",
+        "languages": [
+          "en"
+        ]
+      },
+      "agentName": "Northwind HVAC Service Desk"
+    },
+    "summary": {
+      "organizationName": "Northwind HVAC",
+      "agentName": "Northwind HVAC Service Desk",
+      "industry": "hvac",
+      "useCase": "inbound_lead_capture",
+      "serviceCount": 2,
+      "knowledgeSourceCount": 1,
+      "hasCustomGreeting": false,
+      "voiceId": null
+    },
+    "resolvedProfile": {
+      "profileKey": "hvac",
+      "profileVersion": null,
+      "selectedVoiceId": null,
+      "greetingMode": "generated"
+    },
+    "promptPreview": {
+      "compiledPromptSummary": "Use case inbound_lead_capture; 2 service area(s); goal: Book qualified service calls.",
+      "knowledgeSourceCount": 1
+    },
+    "warnings": [
+      "No explicit voice was selected."
+    ]
+  },
+  "submission": {
+    "jobId": "prov_04485c597ce7",
+    "agentId": "agent_1332f3ea12ab",
+    "status": "queued",
+    "correlationId": "revcenter-cli:Northwind HVAC",
+    "reusedExisting": false
+  },
+  "final": {
+    "jobId": "prov_04485c597ce7",
+    "status": "completed",
+    "correlationId": "revcenter-cli:Northwind HVAC",
+    "organization": {
+      "id": "org_9044e39d93ab",
+      "name": "Northwind HVAC"
+    },
+    "agent": {
+      "agentId": "agent_1332f3ea12ab",
+      "name": "Northwind HVAC Service Desk",
+      "provider": "LOCAL_STUB",
+      "providerExternalId": null,
+      "readinessStatus": "ready"
+    },
+    "steps": [
+      {
+        "stepId": "validate_request",
+        "stepOrder": 1,
+        "status": "completed",
+        "attempts": 1,
+        "lastErrorCode": null,
+        "lastErrorMessage": null
+      },
+      {
+        "stepId": "normalize_request",
+        "stepOrder": 2,
+        "status": "completed",
+        "attempts": 1,
+        "lastErrorCode": null,
+        "lastErrorMessage": null
+      },
+      {
+        "stepId": "resolve_profile",
+        "stepOrder": 3,
+        "status": "completed",
+        "attempts": 1,
+        "lastErrorCode": null,
+        "lastErrorMessage": null
+      },
+      {
+        "stepId": "compile_prompt_and_greeting",
+        "stepOrder": 4,
+        "status": "completed",
+        "attempts": 1,
+        "lastErrorCode": null,
+        "lastErrorMessage": null
+      },
+      {
+        "stepId": "persist_versions_and_finalize",
+        "stepOrder": 5,
+        "status": "completed",
+        "attempts": 1,
+        "lastErrorCode": null,
+        "lastErrorMessage": null
+      }
+    ],
+    "lastErrorCode": null,
+    "lastErrorMessage": null
+  },
+  "timedOut": false
+}

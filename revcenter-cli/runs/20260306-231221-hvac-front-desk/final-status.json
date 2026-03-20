@@ -1,0 +1,125 @@
+{
+  "mode": "api",
+  "input": "/Users/mortonstreet/revcenter/revcenter-cli/runs/20260306-231221-hvac-front-desk/wizard-request.json",
+  "render": {
+    "normalizedRequest": {
+      "name": "HVAC Front Desk",
+      "industry": "hvac",
+      "useCase": "customer_support",
+      "services": [
+        "AC repair",
+        "Heating repair",
+        "Seasonal maintenance",
+        "Ductless mini split"
+      ],
+      "discoveryQuestions": [
+        "What type of unit do you have and how old is it?",
+        "Is the system not turning on, or is airflow weak?",
+        "When did you first notice the issue?"
+      ],
+      "mainObjective": "Resolve inbound service calls, capture caller context, and book qualified jobs.",
+      "greeting": {
+        "mode": "generated"
+      },
+      "routing": {
+        "businessTimezone": "America/Los_Angeles",
+        "languages": [
+          "en"
+        ]
+      },
+      "agentName": "HVAC Front Desk"
+    },
+    "summary": {
+      "organizationName": "HVAC Front Desk",
+      "agentName": "HVAC Front Desk",
+      "industry": "hvac",
+      "useCase": "customer_support",
+      "serviceCount": 4,
+      "knowledgeSourceCount": 0,
+      "hasCustomGreeting": false,
+      "voiceId": null
+    },
+    "resolvedProfile": {
+      "profileKey": "hvac",
+      "profileVersion": null,
+      "selectedVoiceId": null,
+      "greetingMode": "generated"
+    },
+    "promptPreview": {
+      "compiledPromptSummary": "Use case customer_support; 4 service area(s); goal: Resolve inbound service calls, capture caller context, and book qualified jobs.",
+      "knowledgeSourceCount": 0
+    },
+    "warnings": [
+      "No knowledge sources were provided.",
+      "No explicit voice was selected."
+    ]
+  },
+  "submission": {
+    "jobId": "prov_e0322656aa32",
+    "agentId": "agent_829e9fd1a545",
+    "status": "queued",
+    "correlationId": "revcenter-cli:HVAC Front Desk:HVAC Front Desk",
+    "reusedExisting": false
+  },
+  "final": {
+    "jobId": "prov_e0322656aa32",
+    "status": "completed",
+    "correlationId": "revcenter-cli:HVAC Front Desk:HVAC Front Desk",
+    "organization": {
+      "id": "org_a98183dc9377",
+      "name": "HVAC Front Desk"
+    },
+    "agent": {
+      "agentId": "agent_829e9fd1a545",
+      "name": "HVAC Front Desk",
+      "provider": "LOCAL_STUB",
+      "providerExternalId": null,
+      "readinessStatus": "ready"
+    },
+    "steps": [
+      {
+        "stepId": "validate_request",
+        "stepOrder": 1,
+        "status": "completed",
+        "attempts": 1,
+        "lastErrorCode": null,
+        "lastErrorMessage": null
+      },
+      {
+        "stepId": "normalize_request",
+        "stepOrder": 2,
+        "status": "completed",
+        "attempts": 1,
+        "lastErrorCode": null,
+        "lastErrorMessage": null
+      },
+      {
+        "stepId": "resolve_profile",
+        "stepOrder": 3,
+        "status": "completed",
+        "attempts": 1,
+        "lastErrorCode": null,
+        "lastErrorMessage": null
+      },
+      {
+        "stepId": "compile_prompt_and_greeting",
+        "stepOrder": 4,
+        "status": "completed",
+        "attempts": 1,
+        "lastErrorCode": null,
+        "lastErrorMessage": null
+      },
+      {
+        "stepId": "persist_versions_and_finalize",
+        "stepOrder": 5,
+        "status": "completed",
+        "attempts": 1,
+        "lastErrorCode": null,
+        "lastErrorMessage": null
+      }
+    ],
+    "lastErrorCode": null,
+    "lastErrorMessage": null
+  },
+  "timedOut": false
+}

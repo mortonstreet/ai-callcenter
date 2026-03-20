@@ -9,7 +9,7 @@ const listUsers = async () => {
   if (users.length === 0) {
     console.log('\n📭 No users in database yet!')
     console.log(
-      '\n👉 Go to http://localhost:3000/login and sign in with Google first.\n',
+      '\n👉 Go to https://app.revcenter.ai/login and sign in with Google first.\n',
     )
   } else {
     console.log('\n📋 Users in database:\n')

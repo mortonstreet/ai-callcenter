@@ -363,34 +363,6 @@ export type Member = {
   role: string
   createdAt: Timestamp
 }
-export type OnboardingProvisioningEvent = {
-  id: string
-  provisioningJobId: string
-  organizationId: string
-  correlationId: string
-  level: Generated<string>
-  eventType: string
-  message: string
-  metadata: unknown | null
-  createdAt: Generated<Timestamp>
-}
-export type OnboardingProvisioningJob = {
-  id: string
-  organizationId: string
-  submittedByUserId: string
-  correlationId: string
-  idempotencyKey: string
-  status: Generated<string>
-  lifecycleTarget: string | null
-  errorMessage: string | null
-  payload: unknown | null
-  attempts: Generated<number>
-  queuedAt: Generated<Timestamp>
-  startedAt: Timestamp | null
-  completedAt: Timestamp | null
-  createdAt: Generated<Timestamp>
-  updatedAt: Timestamp
-}
 export type Organization = {
   id: string
   name: string
@@ -617,8 +589,6 @@ export type DB = {
   invitation: Invitation
   lead: Lead
   member: Member
-  onboarding_provisioning_event: OnboardingProvisioningEvent
-  onboarding_provisioning_job: OnboardingProvisioningJob
   organization: Organization
   pipeline_stage: PipelineStage
   recording: Recording

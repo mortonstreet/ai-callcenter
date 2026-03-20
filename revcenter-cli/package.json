@@ -1,0 +1,30 @@
+{
+  "name": "revcenter-cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CLI wrappers and skill assets for RevCenter wizard agent generation",
+  "scripts": {
+    "build": "tsc --noEmit -p tsconfig.json",
+    "test": "node --import tsx --test tests/**/*.test.ts",
+    "tsc": "tsc --noEmit -p tsconfig.json",
+    "wizard:start": "node --import tsx src/api-server.ts",
+    "wizard:api": "node --import tsx src/api-server.ts",
+    "wizard": "node --import tsx src/cli.ts",
+    "wizard:guided": "node --import tsx src/cli.ts guided",
+    "wizard:render": "node --import tsx src/cli.ts render",
+    "wizard:submit": "node --import tsx src/cli.ts submit",
+    "wizard:one-shot": "node --import tsx src/cli.ts one-shot",
+    "wizard:status": "node --import tsx src/cli.ts status",
+    "wizard:template": "node --import tsx src/cli.ts template"
+  },
+  "dependencies": {
+    "@shared/types": "workspace:*",
+    "yargs": "^18.0.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

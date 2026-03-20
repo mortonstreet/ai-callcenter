@@ -420,9 +420,7 @@ const assertOrganizationAccess = async (input: {
 
   const membership = await findMember(input.organizationId, input.userId)
   if (!membership) {
-    throw new ProvisioningForbiddenError(
-      'You do not have access to this provisioning job.',
-    )
+    throw new ProvisioningNotFoundError('Provisioning resource was not found.')
   }
 
   if (

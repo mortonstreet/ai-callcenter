@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'crypto'
 import { getElevenLabsClient } from '@/clients/elevenlabs.client'
+import { config } from '@/config'
 import {
   createAgent as createAgentRepo,
   findById,
@@ -179,6 +180,124 @@ const getErrorMessage = (error: unknown): string => {
     return error.message
   }
   return 'Unknown provider sync error'
+}
+
+interface ProviderCreatePayloadInput {
+  name: string
+  prompt: string
+  greeting: string
+  llmModel: string
+  temperature: number
+  maxTokens: number
+  language: string
+  voiceId?: string | null
+  stability: number
+  similarityBoost: number
+  speed: number
+}
+
+const buildPrimaryProviderCreatePayload = (
+  input: ProviderCreatePayloadInput,
+) => ({
+  name: input.name,
+  conversation_config: {
+    agent: {
+      prompt: {
+        prompt: input.prompt,
+        llm: input.llmModel,
+        temperature: input.temperature,
+        max_tokens: input.maxTokens,
+      },
+      first_message: input.greeting,
+      language: input.language,
+    },
+    tts: {
+      voice_id: input.voiceId,
+      stability: input.stability,
+      similarity_boost: input.similarityBoost,
+      speed: input.speed,
+    },
+  },
+})
+
+const buildCompatibilityProviderCreatePayload = (
+  input: ProviderCreatePayloadInput,
+) => {
+  const agentConfig: Record<string, unknown> = {
+    prompt: {
+      prompt: input.prompt,
+    },
+    first_message: input.greeting,
+    language: input.language,
+  }
+
+  const conversationConfig: Record<string, unknown> = {
+    agent: agentConfig,
+  }
+
+  if (input.voiceId) {
+    conversationConfig.tts = {
+      voice_id: input.voiceId,
+    }
+  }
+
+  return {
+    name: input.name,
+    conversation_config: conversationConfig,
+  }
+}
+
+const shouldRetryWithCompatibilityCreatePayload = (errorMessage: string) => {
+  return (
+    /\b(500|502|503|504)\b/.test(errorMessage) ||
+    /internal server|internal error|provider unavailable/i.test(errorMessage)
+  )
+}
+
+const createProviderAgentWithCompatibilityFallback = async (input: {
+  client: ReturnType<typeof getElevenLabsClient>
+  payload: ProviderCreatePayloadInput
+  context: {
+    organizationId: string
+    providerCorrelationKey: string
+    source: 'create' | 'retry'
+    agentId?: string
+  }
+}) => {
+  const primaryPayload = buildPrimaryProviderCreatePayload(input.payload)
+
+  try {
+    return await input.client.createAgent(primaryPayload)
+  } catch (error) {
+    const errorMessage = getErrorMessage(error)
+    if (!shouldRetryWithCompatibilityCreatePayload(errorMessage)) {
+      throw error
+    }
+
+    logger.warn(
+      {
+        error: errorMessage,
+        organizationId: input.context.organizationId,
+        providerCorrelationKey: input.context.providerCorrelationKey,
+        agentId: input.context.agentId,
+        source: input.context.source,
+      },
+      'Primary ElevenLabs create payload failed; retrying with compatibility payload',
+    )
+
+    const compatibilityPayload = buildCompatibilityProviderCreatePayload(
+      input.payload,
+    )
+    return input.client.createAgent(compatibilityPayload)
+  }
+}
+
+const resolveDefaultWebhookSecret = () => {
+  const configuredSecret = config.elevenLabs.webhookKey?.trim()
+  if (configuredSecret) {
+    return configuredSecret
+  }
+  return generateProvisioningSecret('wsec_')
 }
 
 const getUpdateIdempotencyKey = (
@@ -803,25 +922,25 @@ export async function createElevenLabsAgent(params: CreateAgentParams) {
 
   try {
     const client = getElevenLabsClient()
-    const elevenLabsAgent = await client.createAgent({
-      name,
-      conversation_config: {
-        agent: {
-          prompt: {
-            prompt,
-            llm: profile.llm.model,
-            temperature: profile.llm.temperature,
-            max_tokens: profile.llm.maxTokens,
-          },
-          first_message: greeting,
-          language: profile.language,
-        },
-        tts: {
-          voice_id: suggestedVoice,
-          stability: compiled.voice.stability,
-          similarity_boost: compiled.voice.similarityBoost,
-          speed: compiled.voice.speed,
-        },
+    const elevenLabsAgent = await createProviderAgentWithCompatibilityFallback({
+      client,
+      payload: {
+        name,
+        prompt,
+        greeting,
+        llmModel: profile.llm.model,
+        temperature: profile.llm.temperature,
+        maxTokens: profile.llm.maxTokens,
+        language: profile.language,
+        voiceId: suggestedVoice,
+        stability: compiled.voice.stability,
+        similarityBoost: compiled.voice.similarityBoost,
+        speed: compiled.voice.speed,
+      },
+      context: {
+        organizationId,
+        providerCorrelationKey,
+        source: 'create',
       },
     })
     createdExternalId = elevenLabsAgent.agent_id
@@ -862,7 +981,7 @@ export async function createElevenLabsAgent(params: CreateAgentParams) {
       lastSyncError: provisioningResult.errorMessage,
       providerCorrelationKey,
       mcpApiKey: generateProvisioningSecret('mcp_'),
-      webhookSecret: generateProvisioningSecret('wsec_'),
+      webhookSecret: resolveDefaultWebhookSecret(),
       mcpEndpointUrl: provisioningResult.plan.mcpDefaults.endpoint,
     })
 
@@ -1082,7 +1201,7 @@ export async function retryAgentProvision(payload: AgentProvisionRetryPayload) {
         mcpApiKey:
           existingAgent.mcpApiKey || generateProvisioningSecret('mcp_'),
         webhookSecret:
-          existingAgent.webhookSecret || generateProvisioningSecret('wsec_'),
+          existingAgent.webhookSecret || resolveDefaultWebhookSecret(),
         mcpEndpointUrl: provisioningResult.plan.mcpDefaults.endpoint,
       },
     )
@@ -1121,25 +1240,26 @@ export async function retryAgentProvision(payload: AgentProvisionRetryPayload) {
     return runRecovery(existingAgent.externalId)
   }
 
-  const elevenLabsAgent = await client.createAgent({
-    name: payload.name,
-    conversation_config: {
-      agent: {
-        prompt: {
-          prompt,
-          llm: profile.llm.model,
-          temperature: profile.llm.temperature,
-          max_tokens: profile.llm.maxTokens,
-        },
-        first_message: greeting,
-        language: profile.language,
-      },
-      tts: {
-        voice_id: suggestedVoice,
-        stability: compiled.voice.stability,
-        similarity_boost: compiled.voice.similarityBoost,
-        speed: compiled.voice.speed,
-      },
+  const elevenLabsAgent = await createProviderAgentWithCompatibilityFallback({
+    client,
+    payload: {
+      name: payload.name,
+      prompt,
+      greeting,
+      llmModel: profile.llm.model,
+      temperature: profile.llm.temperature,
+      maxTokens: profile.llm.maxTokens,
+      language: profile.language,
+      voiceId: suggestedVoice,
+      stability: compiled.voice.stability,
+      similarityBoost: compiled.voice.similarityBoost,
+      speed: compiled.voice.speed,
+    },
+    context: {
+      organizationId: payload.organizationId,
+      providerCorrelationKey: payload.providerCorrelationKey,
+      source: 'retry',
+      agentId: payload.agentId,
     },
   })
 

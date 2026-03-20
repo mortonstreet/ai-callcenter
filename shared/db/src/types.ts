@@ -31,8 +31,6 @@ import {
   IntegrationSyncJob,
   IntegrationSyncLog,
   IntegrationWebhookEvent,
-  OnboardingProvisioningJob,
-  OnboardingProvisioningEvent,
   SmsCampaign,
   SmsCampaignEnrollment,
   SmsCampaignList,
@@ -116,14 +114,6 @@ export type UpdateDBIntegrationSyncLog = Updateable<IntegrationSyncLog>;
 export type DBIntegrationWebhookEvent = Selectable<IntegrationWebhookEvent>;
 export type InsertDBIntegrationWebhookEvent = Insertable<IntegrationWebhookEvent>;
 export type UpdateDBIntegrationWebhookEvent = Updateable<IntegrationWebhookEvent>;
-
-export type DBOnboardingProvisioningJob = Selectable<OnboardingProvisioningJob>;
-export type InsertDBOnboardingProvisioningJob = Insertable<OnboardingProvisioningJob>;
-export type UpdateDBOnboardingProvisioningJob = Updateable<OnboardingProvisioningJob>;
-
-export type DBOnboardingProvisioningEvent = Selectable<OnboardingProvisioningEvent>;
-export type InsertDBOnboardingProvisioningEvent = Insertable<OnboardingProvisioningEvent>;
-export type UpdateDBOnboardingProvisioningEvent = Updateable<OnboardingProvisioningEvent>;
 
 export type DBCampaign = Selectable<Campaign>;
 export type InsertDBCampaign = Insertable<Campaign>;

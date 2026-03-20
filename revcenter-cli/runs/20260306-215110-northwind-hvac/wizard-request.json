@@ -1,0 +1,29 @@
+{
+  "name": "Northwind HVAC",
+  "domain": "northwind.example.com",
+  "industry": "hvac",
+  "useCase": "inbound_lead_capture",
+  "services": [
+    "Repairs",
+    "Installations"
+  ],
+  "discoveryQuestions": [
+    "What service do you need help with today?",
+    "What is the service address?"
+  ],
+  "mainObjective": "Book qualified service calls.",
+  "knowledgeSources": [
+    "https://northwind.example.com"
+  ],
+  "website": "https://northwind.example.com",
+  "greeting": {
+    "mode": "generated"
+  },
+  "routing": {
+    "businessTimezone": "America/Los_Angeles",
+    "languages": [
+      "en"
+    ]
+  },
+  "agentName": "Northwind HVAC Service Desk"
+}

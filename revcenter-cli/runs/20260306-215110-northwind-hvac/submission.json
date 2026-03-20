@@ -1,0 +1,11 @@
+{
+  "mode": "api",
+  "input": "/Users/mortonstreet/revcenter/revcenter-cli/runs/20260306-215110-northwind-hvac/wizard-request.json",
+  "submission": {
+    "jobId": "prov_04485c597ce7",
+    "agentId": "agent_1332f3ea12ab",
+    "status": "queued",
+    "correlationId": "revcenter-cli:Northwind HVAC",
+    "reusedExisting": false
+  }
+}

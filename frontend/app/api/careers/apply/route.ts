@@ -4,7 +4,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+    const apiUrl =
+      process.env.NEXT_PUBLIC_API_URL || 'https://api.revcenter.ai/api';
     
     const response = await fetch(`${apiUrl}/careers/apply`, {
       method: 'POST',
@@ -29,4 +30,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

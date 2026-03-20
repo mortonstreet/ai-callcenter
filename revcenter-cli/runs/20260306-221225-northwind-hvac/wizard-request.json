@@ -1,0 +1,29 @@
+{
+  "name": "Northwind HVAC",
+  "industry": "hvac",
+  "useCase": "inbound_lead_capture",
+  "services": [
+    "AC repair",
+    "Heating maintenance",
+    "Emergency dispatch"
+  ],
+  "discoveryQuestions": [
+    "What service do you need help with today?",
+    "What is the service address?",
+    "What is the best callback number?"
+  ],
+  "mainObjective": "Capture qualified inbound calls, route urgent issues, and book service appointments.",
+  "voiceSelection": {
+    "voiceId": "cgSgspJ2msm6clMCkdW9"
+  },
+  "greeting": {
+    "mode": "generated"
+  },
+  "routing": {
+    "businessTimezone": "America/Los_Angeles",
+    "languages": [
+      "en"
+    ]
+  },
+  "agentName": "Northwind HVAC Service Desk"
+}

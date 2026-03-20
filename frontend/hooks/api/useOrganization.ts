@@ -136,7 +136,9 @@ export function useOnboardingProvisioningStatus(
       );
     },
     enabled: options?.enabled,
-    refetchInterval: options?.refetchInterval,
+    retry: false,
+    refetchInterval: (query) =>
+      query.state.status === 'error' ? false : (options?.refetchInterval ?? false),
   });
 }
 

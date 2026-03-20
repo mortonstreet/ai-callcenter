@@ -25,7 +25,7 @@ const handleProvisioningError = (
   if (error instanceof ProvisioningNotFoundError) {
     return sendApiError(req, res, 404, {
       code: 'PROVISIONING_NOT_FOUND',
-      message: error.message,
+      message: 'Provisioning resource was not found.',
       userMessage: 'Provisioning status was not found.',
     })
   }

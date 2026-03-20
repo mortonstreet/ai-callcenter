@@ -1,0 +1,24 @@
+{
+  "name": "Northwind HVAC",
+  "domain": "northwind.example.com",
+  "industry": "hvac",
+  "useCase": "inbound_lead_capture",
+  "services": ["Repairs", "Installations"],
+  "discoveryQuestions": [
+    "What unit is having issues?",
+    "What is the service address?"
+  ],
+  "mainObjective": "Capture qualified inbound calls and book service visits.",
+  "knowledgeSources": ["https://northwind.example.com"],
+  "voiceSelection": {
+    "voiceId": "voice_demo_123"
+  },
+  "greeting": {
+    "mode": "generated"
+  },
+  "routing": {
+    "businessTimezone": "America/Los_Angeles",
+    "languages": ["en"]
+  },
+  "agentName": "Northwind Dispatch"
+}

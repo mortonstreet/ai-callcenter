@@ -9,12 +9,97 @@ import {
   UpdateDBAgentProvisioningStep,
 } from '@shared/db/src'
 
+const toJsonColumnValue = (value: unknown): unknown => {
+  if (value === undefined) {
+    return null
+  }
+
+  if (value === null || typeof value === 'string') {
+    return value
+  }
+
+  if (Array.isArray(value) || typeof value === 'object') {
+    return JSON.stringify(value)
+  }
+
+  return value
+}
+
+const serializeProvisioningJobJson = (
+  data: Omit<InsertDBAgentProvisioningJob, 'id'>,
+): Omit<InsertDBAgentProvisioningJob, 'id'> => {
+  return {
+    ...data,
+    wizardInput: toJsonColumnValue(data.wizardInput),
+    intentProfile: toJsonColumnValue(data.intentProfile),
+    runtimeState: toJsonColumnValue(data.runtimeState),
+  }
+}
+
+const serializeProvisioningJobUpdateJson = (
+  data: Omit<
+    UpdateDBAgentProvisioningJob,
+    'id' | 'organizationId' | 'agentId' | 'createdAt'
+  >,
+): Omit<
+  UpdateDBAgentProvisioningJob,
+  'id' | 'organizationId' | 'agentId' | 'createdAt'
+> => {
+  return {
+    ...data,
+    wizardInput:
+      data.wizardInput === undefined
+        ? undefined
+        : toJsonColumnValue(data.wizardInput),
+    intentProfile:
+      data.intentProfile === undefined
+        ? undefined
+        : toJsonColumnValue(data.intentProfile),
+    runtimeState:
+      data.runtimeState === undefined
+        ? undefined
+        : toJsonColumnValue(data.runtimeState),
+  }
+}
+
+const serializeProvisioningStepJson = (
+  data: Omit<InsertDBAgentProvisioningStep, 'id'>,
+): Omit<InsertDBAgentProvisioningStep, 'id'> => {
+  return {
+    ...data,
+    eventLog: toJsonColumnValue(data.eventLog),
+    metadata: toJsonColumnValue(data.metadata),
+  }
+}
+
+const serializeProvisioningStepUpdateJson = (
+  data: Omit<
+    UpdateDBAgentProvisioningStep,
+    'id' | 'jobId' | 'organizationId' | 'agentId' | 'createdAt'
+  >,
+): Omit<
+  UpdateDBAgentProvisioningStep,
+  'id' | 'jobId' | 'organizationId' | 'agentId' | 'createdAt'
+> => {
+  return {
+    ...data,
+    eventLog:
+      data.eventLog === undefined
+        ? undefined
+        : toJsonColumnValue(data.eventLog),
+    metadata:
+      data.metadata === undefined
+        ? undefined
+        : toJsonColumnValue(data.metadata),
+  }
+}
+
 export const createAgentProvisioningJob = async (
   data: Omit<InsertDBAgentProvisioningJob, 'id'>,
 ): Promise<DBAgentProvisioningJob> => {
   return db
     .insertInto('agent_provisioning_job')
-    .values(withId(data))
+    .values(withId(serializeProvisioningJobJson(data)))
     .returningAll()
     .executeTakeFirstOrThrow()
 }
@@ -28,7 +113,7 @@ export const createAgentProvisioningSteps = async (
 
   return db
     .insertInto('agent_provisioning_step')
-    .values(data.map((entry) => withId(entry)))
+    .values(data.map((entry) => withId(serializeProvisioningStepJson(entry))))
     .returningAll()
     .execute()
 }
@@ -124,7 +209,10 @@ export const updateAgentProvisioningJob = async (
 ): Promise<DBAgentProvisioningJob | undefined> => {
   return db
     .updateTable('agent_provisioning_job')
-    .set({ ...data, updatedAt: new Date() })
+    .set({
+      ...serializeProvisioningJobUpdateJson(data),
+      updatedAt: new Date(),
+    })
     .where('id', '=', id)
     .returningAll()
     .executeTakeFirst()
@@ -140,7 +228,10 @@ export const updateAgentProvisioningStepByStepId = async (
 ): Promise<DBAgentProvisioningStep | undefined> => {
   return db
     .updateTable('agent_provisioning_step')
-    .set({ ...data, updatedAt: new Date() })
+    .set({
+      ...serializeProvisioningStepUpdateJson(data),
+      updatedAt: new Date(),
+    })
     .where('jobId', '=', jobId)
     .where('stepId', '=', stepId)
     .returningAll()

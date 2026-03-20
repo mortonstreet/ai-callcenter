@@ -1,0 +1,48 @@
+{
+  "mode": "embedded",
+  "input": "/Users/mortonstreet/revcenter/revcenter-cli/runs/20260306-220528-revcenter-test-1/wizard-request.json",
+  "render": {
+    "normalizedRequest": {
+      "name": "revcenter-test-1",
+      "industry": "hvac",
+      "useCase": "inbound_lead_capture",
+      "services": [
+        "all"
+      ],
+      "greeting": {
+        "mode": "generated"
+      },
+      "routing": {
+        "businessTimezone": "America/Los_Angeles",
+        "languages": [
+          "en"
+        ]
+      },
+      "agentName": "revcenter-test-1 Service Desk"
+    },
+    "summary": {
+      "organizationName": "revcenter-test-1",
+      "agentName": "revcenter-test-1 Service Desk",
+      "industry": "hvac",
+      "useCase": "inbound_lead_capture",
+      "serviceCount": 1,
+      "knowledgeSourceCount": 0,
+      "hasCustomGreeting": false,
+      "voiceId": null
+    },
+    "resolvedProfile": {
+      "profileKey": "hvac",
+      "profileVersion": null,
+      "selectedVoiceId": null,
+      "greetingMode": "generated"
+    },
+    "promptPreview": {
+      "compiledPromptSummary": "Use case inbound_lead_capture; 1 service area(s); goal not provided",
+      "knowledgeSourceCount": 0
+    },
+    "warnings": [
+      "No knowledge sources were provided.",
+      "No explicit voice was selected."
+    ]
+  }
+}

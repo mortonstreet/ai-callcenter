@@ -29,6 +29,42 @@ test('accepts canonical wizard_input_v2 payload for create/start', () => {
   assert.equal(parsed.wizard_input_v2?.agentName, 'Service Desk')
 })
 
+test('treats blank routing fields as optional instead of failing validation', async () => {
+  const schemaModulePath = '../../shared/types/src/requests/agent.ts'
+  const agentSchemasModule = (await import(
+    schemaModulePath as string
+  )) as Record<string, any>
+  const agentSchemas =
+    agentSchemasModule.default ||
+    agentSchemasModule['module.exports'] ||
+    agentSchemasModule
+  const SourceCreateElevenLabsAgentSchema =
+    agentSchemas.CreateElevenLabsAgentSchema
+
+  const parsed = SourceCreateElevenLabsAgentSchema.parse({
+    organizationId: 'org_123',
+    wizard_input_v2: {
+      agentName: 'Service Desk',
+      industry: 'hvac',
+      useCase: 'customer_support',
+      services: ['ac_repair'],
+      mainObjective: 'Book qualified appointments',
+      greeting: {
+        mode: 'generated',
+      },
+      routing: {
+        transferNumber: '   ',
+        businessTimezone: '   ',
+        languages: ['  ', 'en'],
+      },
+    },
+  })
+
+  assert.equal(parsed.wizard_input_v2.routing?.transferNumber, undefined)
+  assert.equal(parsed.wizard_input_v2.routing?.businessTimezone, undefined)
+  assert.deepEqual(parsed.wizard_input_v2.routing?.languages, ['en'])
+})
+
 test('rejects forbidden wizard create fields', () => {
   assert.throws(
     () =>
@@ -44,6 +80,36 @@ test('rejects forbidden wizard create fields', () => {
     (error) =>
       error instanceof ZodError &&
       error.issues.some((issue) => issue.path.join('.') === 'systemPrompt'),
+  )
+})
+
+test('rejects Twilio transport fields on wizard create payload', () => {
+  assert.throws(
+    () =>
+      CreateElevenLabsAgentSchema.parse({
+        organizationId: 'org_123',
+        phoneNumber: '+15551234567',
+        redirectNumber: '+15557654321',
+        wizard_input_v2: {
+          agentName: 'Service Desk',
+          industry: 'hvac',
+          useCase: 'customer_support',
+          services: ['ac_repair'],
+          mainObjective: 'Book qualified appointments',
+          greeting: {
+            mode: 'generated',
+          },
+        },
+      }),
+    (error) =>
+      error instanceof ZodError &&
+      error.issues.some(
+        (issue) =>
+          issue.code === 'unrecognized_keys' &&
+          Array.isArray((issue as { keys?: unknown }).keys) &&
+          ((issue as { keys: string[] }).keys.includes('phoneNumber') ||
+            (issue as { keys: string[] }).keys.includes('redirectNumber')),
+      ),
   )
 })
 

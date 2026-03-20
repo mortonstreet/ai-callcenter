@@ -1,0 +1,27 @@
+{
+  "industry": "hvac",
+  "useCase": "customer_support",
+  "services": [
+    "AC repair",
+    "Heating repair",
+    "Seasonal maintenance",
+    "Ductless mini split"
+  ],
+  "discoveryQuestions": [
+    "What type of unit do you have and how old is it?",
+    "Is the system not turning on",
+    "or is airflow weak?",
+    "When did you first notice the issue?"
+  ],
+  "mainObjective": "Resolve inbound service calls, capture caller context, and book qualified jobs.",
+  "greeting": {
+    "mode": "generated"
+  },
+  "routing": {
+    "businessTimezone": "America/Los_Angeles",
+    "languages": [
+      "en"
+    ]
+  },
+  "agentName": "HVAC Front Desk"
+}

@@ -337,15 +337,12 @@ export function useAgentConfig(agentId: string) {
  * List available ElevenLabs voices
  */
 export function useVoices() {
-  const activeOrganization = useEffectiveOrganization();
-
   return useQuery<{ voices: Array<{ voice_id: string; name: string; category: string; preview_url?: string }> }>({
-    queryKey: QUERY_KEYS.voices(activeOrganization?.data?.id),
+    queryKey: QUERY_KEYS.voices('global'),
     queryFn: async () => {
       return await get('/agent/voices');
     },
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-    enabled: !!activeOrganization?.data?.id,
   });
 }
 

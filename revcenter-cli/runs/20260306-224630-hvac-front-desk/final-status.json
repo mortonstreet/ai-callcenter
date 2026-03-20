@@ -1,0 +1,120 @@
+{
+  "mode": "api",
+  "input": "/Users/mortonstreet/revcenter/revcenter-cli/runs/20260306-224630-hvac-front-desk/wizard-request.json",
+  "render": {
+    "normalizedRequest": {
+      "name": "HVAC Front Desk",
+      "industry": "hvac",
+      "useCase": "customer_support",
+      "services": [
+        "AC repair",
+        "Heating repair",
+        "Seasonal maintenance",
+        "Ductless mini split"
+      ],
+      "mainObjective": "Book qualified HVAC calls and route urgent issues.",
+      "greeting": {
+        "mode": "generated"
+      },
+      "routing": {
+        "businessTimezone": "America/Los_Angeles",
+        "languages": [
+          "en"
+        ]
+      },
+      "agentName": "HVAC Front Desk"
+    },
+    "summary": {
+      "organizationName": "HVAC Front Desk",
+      "agentName": "HVAC Front Desk",
+      "industry": "hvac",
+      "useCase": "customer_support",
+      "serviceCount": 4,
+      "knowledgeSourceCount": 0,
+      "hasCustomGreeting": false,
+      "voiceId": null
+    },
+    "resolvedProfile": {
+      "profileKey": "hvac",
+      "profileVersion": null,
+      "selectedVoiceId": null,
+      "greetingMode": "generated"
+    },
+    "promptPreview": {
+      "compiledPromptSummary": "Use case customer_support; 4 service area(s); goal: Book qualified HVAC calls and route urgent issues.",
+      "knowledgeSourceCount": 0
+    },
+    "warnings": [
+      "No knowledge sources were provided.",
+      "No explicit voice was selected."
+    ]
+  },
+  "submission": {
+    "jobId": "prov_219194fd913c",
+    "agentId": "agent_24abcc230f90",
+    "status": "queued",
+    "correlationId": "revcenter-cli:HVAC Front Desk:HVAC Front Desk",
+    "reusedExisting": false
+  },
+  "final": {
+    "jobId": "prov_219194fd913c",
+    "status": "completed",
+    "correlationId": "revcenter-cli:HVAC Front Desk:HVAC Front Desk",
+    "organization": {
+      "id": "org_fa036e98d102",
+      "name": "HVAC Front Desk"
+    },
+    "agent": {
+      "agentId": "agent_24abcc230f90",
+      "name": "HVAC Front Desk",
+      "provider": "LOCAL_STUB",
+      "providerExternalId": null,
+      "readinessStatus": "ready"
+    },
+    "steps": [
+      {
+        "stepId": "validate_request",
+        "stepOrder": 1,
+        "status": "completed",
+        "attempts": 1,
+        "lastErrorCode": null,
+        "lastErrorMessage": null
+      },
+      {
+        "stepId": "normalize_request",
+        "stepOrder": 2,
+        "status": "completed",
+        "attempts": 1,
+        "lastErrorCode": null,
+        "lastErrorMessage": null
+      },
+      {
+        "stepId": "resolve_profile",
+        "stepOrder": 3,
+        "status": "completed",
+        "attempts": 1,
+        "lastErrorCode": null,
+        "lastErrorMessage": null
+      },
+      {
+        "stepId": "compile_prompt_and_greeting",
+        "stepOrder": 4,
+        "status": "completed",
+        "attempts": 1,
+        "lastErrorCode": null,
+        "lastErrorMessage": null
+      },
+      {
+        "stepId": "persist_versions_and_finalize",
+        "stepOrder": 5,
+        "status": "completed",
+        "attempts": 1,
+        "lastErrorCode": null,
+        "lastErrorMessage": null
+      }
+    ],
+    "lastErrorCode": null,
+    "lastErrorMessage": null
+  },
+  "timedOut": false
+}

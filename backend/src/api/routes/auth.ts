@@ -9,6 +9,13 @@ const router = Router()
 router.use(express.json({ limit: '1mb' }))
 router.use(express.urlencoded({ extended: false }))
 router.use(...authHardeningMiddleware)
+router.use((req, _res, next) => {
+  // Keep legacy clients working after the Better Auth reset endpoint rename.
+  if (req.method === 'POST' && req.url === '/forget-password') {
+    req.url = '/request-password-reset'
+  }
+  next()
+})
 
 router.all('/*splat', toNodeHandler(auth))
 

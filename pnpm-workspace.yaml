@@ -1,6 +1,7 @@
 packages:
   - backend
   - frontend
+  - revcenter-cli
   - shared/*
 
 onlyBuiltDependencies:

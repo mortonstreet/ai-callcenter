@@ -1,0 +1,18 @@
+{
+  "name": "revcenter-test-1",
+  "industry": "hvac",
+  "useCase": "inbound_lead_capture",
+  "services": [
+    "all"
+  ],
+  "greeting": {
+    "mode": "generated"
+  },
+  "routing": {
+    "businessTimezone": "America/Los_Angeles",
+    "languages": [
+      "en"
+    ]
+  },
+  "agentName": "revcenter-test-1 Service Desk"
+}
