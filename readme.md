@@ -147,18 +147,20 @@ pnpm run dev
 
 ## Deployment
 
-### Railway / Render / Nixpacks
+### Railway
 
-The project includes `nixpacks.toml` for automatic deployment:
+The backend service builds with [Railpack](https://railpack.com) using `backend/railpack.json`
+(Root Directory is set to `/backend` in Railway):
 
 ```bash
 # Build commands run automatically
 pnpm install
 pnpm --filter @shared/db db:generate
-pnpm --filter backend build
+pnpm --filter revcenter-backend build
 
 # Start command
-NODE_ENV=production node backend/dist/server.mjs
+NODE_ENV=production pnpm --filter @shared/db db:deploy
+NODE_ENV=production node dist/server.mjs
 ```
 
 ### Docker

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "provider": "node",
+  "packages": {
+    "node": "20",
+    "pnpm": "10"
+  },
+  "steps": {
+    "install": {
+      "commands": ["pnpm install"]
+    },
+    "build": {
+      "commands": [
+        "pnpm --filter @shared/db db:generate",
+        "pnpm --filter revcenter-backend build"
+      ]
+    }
+  },
+  "deploy": {
+    "startCommand": "NODE_ENV=production pnpm --filter @shared/db db:generate && (pnpm --filter @shared/db db:deploy || echo 'Migration failed, continuing...') && NODE_ENV=production node dist/server.mjs"
+  }
+}
