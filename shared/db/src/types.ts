@@ -36,12 +36,17 @@ import {
   SmsCampaignList,
   SmsCampaignMessage,
   SmsCampaignStep,
+  ApiKey,
 } from "./generated/types";
 
 
 export type DBUser = Selectable<User>;
 export type UpdateDBUser = Updateable<User>;
 export type InsertDBUser = Insertable<User>;
+
+export type DBApiKey = Selectable<ApiKey>;
+export type UpdateDBApiKey = Updateable<ApiKey>;
+export type InsertDBApiKey = Insertable<ApiKey>;
 
 export type DBAccount = Selectable<Account>;
 export type UpdateDBAccount = Updateable<Account>;

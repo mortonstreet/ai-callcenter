@@ -18,6 +18,8 @@ import { useEffectiveOrganization, useAdminStore } from "@/lib/admin-store";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { env, QUERY_KEYS } from "@/lib/config";
 import IntegrationsSettingsCard from "@/components/settings/IntegrationsSettingsCard";
+import ApiKeysSettingsCard from "@/components/settings/ApiKeysSettingsCard";
+import { DBUser } from "@/lib/shared-types";
 
 export default function SettingsPage() {
   const { data: session } = useSession();
@@ -61,6 +63,7 @@ export default function SettingsPage() {
   const currentUserMember = members.find((m: any) => m.userId === user?.id);
   const isAdmin = currentUserMember?.role === "admin";
   const isOwner = currentUserMember?.role === "owner";
+  const isGlobalAdmin = (session?.user as DBUser | undefined)?.isAdmin === true;
 
   const queryClient = useQueryClient();
 
@@ -534,6 +537,12 @@ export default function SettingsPage() {
               </div>
             </div>
           </Card>
+        )}
+
+        {effectiveOrganization && (
+          <ApiKeysSettingsCard
+            canManageApiKeys={isGlobalAdmin}
+          />
         )}
 
         {effectiveOrganization && (

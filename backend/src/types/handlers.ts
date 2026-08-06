@@ -1,8 +1,19 @@
 import { DBUser, DBSession } from '@shared/db/src/types'
 import { Request, Response, NextFunction } from 'express'
+import { ApiKeyScope } from '@shared/types/src'
+
+export interface ApiKeyCredential {
+  id: string
+  organizationId: string
+  name: string
+  keyPrefix: string
+  scopes: ApiKeyScope[]
+  createdByUserId: string | null
+}
 
 export interface ValidatedRequest<T> extends Request {
   validated: T
+  apiKey?: ApiKeyCredential
 }
 
 // Extend Express's Request type properly

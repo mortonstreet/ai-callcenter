@@ -47,6 +47,7 @@ model User {
   resolvedErrorLogs   ErrorLog[]             @relation("error_log_resolved_by_user")
   adminAuditEntries   AdminAuditLog[]        @relation("admin_audit_actor_user")
   provisioningJobs    AgentProvisioningJob[] @relation("agent_provisioning_requested_by_user")
+  createdApiKeys      ApiKey[]               @relation("api_key_created_by_user")
 
   @@unique([email])
   @@map("user")
@@ -141,6 +142,7 @@ model Organization {
   adminAuditLogs           AdminAuditLog[]
   provisioningJobs         AgentProvisioningJob[]
   provisioningSteps        AgentProvisioningStep[]
+  apiKeys                  ApiKey[]
 
   @@unique([slug])
   @@map("organization")
@@ -188,6 +190,31 @@ model Subscription {
   seats                Int?
 
   @@map("subscription")
+}
+
+model ApiKey {
+  id              String    @id @default(uuid())
+  organizationId  String
+  name            String
+  keyPrefix       String
+  keyHash         String
+  lastFour        String
+  scopes          String[]
+  createdByUserId String?
+  lastUsedAt      DateTime?
+  expiresAt       DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organization  Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdByUser User?        @relation("api_key_created_by_user", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([keyHash])
+  @@index([keyPrefix])
+  @@index([organizationId, revokedAt])
+  @@index([createdByUserId, createdAt])
+  @@map("api_key")
 }
 
 model Example {

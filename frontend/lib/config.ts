@@ -85,4 +85,5 @@ export const QUERY_KEYS = {
   provisioningSteps: (jobId?: string) => ['provisioningSteps', jobId] as const,
   onboardingProvisioningStatus: (organizationId?: string) =>
     ['onboardingProvisioningStatus', organizationId] as const,
+  apiKeys: (orgId?: string) => ['apiKeys', orgId] as const,
 }

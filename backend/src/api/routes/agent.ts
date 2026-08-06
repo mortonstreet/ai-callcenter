@@ -50,6 +50,7 @@ import {
   validateMemberOfOrganizationOrAdmin,
   validateMemberOfOrganizationIsOrAdmin,
   withBetterAuth,
+  withBetterAuthSessionOnly,
   withElevenLabsWebhookAuth,
 } from '../middlewares/auth'
 import { rejectForbiddenWizardFields } from '../middlewares/wizardContract'
@@ -152,6 +153,7 @@ router.delete(
 // Get full ElevenLabs config
 router.get(
   '/:organizationId/:id/config',
+  withBetterAuthSessionOnly,
   validateAndMerge(GetAgentConfigSchema),
   validateMemberOfOrganizationIsOrAdmin([
     OrganizationRole.ADMIN,
@@ -227,6 +229,7 @@ router.delete(
 // MCP Configuration Routes
 router.get(
   '/:organizationId/:id/mcp-config',
+  withBetterAuthSessionOnly,
   validateAndMerge(GetAgentMcpConfigSchema),
   validateMemberOfOrganizationIsOrAdmin([
     OrganizationRole.ADMIN,
@@ -237,6 +240,7 @@ router.get(
 
 router.put(
   '/:organizationId/:id/mcp-config',
+  withBetterAuthSessionOnly,
   validateAndMerge(UpdateAgentMcpConfigSchema),
   validateMemberOfOrganizationIsOrAdmin([
     OrganizationRole.ADMIN,

@@ -4,6 +4,7 @@ import { createMcpServer } from '@/lib/mcp'
 import logger from '@/lib/logger'
 import { config, McpProvider } from '@/config'
 import { findAgentByMcpApiKey } from '@/repositories/agent.repository'
+import { authenticateScopedApiKey } from '@/services/api-key.service'
 
 const router = Router()
 
@@ -36,6 +37,35 @@ const extractToken = (req: Request): string | undefined => {
   return undefined
 }
 
+const handleMcpForOrganization = async (
+  req: Request,
+  res: Response,
+  organizationId: string,
+  label: string,
+) => {
+  // Ensure Accept header includes required types for MCP
+  if (
+    !req.headers.accept ||
+    !req.headers.accept.includes('text/event-stream')
+  ) {
+    req.headers.accept = 'application/json, text/event-stream'
+  }
+
+  logger.info(`[${label}] Connected to organization ID: ${organizationId}`)
+  const mcpServer = createMcpServer(organizationId)
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+    enableJsonResponse: true,
+  })
+
+  res.on('close', () => {
+    transport.close()
+  })
+
+  await mcpServer.connect(transport)
+  await transport.handleRequest(req, res, req.body)
+}
+
 // Generic MCP handler - supports both database agents and legacy env providers
 const handleMcpRequest = async (
   req: Request,
@@ -45,45 +75,47 @@ const handleMcpRequest = async (
   const token = extractToken(req)
   const organizationIdHeader = req.headers['x-organization-id'] as string
 
-  // Log incoming headers for debugging
   logger.info(
-    `MCP Request headers: x-api-key=${req.headers['x-api-key']}, authorization=${req.headers['authorization']?.substring(0, 20)}..., x-secret-token=${req.headers['x-secret-token']}`,
+    {
+      hasXApiKey: !!req.headers['x-api-key'],
+      hasAuthorization: !!req.headers['authorization'],
+      hasSecretToken: !!req.headers['x-secret-token'],
+    },
+    'MCP request received',
   )
 
   if (!token) {
     return res.status(401).json({ error: 'Unauthorized - Missing API key' })
   }
 
+  if (token.startsWith('rvc_')) {
+    const apiKeyAuth = await authenticateScopedApiKey(token, 'mcp:connect')
+
+    if (!apiKeyAuth) {
+      return res
+        .status(401)
+        .json({ error: 'Unauthorized - Invalid or unscoped API key' })
+    }
+
+    await handleMcpForOrganization(
+      req,
+      res,
+      apiKeyAuth.key.organizationId,
+      `API key: ${apiKeyAuth.key.name}`,
+    )
+    return
+  }
+
   // First, try to find agent by MCP API key in database (scalable approach)
   const agent = await findAgentByMcpApiKey(token)
 
   if (agent) {
-    // Agent found in database - use its organization
-    const organizationId = agent.organizationId
-
-    // Ensure Accept header includes required types for MCP
-    if (
-      !req.headers.accept ||
-      !req.headers.accept.includes('text/event-stream')
-    ) {
-      req.headers.accept = 'application/json, text/event-stream'
-    }
-
-    logger.info(
-      `[Agent: ${agent.name}] Connected to organization ID: ${organizationId}`,
+    await handleMcpForOrganization(
+      req,
+      res,
+      agent.organizationId,
+      `Agent: ${agent.name}`,
     )
-    const mcpServer = createMcpServer(organizationId)
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined,
-      enableJsonResponse: true,
-    })
-
-    res.on('close', () => {
-      transport.close()
-    })
-
-    await mcpServer.connect(transport)
-    await transport.handleRequest(req, res, req.body)
     return
   }
 
@@ -109,29 +141,7 @@ const handleMcpRequest = async (
     return res.status(400).json({ error: 'Organization ID is required' })
   }
 
-  // Ensure Accept header includes required types for MCP
-  if (
-    !req.headers.accept ||
-    !req.headers.accept.includes('text/event-stream')
-  ) {
-    req.headers.accept = 'application/json, text/event-stream'
-  }
-
-  logger.info(
-    `[${provider.name}] Connected Agent to organization ID: ${organizationIdHeader}`,
-  )
-  const mcpServer = createMcpServer(organizationIdHeader)
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined,
-    enableJsonResponse: true,
-  })
-
-  res.on('close', () => {
-    transport.close()
-  })
-
-  await mcpServer.connect(transport)
-  await transport.handleRequest(req, res, req.body)
+  await handleMcpForOrganization(req, res, organizationIdHeader, provider.name)
 }
 
 // Main MCP endpoint - Streamable HTTP transport

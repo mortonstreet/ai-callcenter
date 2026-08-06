@@ -3,6 +3,7 @@ import { withBetterAuth } from '../middlewares/auth'
 import {
   validateMemberOfOrganizationIsOrAdmin,
   validateMemberOfOrganizationOrAdmin,
+  withBetterAuthSessionOnly,
 } from '../middlewares/auth'
 import { validateAndMerge } from '../middlewares/validationMiddleware'
 import { authenticatedRoute } from './utils'
@@ -68,6 +69,7 @@ router.post(
 
 router.get(
   '/:provider/callback',
+  withBetterAuthSessionOnly,
   validateAndMerge(IntegrationCallbackRequestSchema),
   resolveOrganizationScope,
   validateMemberOfOrganizationIsOrAdmin([

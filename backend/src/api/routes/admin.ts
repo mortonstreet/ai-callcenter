@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { withBetterAuth } from '../middlewares/auth'
+import { withBetterAuthSessionOnly as withBetterAuth } from '../middlewares/auth'
 import { adminOnlyRoute } from './utils'
 import {
   getAdminStats,

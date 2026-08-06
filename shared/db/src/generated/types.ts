@@ -162,6 +162,21 @@ export type AgentWorkflow = {
   createdAt: Generated<Timestamp>
   updatedAt: Timestamp
 }
+export type ApiKey = {
+  id: string
+  organizationId: string
+  name: string
+  keyPrefix: string
+  keyHash: string
+  lastFour: string
+  scopes: string[]
+  createdByUserId: string | null
+  lastUsedAt: Timestamp | null
+  expiresAt: Timestamp | null
+  revokedAt: Timestamp | null
+  createdAt: Generated<Timestamp>
+  updatedAt: Timestamp
+}
 export type CallDisposition = {
   id: string
   organizationId: string
@@ -573,6 +588,7 @@ export type DB = {
   agent_provisioning_job: AgentProvisioningJob
   agent_provisioning_step: AgentProvisioningStep
   agent_workflow: AgentWorkflow
+  api_key: ApiKey
   call_disposition: CallDisposition
   call_log: CallLog
   campaign: Campaign

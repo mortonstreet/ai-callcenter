@@ -18,6 +18,11 @@ import {
   evaluateApiLifecycleGate,
   resolveOrganizationLifecycleSnapshot,
 } from '@/lib/lifecycle-gates'
+import {
+  authenticateScopedApiKey,
+  extractRevCenterApiKey,
+  requiredApiScopeForMethod,
+} from '@/services/api-key.service'
 
 const WEBHOOK_REPLAY_TTL_SECONDS = 24 * 60 * 60
 const replayFallbackStore = new Map<string, number>()
@@ -284,36 +289,20 @@ export const withApiKeyAuth = (
   next()
 }
 
-export const withBetterAuth = async (
+const enforceOrganizationLifecycleGate = async (
   req: Request,
   res: Response,
-  next: NextFunction,
-) => {
-  const session = await auth.api.getSession({
-    headers: fromNodeHeaders(req.headers),
-  })
+  input: {
+    activeOrganizationId: string | null
+    isAdmin: boolean
+  },
+): Promise<boolean> => {
+  if (input.isAdmin) return true
 
-  if (!session) {
-    return sendApiError(req, res, 401, {
-      code: 'AUTH_UNAUTHORIZED',
-      message: 'Unauthorized',
-      userMessage: 'Please sign in and retry.',
-      retryable: false,
-    })
-  }
-
-  // attach to req so handlers can use it
-  ;(req as any).user = session.user
-  ;(req as any).session = session
-
-  if (!session.user.isAdmin) {
-    const activeOrganizationId =
-      (session as any).session?.activeOrganizationId ||
-      (session as any).activeOrganizationId ||
-      null
-
-    const lifecycleSnapshot =
-      await resolveOrganizationLifecycleSnapshot(activeOrganizationId)
+  if (input.activeOrganizationId) {
+    const lifecycleSnapshot = await resolveOrganizationLifecycleSnapshot(
+      input.activeOrganizationId,
+    )
     const requestPath = `${req.baseUrl || ''}${req.path || ''}`.replace(
       /\/{2,}/g,
       '/',
@@ -337,7 +326,7 @@ export const withBetterAuth = async (
               },
             }
 
-      return sendApiError(req, res, 403, {
+      sendApiError(req, res, 403, {
         code: 'ORG_LIFECYCLE_BLOCKED',
         message:
           lifecycleDecision.reason ||
@@ -346,8 +335,129 @@ export const withBetterAuth = async (
           'Complete the required organization setup step before continuing.',
         ...nonProductionDetails,
       })
+      return false
     }
   }
+
+  return true
+}
+
+export const withBetterAuthSessionOnly = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const session = await auth.api.getSession({
+    headers: fromNodeHeaders(req.headers),
+  })
+
+  if (!session) {
+    return sendApiError(req, res, 401, {
+      code: 'AUTH_UNAUTHORIZED',
+      message: 'Unauthorized',
+      userMessage: 'Please sign in and retry.',
+      retryable: false,
+    })
+  }
+
+  // attach to req so handlers can use it
+  ;(req as any).user = session.user
+  ;(req as any).session = session
+
+  const activeOrganizationId =
+    (session as any).session?.activeOrganizationId ||
+    (session as any).activeOrganizationId ||
+    null
+
+  const allowed = await enforceOrganizationLifecycleGate(req, res, {
+    activeOrganizationId,
+    isAdmin: session.user.isAdmin,
+  })
+  if (!allowed) return
+
+  next()
+}
+
+export const withBetterAuth = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const session = await auth.api.getSession({
+    headers: fromNodeHeaders(req.headers),
+  })
+
+  if (session) {
+    // attach to req so handlers can use it
+    ;(req as any).user = session.user
+    ;(req as any).session = session
+
+    const activeOrganizationId =
+      (session as any).session?.activeOrganizationId ||
+      (session as any).activeOrganizationId ||
+      null
+
+    const allowed = await enforceOrganizationLifecycleGate(req, res, {
+      activeOrganizationId,
+      isAdmin: session.user.isAdmin,
+    })
+    if (!allowed) return
+
+    return next()
+  }
+
+  const rawApiKey = extractRevCenterApiKey(req)
+  if (!rawApiKey) {
+    return sendApiError(req, res, 401, {
+      code: 'AUTH_UNAUTHORIZED',
+      message: 'Unauthorized',
+      userMessage: 'Please sign in and retry.',
+      retryable: false,
+    })
+  }
+
+  const apiKeyAuth = await authenticateScopedApiKey(
+    rawApiKey,
+    requiredApiScopeForMethod(req.method),
+  )
+
+  if (!apiKeyAuth) {
+    return sendApiError(req, res, 401, {
+      code: 'API_KEY_UNAUTHORIZED',
+      message: 'Invalid API key',
+      userMessage:
+        'The API key is invalid, expired, revoked, or missing the required scope.',
+      retryable: false,
+    })
+  }
+
+  ;(req as any).user = apiKeyAuth.user
+  ;(req as any).session = {
+    id: `api-key:${apiKeyAuth.key.id}`,
+    token: apiKeyAuth.key.keyPrefix,
+    createdAt: apiKeyAuth.key.createdAt,
+    updatedAt: apiKeyAuth.key.updatedAt,
+    expiresAt:
+      apiKeyAuth.key.expiresAt || new Date(Date.now() + 365 * 24 * 60 * 60_000),
+    ipAddress: req.ip || null,
+    userAgent: req.get('user-agent') || null,
+    userId: apiKeyAuth.user.id,
+    activeOrganizationId: apiKeyAuth.key.organizationId,
+  }
+  ;(req as any).apiKey = {
+    id: apiKeyAuth.key.id,
+    organizationId: apiKeyAuth.key.organizationId,
+    name: apiKeyAuth.key.name,
+    keyPrefix: apiKeyAuth.key.keyPrefix,
+    scopes: apiKeyAuth.key.scopes,
+    createdByUserId: apiKeyAuth.key.createdByUserId,
+  }
+
+  const allowed = await enforceOrganizationLifecycleGate(req, res, {
+    activeOrganizationId: apiKeyAuth.key.organizationId,
+    isAdmin: apiKeyAuth.user.isAdmin,
+  })
+  if (!allowed) return
 
   next()
 }
@@ -358,6 +468,15 @@ export const validateIsAdmin = async (
   next: NextFunction,
 ) => {
   const authReq = req as AuthRequest<unknown>
+  if (authReq.apiKey) {
+    return sendApiError(req, res, 403, {
+      code: 'AUTH_FORBIDDEN',
+      message: 'Session admin access required',
+      userMessage: 'Sign in as an admin to perform this action.',
+      retryable: false,
+    })
+  }
+
   if (!authReq.user?.isAdmin) {
     return sendApiError(req, res, 403, {
       code: 'AUTH_FORBIDDEN',
@@ -376,6 +495,19 @@ export const validateMemberOfOrganization = async (
 ) => {
   const authReq = req as AuthRequest<{ organizationId: string }>
   const { organizationId } = req.validated
+
+  if (authReq.apiKey) {
+    if (authReq.apiKey.organizationId !== organizationId) {
+      return sendApiError(req, res, 401, {
+        code: 'ORG_UNAUTHORIZED',
+        message: 'Unauthorized',
+        userMessage: 'This API key is not authorized for that organization.',
+        retryable: false,
+      })
+    }
+    return next()
+  }
+
   const isMember = await isMemberOfOrganization(authReq.user.id, organizationId)
   if (!isMember) {
     return sendApiError(req, res, 401, {
@@ -395,6 +527,19 @@ export const validateMemberOfOrganizationOrAdmin = async (
 ) => {
   const authReq = req as AuthRequest<{ organizationId: string }>
   const { organizationId } = req.validated
+
+  if (authReq.apiKey) {
+    if (authReq.apiKey.organizationId !== organizationId) {
+      return sendApiError(req, res, 401, {
+        code: 'ORG_UNAUTHORIZED',
+        message: 'Unauthorized',
+        userMessage: 'This API key is not authorized for that organization.',
+        retryable: false,
+      })
+    }
+    return next()
+  }
+
   const isMember = await isMemberOfOrganization(authReq.user.id, organizationId)
   if (!isMember && !authReq.user.isAdmin) {
     return sendApiError(req, res, 401, {
@@ -412,6 +557,19 @@ export const validateMemberOfOrganizationIs =
   async (req: Request, res: Response, next: NextFunction) => {
     const authReq = req as AuthRequest<{ organizationId: string }>
     const { organizationId } = req.validated
+
+    if (authReq.apiKey) {
+      if (authReq.apiKey.organizationId !== organizationId) {
+        return sendApiError(req, res, 401, {
+          code: 'ORG_UNAUTHORIZED',
+          message: 'Unauthorized',
+          userMessage: 'This API key is not authorized for that organization.',
+          retryable: false,
+        })
+      }
+      return next()
+    }
+
     const member = await findMember(organizationId, authReq.user.id)
     if (!member || !roles.includes(member.role as OrganizationRole)) {
       return sendApiError(req, res, 401, {
@@ -429,6 +587,19 @@ export const validateMemberOfOrganizationIsOrAdmin =
   async (req: Request, res: Response, next: NextFunction) => {
     const authReq = req as AuthRequest<{ organizationId: string }>
     const { organizationId } = req.validated
+
+    if (authReq.apiKey) {
+      if (authReq.apiKey.organizationId !== organizationId) {
+        return sendApiError(req, res, 401, {
+          code: 'ORG_UNAUTHORIZED',
+          message: 'Unauthorized',
+          userMessage: 'This API key is not authorized for that organization.',
+          retryable: false,
+        })
+      }
+      return next()
+    }
+
     const member = await findMember(organizationId, authReq.user.id)
     if (
       (!member || !roles.includes(member.role as OrganizationRole)) &&
