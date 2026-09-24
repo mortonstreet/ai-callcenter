@@ -3,8 +3,9 @@ build
 dist
 .next
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!*/.env.example
 
 # Nx
 .nx/cache
